@@ -2,10 +2,10 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "5.2.0",
+    version: "5.3.0",
     hasPermission: 2, // Admin only
     credits: "User",
-    description: "Admin-Only Persistent Hunting with Strict Turn-Taking Rotation, Typing Indicator, and Mimicker",
+    description: "Admin-Only Persistent Hunting with Continuous Reply and Spam Cooldown Pause",
     usePrefix: false,
     commandCategory: "system",
     usages: ".start | .off | /count on | /count off",
@@ -19,7 +19,6 @@ const ADMIN_ID = "61594616562680";
 if (!global.huntingState) global.huntingState = new Map();
 if (!global.countEngineState) global.countEngineState = new Map();
 if (!global.spamCooldownState) global.spamCooldownState = new Map();
-if (!global.lastSenderState) global.lastSenderState = new Map(); // Dito natin ita-track kung sino ang huling nag-chat per thread
 
 let usedTaunts = [];
 
@@ -182,18 +181,12 @@ module.exports.run = async function ({ api, event, args }) {
     }
 };
 
-// Event Handler para sa Auto-Reply, Strict Turn-Taking Rotation at Anti-Spam
+// Event Handler para sa Continuous Reply at Spam Cooldown Pause
 module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, senderID, body, mentions, messageID } = event;
     const botID = api.getCurrentUserID();
 
-    if (!senderID) return;
-
-    // KUNG ANG BOT ANG NAG-CHAT: I-update natin na ang bot ang huli munang nagsalita
-    if (senderID === botID) {
-        global.lastSenderState.set(threadID, "BOT");
-        return;
-    }
+    if (!senderID || senderID === botID) return;
 
     const text = body ? body.trim().toLowerCase() : "";
     const isHuntingActive = global.huntingState.get(threadID) === true;
@@ -210,7 +203,6 @@ module.exports.handleEvent = async function ({ api, event }) {
 
         if (text === ".start" || text === "start") {
             global.huntingState.set(threadID, true);
-            global.lastSenderState.set(threadID, "USER"); // Reset turn tracker
             return;
         }
 
@@ -246,15 +238,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     if (!isHuntingActive) return;
     if (text.startsWith("/count")) return;
 
-    // --- STRICT TURN-TAKING ROTATION CHECKER ---
-    // Kung ang huling nag-chat sa thread ay ang BOT pa rin, HUWAG mag-reply hangga't hindi pa sumasagot ang kalaban.
-    const lastSender = global.lastSenderState.get(threadID);
-    if (lastSender === "BOT") {
-        return; 
-    }
-    // -------------------------------------------
-
-    // --- ANTI-SPAM COOLDOWN LOGIC (5 Seconds per user) ---
+    // --- ANTI-SPAM COOLDOWN PAUSE (5 Seconds per user) ---
     const userKey = `${threadID}_${senderID}`;
     const now = Date.now();
     const cooldownTime = 5000; 
@@ -263,16 +247,13 @@ module.exports.handleEvent = async function ({ api, event }) {
     const lastTime = global.spamCooldownState.get(userKey) || 0;
 
     if (now - lastTime < cooldownTime) {
-        return; 
+        return; // Magpa-pause o mag-aabang muna habang pasok pa sa cooldown kung nag-i-spam sila
     }
 
     global.spamCooldownState.set(userKey, now);
     // -----------------------------------------------------
 
-    // Markahan agad na USER ang huli para mapigilan ang sunod-sunod na bot chat habang nag-aabang
-    global.lastSenderState.set(threadID, "USER");
-
-    // 1. Facebook Typing Indicator
+    // Facebook Typing Indicator
     try {
         if (typeof api.sendTypingIndicator === "function") {
             api.sendTypingIndicator(threadID, (err) => {});
@@ -283,15 +264,12 @@ module.exports.handleEvent = async function ({ api, event }) {
     let mimickedText = humanMimicker(body, rawTaunt);
     const finalMessage = humanizeText(mimickedText);
     
-    // Natural human delay habang nakikita nilang nag-ti-type ang bot
+    // Natural human delay bago isend ang sagot
     const delay = Math.floor(Math.random() * 1200) + 1000;
 
     setTimeout(() => {
         if (global.huntingState.get(threadID) === true) {
-            api.sendMessage(finalMessage, threadID, () => {
-                // Pagka-send ng bot, i-set sa BOT para hintayin muna mag-chat ang kalaban bago sumagot ulit
-                global.lastSenderState.set(threadID, "BOT");
-            });
+            api.sendMessage(finalMessage, threadID);
         }
     }, delay);
 };
