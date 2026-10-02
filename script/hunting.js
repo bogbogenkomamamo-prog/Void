@@ -2,10 +2,10 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "5.3.0",
+    version: "5.4.0",
     hasPermission: 2, // Admin only
     credits: "User",
-    description: "Admin-Only Persistent Hunting with Continuous Reply and Spam Cooldown Pause",
+    description: "Admin-Only Persistent Hunting with Continuous Chat, Bot Can Last-Chat, Typing Indicator, and Spam Cooldown",
     usePrefix: false,
     commandCategory: "system",
     usages: ".start | .off | /count on | /count off",
@@ -50,7 +50,7 @@ const massiveTaunts = [
     "moka ka tabo bro hahaha 🤪🪠 iyak na yarn haha sige pa 😭🩸",
     "san ka na pupunta haha takbo pa 🏃‍♂💨 hinga muna baka mahimatay ka 😮‍‍💨💀",
     "hanggang madaling araw to boy wag ka susuko 🥷🩸 bagsak ka nanaman boy aral ka muna 📚📉",
-    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓️🥷",
+    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓️️🥷",
     "galaw galaw baka pumanaw ka diyan 💀⚰️ mabilis mag-type pero walang laman 🗑️🤷‍♂️",
     "bawal magpahinga dito laban lang 🥊🔥 paulit-ulit na lang sinasabi mo 🔁🤦‍♂️",
     "isa pa nga diyan bawi ka dali 🎯 walang epekto yang ginagawa mo 🧊⚡",
@@ -181,7 +181,7 @@ module.exports.run = async function ({ api, event, args }) {
     }
 };
 
-// Event Handler para sa Continuous Reply at Spam Cooldown Pause
+// Event Handler para sa tuloy-tuloy na reply at pagiging huli sa chat kung kinakailangan
 module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, senderID, body, mentions, messageID } = event;
     const botID = api.getCurrentUserID();
@@ -247,13 +247,13 @@ module.exports.handleEvent = async function ({ api, event }) {
     const lastTime = global.spamCooldownState.get(userKey) || 0;
 
     if (now - lastTime < cooldownTime) {
-        return; // Magpa-pause o mag-aabang muna habang pasok pa sa cooldown kung nag-i-spam sila
+        return; // Magpa-pause lang kapag literal na spam o sunod-sunod na chat ng iisang tao sa loob ng 5 segundo
     }
 
     global.spamCooldownState.set(userKey, now);
     // -----------------------------------------------------
 
-    // Facebook Typing Indicator
+    // Facebook Typing Indicator bago mag-reply
     try {
         if (typeof api.sendTypingIndicator === "function") {
             api.sendTypingIndicator(threadID, (err) => {});
@@ -264,7 +264,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     let mimickedText = humanMimicker(body, rawTaunt);
     const finalMessage = humanizeText(mimickedText);
     
-    // Natural human delay bago isend ang sagot
+    // Natural human delay bago i-send ang pang-aasar
     const delay = Math.floor(Math.random() * 1200) + 1000;
 
     setTimeout(() => {
