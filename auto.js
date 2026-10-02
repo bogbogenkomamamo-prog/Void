@@ -232,37 +232,75 @@ app.get('/commands', (req, res) => {
   res.json(JSON.parse(JSON.stringify({ commands, handleEvent, role, aliases }, null, 2)));
 });
 
+// ==========================================
+// DITO YUNG UPDATED LOGIN ROUTE (EMAIL + PASSWORD / APPSTATE)
+// ==========================================
 app.post('/login', async (req, res) => {
-  const { state, commands, prefix, admin } = req.body;
+  const { state, email, password, commands, prefix, admin } = req.body;
+
   try {
-    if (!state) throw new Error('Missing app state data');
-    const cUser = state.find(item => item.key === 'c_user');
-    if (cUser) {
+    // 1. LOGIN VIA CREDENTIALS (EMAIL / PASSWORD)
+    if (email && password) {
+      console.log(chalk.cyan(`[LOGIN ENGINE] Attempting login via credentials for: ${email}`));
+
+      login({ email, password }, async (error, api) => {
+        if (error) {
+          console.error(chalk.red('[LOGIN ENGINE] Credential login failed:'), error.message || error);
+          return res.status(400).json({
+            error: true,
+            message: "Login failed! Please check your Email/Password or 2FA settings."
+          });
+        }
+
+        const freshState = api.getAppState();
+        const userid = await api.getCurrentUserID();
+
+        try {
+          await accountLogin(freshState, commands, prefix, [admin]);
+          
+          return res.status(200).json({
+            success: true,
+            message: 'Credential login successful! Session saved automatically for auto-relogin.',
+            userid
+          });
+        } catch (loginErr) {
+          return res.status(400).json({ error: true, message: loginErr.message });
+        }
+      });
+      return;
+    }
+
+    // 2. LOGIN VIA APPSTATE JSON
+    if (state) {
+      const cUser = state.find(item => item.key === 'c_user');
+      if (!cUser) {
+        return res.status(400).json({ error: true, message: "Invalid appstate data; missing c_user." });
+      }
+
       const existingUser = Utils.account.get(cUser.value);
       if (existingUser) {
-        console.log(`User ${cUser.value} is already logged in`);
         return res.status(400).json({
           error: false,
-          message: "Active user session detected; already logged in",
+          message: "Active user session detected; already logged in.",
           user: existingUser
         });
-      } else {
-        try {
-          await accountLogin(state, commands, prefix, [admin]);
-          res.status(200).json({
-            success: true,
-            message: 'Authentication process completed successfully; login achieved.'
-          });
-        } catch (error) {
-          console.error(error);
-          res.status(400).json({ error: true, message: error.message });
-        }
       }
-    } else {
-      return res.status(400).json({ error: true, message: "There's an issue with the appstate data; it's invalid." });
+
+      await accountLogin(state, commands, prefix, [admin]);
+      return res.status(200).json({
+        success: true,
+        message: 'Appstate authentication process completed successfully.'
+      });
     }
+
+    return res.status(400).json({
+      error: true,
+      message: "Please provide either Email/Password OR Appstate data."
+    });
+
   } catch (error) {
-    return res.status(400).json({ error: true, message: "There's an issue with the appstate data; it's invalid." });
+    console.error(chalk.red('[LOGIN ENGINE] Route Error:'), error);
+    return res.status(400).json({ error: true, message: error.message || "An error occurred during login." });
   }
 });
 
@@ -348,7 +386,6 @@ async function accountLogin(state, enableCommands = [], prefix, admin = []) {
 
       try {
         var listenEmitter = api.listenMqtt(async (error, event) => {
-          // Send heartbeat update to Watchdog on every incoming event/ping
           watchdog.ping();
 
           if (error) {
@@ -360,9 +397,6 @@ async function accountLogin(state, enableCommands = [], prefix, admin = []) {
 
           if (!event || !event.threadID) return;
 
-          // ----------------------------------------------------
-          // PROTECTION CHECKS (Limiter & Traffic Governor)
-          // ----------------------------------------------------
           if (event.senderID) {
             if (botProtection.isSpamming(event.senderID)) return;
             if (event.body && botProtection.isDuplicate(event.senderID, event.body)) return;
@@ -385,7 +419,6 @@ async function accountLogin(state, enableCommands = [], prefix, admin = []) {
             const isAdmin = config?.[0]?.masterKey?.admin?.includes(event.senderID) || admin.includes(event.senderID);
             const isThreadAdmin = isAdmin || ((Array.isArray(adminIDS) ? adminIDS.find(admin => Object.keys(admin)[0] === event.threadID) : {})?.[event.threadID] || []).some(admin => admin.id === event.senderID);
             
-            // SILENT IGNORE: Kapag walang permission, huwag mag-reply
             if ((role == 1 && !isAdmin) || (role == 2 && !isThreadAdmin) || (role == 3 && !config?.[0]?.masterKey?.admin?.includes(event.senderID))) {
               return;
             }
@@ -410,7 +443,6 @@ async function accountLogin(state, enableCommands = [], prefix, admin = []) {
             }
           }
 
-          // SILENT IGNORE: Mali o invalid na command
           if (event.body && !command && event.body?.toLowerCase().startsWith(prefix.toLowerCase())) return;
           if (event.body && command && prefix && event.body?.toLowerCase().startsWith(prefix.toLowerCase()) && !aliases(command)?.name) return;
 
