@@ -2,7 +2,7 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "4.0.0",
+    version: "4.2.0",
     hasPermission: 2, // Admin only
     credits: "User",
     description: "Admin-Only Hunting Autoreply and VOIDLESS4LGNG Count Engine",
@@ -12,7 +12,10 @@ module.exports.config = {
     cooldowns: 0
 };
 
-// Global storage
+// Ilagay dito ang Authorized Admin ID mo
+const ADMIN_ID = "61594616562680";
+
+// Global Storage Setup
 if (!global.huntingState) global.huntingState = new Map();
 if (!global.countEngineState) global.countEngineState = new Map();
 
@@ -44,7 +47,7 @@ const baseReplies = [
     "nawala ata ako san ka napunta 💩",
     "bawal waterbreak at pahinga dito 🩸⚔️",
     "moka ka tabo bro hahaha 🤪🪠",
-    "san ka na pupunta haha takbo pa 🏃‍♂️💨",
+    "san ka na pupunta haha takbo pa 🏃‍♂️️💨",
     "hanggang madaling araw to boy wag ka susuko 🥷🩸",
     "tulog ka na ba agad mahina ka pala 😴💤",
     "galaw galaw baka pumanaw ka diyan 💀⚰️",
@@ -77,7 +80,7 @@ const baseSuffixes = [
     "hinay hinay lang lods baka mapagod ka 🐢💨",
     "spammer yarn? pondo muna lods 📦🤣",
     "iyak na yarn haha sige pa 😭🩸",
-    "hinga muna baka mahimatay ka 😮‍💨💀",
+    "hinga muna baka mahimatay ka 😮‍‍💨💀",
     "bagsak ka nanaman boy aral ka muna 📚📉",
     "tuloy mo lang yan hanggang bukas 🗓️🥷",
     "mabilis mag-type pero walang laman 🗑️🤷‍♂️",
@@ -139,9 +142,15 @@ async function startCounting(api, event, mentionText = "") {
     }
 }
 
-// Handler kapag tinawag bilang command
+// Handlers para sa Prefix/Command Execution
 module.exports.run = async function ({ api, event, args }) {
-    const threadID = event.threadID;
+    const { threadID, senderID } = event;
+    
+    // Admin check
+    if (senderID !== ADMIN_ID) {
+        return api.sendMessage("❌ Ikaw ay hindi awtorisadong gumamit ng command na ito (Admin Only).", threadID);
+    }
+
     const option = args[0] ? args[0].toLowerCase() : "";
 
     if (option === "start" || option === "on") {
@@ -162,34 +171,39 @@ module.exports.run = async function ({ api, event, args }) {
     }
 };
 
-// Event listener para sa chat (Reaction, Auto-reply, Count Engine)
+// Event Handler para sa Auto-Reply at Reactions
 module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, senderID, body, mentions } = event;
 
-    if (!body || senderID === api.getCurrentUserID()) return;
+    if (!body || !senderID || senderID === api.getCurrentUserID()) return;
 
     const text = body.trim().toLowerCase();
 
     // 1. Ninja Reaction sa Tuldok (.)
     if (text === ".") {
-        if (api.setMessageReaction) {
-            return api.setMessageReaction("🥷", event.messageID, (err) => {}, true);
+        if (typeof api.setMessageReaction === "function") {
+            api.setMessageReaction("🥷", event.messageID, (err) => {}, true);
         }
+        return;
     }
 
-    // 2. Control Commands (.start & .off)
+    // 2. Direct Control Commands (Admin Restricted)
     if (text === ".start" || text === "start") {
+        if (senderID !== ADMIN_ID) return; // Ignore kung hindi admin
         global.huntingState.set(threadID, true);
         return api.sendMessage("🔥 Hunting Autoreply mode activated! 🥷🩸", threadID);
     }
 
     if (text === ".off" || text === "off") {
+        if (senderID !== ADMIN_ID) return; // Ignore kung hindi admin
         global.huntingState.set(threadID, false);
         return api.sendMessage("💤 Hunting Autoreply mode deactivated.", threadID);
     }
 
-    // 3. Count Engine Commands
+    // 3. Count Engine Commands (Admin Restricted)
     if (text.startsWith("/count")) {
+        if (senderID !== ADMIN_ID) return; // Ignore kung hindi admin
+
         if (text === "/count naba ako" || text === "/count") {
             return api.sendMessage(
                 "🥷🩸 VOIDLESS4LGNG COUNT ENGINE 🩸🥷\n\n" +
@@ -223,12 +237,16 @@ module.exports.handleEvent = async function ({ api, event }) {
         }
     }
 
-    // 4. Auto-Reply Hunting
+    // 4. Auto-Reply Execution (Tatamaan ang lahat ng chat ng iba maliban sa bot at admin kung kinakailangan)
     const isHuntingActive = global.huntingState.get(threadID);
     if (!isHuntingActive) return;
 
+    if (text.startsWith("/count")) return;
+
     try {
-        if (api.sendTypingIndicator) api.sendTypingIndicator(threadID);
+        if (typeof api.sendTypingIndicator === "function") {
+            api.sendTypingIndicator(threadID);
+        }
     } catch (e) {}
 
     let selectedLine = UniqueReply();
@@ -239,9 +257,11 @@ module.exports.handleEvent = async function ({ api, event }) {
     }
 
     const humanizedMessage = humanizeText(selectedLine);
-    const delay = Math.floor(Math.random() * 1000) + 1000;
+    const delay = Math.floor(Math.random() * 800) + 700;
 
     setTimeout(() => {
-        return api.sendMessage(humanizedMessage, threadID);
+        if (global.huntingState.get(threadID)) {
+            api.sendMessage(humanizedMessage, threadID);
+        }
     }, delay);
 };
