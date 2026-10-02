@@ -2,10 +2,10 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "4.6.0",
+    version: "5.1.0",
     hasPermission: 2, // Admin only
     credits: "User",
-    description: "Admin-Only Persistent Hunting Autoreply and VOIDLESS4LGNG Count Engine",
+    description: "Admin-Only Persistent Hunting Autoreply with Real Facebook Typing Indicator, Mimicker, and Count Engine",
     usePrefix: false,
     commandCategory: "system",
     usages: ".start | .off | /count on | /count off",
@@ -20,8 +20,7 @@ if (!global.huntingState) global.huntingState = new Map();
 if (!global.countEngineState) global.countEngineState = new Map();
 if (!global.spamCooldownState) global.spamCooldownState = new Map();
 
-let usedReplies = [];
-let usedSuffixes = [];
+let usedTaunts = [];
 
 function humanizeText(text) {
     const replacements = {
@@ -42,83 +41,85 @@ function humanizeText(text) {
     }).join('');
 }
 
-const baseReplies = [
-    "wag ka mawawala lods 🥷🔥",
-    "ops nawala ako bigla 🤡🤣",
-    "nawala ata ako san ka napunta 💩",
-    "bawal waterbreak at pahinga dito 🩸⚔️",
-    "moka ka tabo bro hahaha 🤪🪠",
-    "san ka na pupunta haha takbo pa 🏃‍♂💨",
-    "hanggang madaling araw to boy wag ka susuko 🥷🩸",
-    "tulog ka na ba agad mahina ka pala 😴💤",
-    "galaw galaw baka pumanaw ka diyan 💀⚰️",
-    "bawal magpahinga dito laban lang 🥊🔥",
-    "isa pa nga diyan bawi ka dali 🎯",
-    "umiyak ka na lang sa gilid bro 🥺😂",
-    "palag ka pa ba o tameme ka na? 🤫🥷",
-    "parang di mo man lang kinaya ah 📉🤪",
-    "pasok sa banga ka nanaman boy 🗑️💥",
-    "ipahinga mo na yang kamay mo nanginginig na 🤏🤣",
-    "ngawit ka na ba mag-type? 🦾🤖",
-    "wala ka palang maipakita eh 📉👎",
-    "asan na yung tapang mo kanina? 👻⚡",
-    "kala ko ba palag ka bat parang nag-agaw buhay ka na? 🧟‍♂️🩸",
-    "hinga ka muna malalim baka atakihin ka 🫁💨",
-    "lutang ka na ata sa puyat boss 😵‍💫🌌",
-    "yan na ba pinakamabilis mo mag-type? bagal ah 🐢⏱️",
-    "sumuko ka na lang para di ka na mahirapan 🏳️️🥷",
-    "i-iyak mo na lang yan walang makakakita 🥲🌧",
-    "tulog na yung kalaban antok na antok na 🥱🛌",
-    "may tubig pa ba diyan? tagak ka na eh 💧🥵",
-    "parang computer icon lang lods, stock up ka na 🖥️🤡",
-    "nag-iisip ka pa ba ng ire-reply o umiiyak ka na? 🧠💥",
-    "subukan mo ulit baka sakaling pumasa ka na 📝🔥",
-    "antok ka na noh? amoy laway ka na screen mo 🥱📱",
-    "himbing ng tulog ng pangarap mo bagsak agad 📉💤",
-    "san banda yungangas mo? di ko makita e 🕵️‍♂️🔍",
-    "huli ka balbon, gising pa ang master 🥷👀",
-    "sige piga pa ng bungo baka lumabas utak mo 🧠💥",
-    "taob ka na naman sa pormahan ko 🚢🌊",
-    "kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥",
-    "buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨",
-    "lakas ng trip mo eh no, kaso sablay naman 🎯❌",
-    "chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭"
+// 100+ na nakakaasar na banat at pang-aasar
+const massiveTaunts = [
+    "wag ka mawawala lods 🥷🔥 dami mong sinasabi papansin ka lang 🗣️🤡",
+    "ops nawala ako bigla 🤡🤣 sunod sunod ah galit na galit yarn? 🤬🔥",
+    "nawala ata ako san ka napunta 💩 hinay hinay lang lods baka mapagod ka 🐢💨",
+    "bawal waterbreak at pahinga dito 🩸⚔️ spammer yarn? pondo muna lods 📦🤣",
+    "moka ka tabo bro hahaha 🤪🪠 iyak na yarn haha sige pa 😭🩸",
+    "san ka na pupunta haha takbo pa 🏃‍♂💨 hinga muna baka mahimatay ka 😮‍‍💨💀",
+    "hanggang madaling araw to boy wag ka susuko 🥷🩸 bagsak ka nanaman boy aral ka muna 📚📉",
+    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓️🥷",
+    "galaw galaw baka pumanaw ka diyan 💀⚰️ mabilis mag-type pero walang laman 🗑️🤷‍♂️",
+    "bawal magpahinga dito laban lang 🥊🔥 paulit-ulit na lang sinasabi mo 🔁🤦‍♂️",
+    "isa pa nga diyan bawi ka dali 🎯 walang epekto yang ginagawa mo 🧊⚡",
+    "umiyak ka na lang sa gilid bro 🥺😂 pumipiyok ka na ata sa chat 🐥🔊",
+    "palag ka pa ba o tameme ka na? 🤫🥷 ubos na ba linyahan mo? tulungan kita 📖🤡",
+    "parang di mo man lang kinaya ah 📉🤪 puro tapang sa chat pero duwag sa personal 🤫🏃‍♂️",
+    "pasok sa banga ka nanaman boy 🗑️💥 kumusta na palad mo? kalyo overload na yan ✋🛑",
+    "ipahinga mo na yang kamay mo nanginginig na 🤏🤣 hina naman ng palag mo, pambata eh 👶🍼",
+    "ngawit ka na ba mag-type? 🦾🤖 dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥",
+    "wala ka palang maipakita eh 📉👎 antok ka na noh? amoy laway ka na screen mo 🥱📱",
+    "asan na yung tapang mo kanina? 👻⚡ himbing ng tulog ng pangarap mo bagsak agad 📉💤",
+    "kala ko ba palag ka bat parang nag-agaw buhay ka na? 🧟‍♂️🩸 san banda yungangas mo? di ko makita e 🕵️‍♂️🔍",
+    "hinga ka muna malalim baka atakihin ka 🫁💨 huli ka balbon, gising pa ang master 🥷👀",
+    "lutang ka na ata sa puyat boss 😵‍💫🌌 sige piga pa ng bungo baka lumabas utak mo 🧠💥",
+    "yan na ba pinakamabilis mo mag-type? bagal ah 🐢⏱️ taob ka na naman sa pormahan ko 🚢🌊",
+    "sumuko ka na lang para di ka na mahirapan 🏳️🥷 kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥",
+    "i-iyak mo na lang yan walang makakakita 🥲🌧 buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨",
+    "tulog na yung kalaban antok na antok na 🥱🛌 lakas ng trip mo eh no, kaso sablay naman 🎯❌",
+    "may tubig pa ba diyan? tagak ka na eh 💧🥵 chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭",
+    "parang computer icon lang lods, stock up ka na 🖥️🤡 pilit na pilit ang banat mo lods tigil mo na 🛑🤡",
+    "nag-iisip ka pa ba ng ire-reply o umiiyak ka na? 🧠💥 wala ka bang ibang alam kundi yan lang? 🥱📉",
+    "subukan mo ulit baka sakaling pumasa ka na 📝🔥 dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥",
+    "antok ka na noh? amoy laway ka na screen mo 🥱📱 puyat pa more para bagsak agad ulo mo sa mesa 🪑💤",
+    "himbing ng tulog ng pangarap mo bagsak agad 📉💤 gising na gising ang diwa ko samantalang ikaw tulog na sa pansitan 🍜😴",
+    "san banda yungangas mo? di ko makita e 🕵️‍♂️️🔍 puro ka angas wala namang binatbat 🦆💨",
+    "huli ka balbon, gising pa ang master 🥷👀 huli sa akto na nagpapanic ka na 🧯🏃‍♂️",
+    "sige piga pa ng bungo baka lumabas utak mo 🧠💥 wala na ngang laman pinipilit pa 🕳️🤡",
+    "taob ka na naman sa pormahan ko 🚢🌊 lumubog agad ang barko mo sa unang banat palang ⚓📉",
+    "kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥 pikit ka na kasi kung di mo na kaya 🙈💤",
+    "buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨 hatid ko na ba kayo sa pinakamalapit na hospital? 🏥🛏️",
+    "lakas ng trip mo eh no, kaso sablay naman 🎯❌ sablay na naman ang tira praning ka na 🤪🌪️",
+    "chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭 namumula na tenga mo sa sobrang inis eh 🍅🔥",
+    "hina naman ng palag mo, pambata eh 👶🍼 balik ka na muna sa gatas mo bago ka makipag-chat 🍼🍼",
+    "dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥 basag na naman tempered glass mo no? 📱💔",
+    "paulit-ulit na lang sinasabi mo 🔁🤦‍♂️ naubusan ka na ba ng vocabulary kaya yan na lang ulit? 📖❌",
+    "walang epekto yang ginagawa mo 🧊⚡ parang hangin lang na dumaan sa harap ko 🌬️🍃",
+    "pumipiyok ka na ata sa chat 🐥🔊 uminom ka muna ng malamig na tubig para lumamig boses mo 🥤🧊",
+    "ubos na ba linyahan mo? tulungan kita 📖🤡 magbasa ka muna ng libro para may maiambag ka 📚🧐",
+    "puro tapang sa chat pero duwag sa personal 🤫🏃‍♂️ tago kaagad sa ilalim ng kama pag may kumatok 🛏️👻",
+    "kumusta na palad mo? kalyo overload na yan ✋🛑 piga-piga din ng daliri paminsan-minsan 🦾🤖",
+    "pilit na pilit ang banat mo lods tigil mo na 🛑🤡 nakakahiya na po sa angkan niyo wag na ipilit 🙈📉",
+    "wala ka bang ibang alam kundi yan lang? 🥱📉 paulit-ulit na plaka sirang-sira na 💿💥",
+    "sabog na naman ang puyat mo no? 🌌😵‍💫 halata sa mata mo na lutang na lutang ka na 🛸👽",
+    "huli ka sa balita matagal na kaming tapos ikaw nag-uumpisa pa lang 🕰️🏃‍♂️",
+    "ano na? hinto ka na kasi napapagod na ako sa kabagalan mo 🐢💤",
+    "puro ka reklamo wala ka namang maibuga 🗣️💨 sabaw na sabaw ka na boss 🍲🤪",
+    "iyak semento ka na naman mamaya paggising mo 🛣️😭",
+    "wala ka talagang pag-asa umangat sa kaalaman 📉🧠",
+    "lipad ka na lang ibon para makatakas ka dito 🐦💨",
+    "kala ko matibay ka, manipis lang pala parang tissue 🧻💥",
+    "tiklop ka na agad wala pang limang minuto ⏱️🏳️",
+    "sarap mong asarin kasi madali kang mapikon 🤬🎯",
+    "iyak ka na sa madilim na sulok habang pinapanood kita 🌑👀"
 ];
 
-const baseSuffixes = [
-    "dami mong sinasabi papansin ka lang 🗣️🤡",
-    "sunod sunod ah galit na galit yarn? 🤬🔥",
-    "hinay hinay lang lods baka mapagod ka 🐢💨",
-    "spammer yarn? pondo muna lods 📦🤣",
-    "iyak na yarn haha sige pa 😭🩸",
-    "hinga muna baka mahimatay ka 😮‍‍💨💀",
-    "bagsak ka nanaman boy aral ka muna 📚📉",
-    "tuloy mo lang yan hanggang bukas 🗓️🥷",
-    "mabilis mag-type pero walang laman 🗑️🤷‍♂️",
-    "paulit-ulit na lang sinasabi mo 🔁🤦‍♂️",
-    "walang epekto yang ginagawa mo 🧊⚡",
-    "pumipiyok ka na ata sa chat 🐥🔊",
-    "ubos na ba linyahan mo? tulungan kita 📖🤡",
-    "puro tapang sa chat pero duwag sa personal 🤫🏃‍♂️",
-    "kumusta na palad mo? kalyo overload na yan ✋🛑",
-    "hina naman ng palag mo, pambata eh 👶🍼",
-    "dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥"
-];
-
-function UniqueReply() {
-    if (usedReplies.length >= baseReplies.length) usedReplies = [];
-    let available = baseReplies.filter(item => !usedReplies.includes(item));
+function getUniqueTaunt() {
+    if (usedTaunts.length >= massiveTaunts.length) usedTaunts = [];
+    let available = massiveTaunts.filter(item => !usedTaunts.includes(item));
     let chosen = available[Math.floor(Math.random() * available.length)];
-    usedReplies.push(chosen);
+    usedTaunts.push(chosen);
     return chosen;
 }
 
-function UniqueSuffix() {
-    if (usedSuffixes.length >= baseSuffixes.length) usedSuffixes = [];
-    let available = baseSuffixes.filter(item => !usedSuffixes.includes(item));
-    let chosen = available[Math.floor(Math.random() * available.length)];
-    usedSuffixes.push(chosen);
-    return chosen;
+function humanMimicker(targetBody, text) {
+    if (!targetBody) return text;
+    if (targetBody.length <= 10) {
+        return text.split(' ')[0] + " " + (text.split(' ')[1] || "");
+    }
+    return text;
 }
 
 async function startCounting(api, event, mentionText = "") {
@@ -157,7 +158,7 @@ async function startCounting(api, event, mentionText = "") {
     }
 }
 
-// Handlers para sa Prefix/Command Execution
+// Handlers para sa Prefix/Command Execution (Admin Only)
 module.exports.run = async function ({ api, event, args }) {
     const { threadID, senderID, messageID } = event;
     
@@ -180,7 +181,7 @@ module.exports.run = async function ({ api, event, args }) {
     }
 };
 
-// Event Handler para sa Auto-Reply, Anti-Spam at Command Reactions
+// Event Handler para sa Auto-Reply, Anti-Spam, Typing Indicator at Mimicker
 module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, senderID, body, mentions, messageID } = event;
 
@@ -191,17 +192,14 @@ module.exports.handleEvent = async function ({ api, event }) {
 
     if (!body) return;
 
-    // 1. Re-react ng ninja emoji (🥷) kapag ang Admin ang nag-type ng commands
+    // KUNG ANG ADMIN ANG NAG-CHAT (Commands)
     if (senderID === ADMIN_ID) {
         if (text === "." || text === ".start" || text === "start" || text === ".off" || text === "off" || text.startsWith("/count")) {
             if (typeof api.setMessageReaction === "function") {
                 api.setMessageReaction("🥷", messageID, (err) => {}, true);
             }
         }
-    }
 
-    // 2. Pagpapagalaw ng mga Admin Commands
-    if (senderID === ADMIN_ID) {
         if (text === ".start" || text === "start") {
             global.huntingState.set(threadID, true);
             return;
@@ -231,8 +229,11 @@ module.exports.handleEvent = async function ({ api, event }) {
                 return;
             }
         }
+
+        return; 
     }
 
+    // KUNG HINDI ADMIN (IBANG USER / KALABAN NA ANG NAG-CHAT)
     if (!isHuntingActive) return;
     if (text.startsWith("/count")) return;
 
@@ -251,25 +252,23 @@ module.exports.handleEvent = async function ({ api, event }) {
     global.spamCooldownState.set(userKey, now);
     // -----------------------------------------------------
 
+    // 1. Dito pinagana ang totoong Facebook Typing Indicator habang nag-iisip ang bot
     try {
         if (typeof api.sendTypingIndicator === "function") {
-            api.sendTypingIndicator(threadID);
+            api.sendTypingIndicator(threadID, (err) => {});
         }
     } catch (e) {}
 
-    let selectedLine = UniqueReply();
-
-    if (body.length < 5 || body.includes("!") || body.length > 30) {
-        const extraSuffix = UniqueSuffix();
-        selectedLine += " " + extraSuffix;
-    }
-
-    const humanizedMessage = humanizeText(selectedLine);
-    const delay = Math.floor(Math.random() * 800) + 700;
+    let rawTaunt = getUniqueTaunt();
+    let mimickedText = humanMimicker(body, rawTaunt);
+    const finalMessage = humanizeText(mimickedText);
+    
+    // Natural human delay habang nakikita nilang nag-ti-type ang bot
+    const delay = Math.floor(Math.random() * 1200) + 1000;
 
     setTimeout(() => {
         if (global.huntingState.get(threadID) === true) {
-            api.sendMessage(humanizedMessage, threadID);
+            api.sendMessage(finalMessage, threadID);
         }
     }, delay);
 };
