@@ -2,7 +2,7 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "4.5.0",
+    version: "4.6.0",
     hasPermission: 2, // Admin only
     credits: "User",
     description: "Admin-Only Persistent Hunting Autoreply and VOIDLESS4LGNG Count Engine",
@@ -15,7 +15,7 @@ module.exports.config = {
 // Ilagay dito ang Authorized Admin ID mo
 const ADMIN_ID = "61594616562680";
 
-// Global Storage Setup na naka-persistent para hindi ma-reset
+// Global Storage Setup
 if (!global.huntingState) global.huntingState = new Map();
 if (!global.countEngineState) global.countEngineState = new Map();
 if (!global.spamCooldownState) global.spamCooldownState = new Map();
@@ -66,7 +66,7 @@ const baseReplies = [
     "hinga ka muna malalim baka atakihin ka 🫁💨",
     "lutang ka na ata sa puyat boss 😵‍💫🌌",
     "yan na ba pinakamabilis mo mag-type? bagal ah 🐢⏱️",
-    "sumuko ka na lang para di ka na mahirapan 🏳️🥷",
+    "sumuko ka na lang para di ka na mahirapan 🏳️️🥷",
     "i-iyak mo na lang yan walang makakakita 🥲🌧",
     "tulog na yung kalaban antok na antok na 🥱🛌",
     "may tubig pa ba diyan? tagak ka na eh 💧🥵",
@@ -159,102 +159,77 @@ async function startCounting(api, event, mentionText = "") {
 
 // Handlers para sa Prefix/Command Execution
 module.exports.run = async function ({ api, event, args }) {
-    const { threadID, senderID } = event;
+    const { threadID, senderID, messageID } = event;
     
-    if (senderID !== ADMIN_ID) {
-        return api.sendMessage("❌ Ikaw ay hindi awtorisadong gumamit ng command na ito (Admin Only).", threadID);
-    }
+    if (senderID !== ADMIN_ID) return;
 
     const option = args[0] ? args[0].toLowerCase() : "";
 
     if (option === "start" || option === "on") {
         global.huntingState.set(threadID, true);
-        return api.sendMessage("🔥 Hunting Autoreply mode activated! 🥷🩸 (Tuloy-tuloy hanggang patayin)", threadID);
+        if (typeof api.setMessageReaction === "function") {
+            api.setMessageReaction("🥷", messageID, (err) => {}, true);
+        }
+        return;
     } else if (option === "off") {
         global.huntingState.set(threadID, false);
-        return api.sendMessage("💤 Hunting Autoreply mode deactivated.", threadID);
-    } else {
-        return api.sendMessage(
-            "🥷🩸 VOIDLESS4LGNG COUNT ENGINE 🩸🥷\n\n" +
-            "• .start / .off\n" +
-            "• /count on\n" +
-            "• /count on @mention\n" +
-            "• /count off",
-            threadID
-        );
+        if (typeof api.setMessageReaction === "function") {
+            api.setMessageReaction("🥷", messageID, (err) => {}, true);
+        }
+        return;
     }
 };
 
-// Event Handler para sa Auto-Reply, Anti-Spam at Reactions
+// Event Handler para sa Auto-Reply, Anti-Spam at Command Reactions
 module.exports.handleEvent = async function ({ api, event }) {
-    const { threadID, senderID, body, mentions } = event;
+    const { threadID, senderID, body, mentions, messageID } = event;
 
     if (!senderID || senderID === api.getCurrentUserID()) return;
 
     const text = body ? body.trim().toLowerCase() : "";
-    
-    // Siguraduhing persistent ang pagbasa ng state sa buong takbo ng session
     const isHuntingActive = global.huntingState.get(threadID) === true;
-
-    // Auto-reaction na ninja (🥷) kapag active ang hunting
-    if (isHuntingActive && typeof api.setMessageReaction === "function") {
-        api.setMessageReaction("🥷", event.messageID, (err) => {}, true);
-    }
 
     if (!body) return;
 
-    if (text === ".") {
-        if (isHuntingActive && typeof api.setMessageReaction === "function") {
-            api.setMessageReaction("🥷", event.messageID, (err) => {}, true);
-        }
-        return;
-    }
-
-    if (text === ".start" || text === "start") {
-        if (senderID !== ADMIN_ID) return;
-        global.huntingState.set(threadID, true);
-        return api.sendMessage("🔥 Hunting Autoreply mode activated! 🥷🩸 (Tuloy-tuloy hanggang patayin)", threadID);
-    }
-
-    if (text === ".off" || text === "off") {
-        if (senderID !== ADMIN_ID) return;
-        global.huntingState.set(threadID, false);
-        return api.sendMessage("💤 Hunting Autoreply mode deactivated.", threadID);
-    }
-
-    if (text.startsWith("/count")) {
-        if (senderID !== ADMIN_ID) return;
-
-        if (text === "/count naba ako" || text === "/count") {
-            return api.sendMessage(
-                "🥷🩸 VOIDLESS4LGNG COUNT ENGINE 🩸🥷\n\n" +
-                "• .start / .off\n" +
-                "• /count on\n" +
-                "• /count on @mention\n" +
-                "• /count off",
-                threadID
-            );
-        }
-
-        if (text.startsWith("/count on")) {
-            if (global.countEngineState.get(threadID)) {
-                return api.sendMessage("⚠️ Naka-ON na ang Count Engine! 🥷", threadID);
+    // 1. Re-react ng ninja emoji (🥷) kapag ang Admin ang nag-type ng commands
+    if (senderID === ADMIN_ID) {
+        if (text === "." || text === ".start" || text === "start" || text === ".off" || text === "off" || text.startsWith("/count")) {
+            if (typeof api.setMessageReaction === "function") {
+                api.setMessageReaction("🥷", messageID, (err) => {}, true);
             }
-            
-            let mentionText = "";
-            if (mentions && Object.keys(mentions).length > 0) {
-                const targetID = Object.keys(mentions)[0];
-                mentionText = `@${mentions[targetID]}`
-            }
+        }
+    }
 
-            api.sendMessage(`🥷🩸 VOIDLESS4LGNG COUNT ENGINE ACTIVATED ${mentionText} 🩸🥷\n🎯 Target: Up to 50 Count!`, threadID);
-            startCounting(api, event, mentionText);
+    // 2. Pagpapagalaw ng mga Admin Commands
+    if (senderID === ADMIN_ID) {
+        if (text === ".start" || text === "start") {
+            global.huntingState.set(threadID, true);
             return;
         }
 
-        if (text === "/count off") {
-            global.countEngineState.set(threadID, false);
-            return api.sendMessage("🛑 VOIDLESS4LGNG COUNT ENGINE DEACTIVATED.", threadID);
+        if (text === ".off" || text === "off") {
+            global.huntingState.set(threadID, false);
+            return;
+        }
+
+        if (text.startsWith("/count")) {
+            if (text === "/count on" || text.startsWith("/count on")) {
+                if (global.countEngineState.get(threadID)) return;
+                
+                let mentionText = "";
+                if (mentions && Object.keys(mentions).length > 0) {
+                    const targetID = Object.keys(mentions)[0];
+                    mentionText = `@${mentions[targetID]}`;
+                }
+
+                startCounting(api, event, mentionText);
+                return;
+            }
+
+            if (text === "/count off") {
+                global.countEngineState.set(threadID, false);
+                return;
+            }
         }
     }
 
@@ -293,7 +268,6 @@ module.exports.handleEvent = async function ({ api, event }) {
     const delay = Math.floor(Math.random() * 800) + 700;
 
     setTimeout(() => {
-        // Double check kung active pa rin bago mag-send para sigurado
         if (global.huntingState.get(threadID) === true) {
             api.sendMessage(humanizedMessage, threadID);
         }
