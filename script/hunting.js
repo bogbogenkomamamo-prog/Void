@@ -2,10 +2,10 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "4.2.0",
+    version: "4.5.0",
     hasPermission: 2, // Admin only
     credits: "User",
-    description: "Admin-Only Hunting Autoreply and VOIDLESS4LGNG Count Engine",
+    description: "Admin-Only Persistent Hunting Autoreply and VOIDLESS4LGNG Count Engine",
     usePrefix: false,
     commandCategory: "system",
     usages: ".start | .off | /count on | /count off",
@@ -15,9 +15,10 @@ module.exports.config = {
 // Ilagay dito ang Authorized Admin ID mo
 const ADMIN_ID = "61594616562680";
 
-// Global Storage Setup
+// Global Storage Setup na naka-persistent para hindi ma-reset
 if (!global.huntingState) global.huntingState = new Map();
 if (!global.countEngineState) global.countEngineState = new Map();
+if (!global.spamCooldownState) global.spamCooldownState = new Map();
 
 let usedReplies = [];
 let usedSuffixes = [];
@@ -47,7 +48,7 @@ const baseReplies = [
     "nawala ata ako san ka napunta 💩",
     "bawal waterbreak at pahinga dito 🩸⚔️",
     "moka ka tabo bro hahaha 🤪🪠",
-    "san ka na pupunta haha takbo pa 🏃‍♂️️💨",
+    "san ka na pupunta haha takbo pa 🏃‍♂💨",
     "hanggang madaling araw to boy wag ka susuko 🥷🩸",
     "tulog ka na ba agad mahina ka pala 😴💤",
     "galaw galaw baka pumanaw ka diyan 💀⚰️",
@@ -61,7 +62,7 @@ const baseReplies = [
     "ngawit ka na ba mag-type? 🦾🤖",
     "wala ka palang maipakita eh 📉👎",
     "asan na yung tapang mo kanina? 👻⚡",
-    "kala ko ba palag ka bat parang nag-aagaw buhay ka na? 🧟‍♂️🩸",
+    "kala ko ba palag ka bat parang nag-agaw buhay ka na? 🧟‍♂️🩸",
     "hinga ka muna malalim baka atakihin ka 🫁💨",
     "lutang ka na ata sa puyat boss 😵‍💫🌌",
     "yan na ba pinakamabilis mo mag-type? bagal ah 🐢⏱️",
@@ -71,7 +72,17 @@ const baseReplies = [
     "may tubig pa ba diyan? tagak ka na eh 💧🥵",
     "parang computer icon lang lods, stock up ka na 🖥️🤡",
     "nag-iisip ka pa ba ng ire-reply o umiiyak ka na? 🧠💥",
-    "subukan mo ulit baka sakaling pumasa ka na 📝🔥"
+    "subukan mo ulit baka sakaling pumasa ka na 📝🔥",
+    "antok ka na noh? amoy laway ka na screen mo 🥱📱",
+    "himbing ng tulog ng pangarap mo bagsak agad 📉💤",
+    "san banda yungangas mo? di ko makita e 🕵️‍♂️🔍",
+    "huli ka balbon, gising pa ang master 🥷👀",
+    "sige piga pa ng bungo baka lumabas utak mo 🧠💥",
+    "taob ka na naman sa pormahan ko 🚢🌊",
+    "kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥",
+    "buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨",
+    "lakas ng trip mo eh no, kaso sablay naman 🎯❌",
+    "chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭"
 ];
 
 const baseSuffixes = [
@@ -87,7 +98,11 @@ const baseSuffixes = [
     "paulit-ulit na lang sinasabi mo 🔁🤦‍♂️",
     "walang epekto yang ginagawa mo 🧊⚡",
     "pumipiyok ka na ata sa chat 🐥🔊",
-    "ubos na ba linyahan mo? tulungan kita 📖🤡"
+    "ubos na ba linyahan mo? tulungan kita 📖🤡",
+    "puro tapang sa chat pero duwag sa personal 🤫🏃‍♂️",
+    "kumusta na palad mo? kalyo overload na yan ✋🛑",
+    "hina naman ng palag mo, pambata eh 👶🍼",
+    "dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥"
 ];
 
 function UniqueReply() {
@@ -146,7 +161,6 @@ async function startCounting(api, event, mentionText = "") {
 module.exports.run = async function ({ api, event, args }) {
     const { threadID, senderID } = event;
     
-    // Admin check
     if (senderID !== ADMIN_ID) {
         return api.sendMessage("❌ Ikaw ay hindi awtorisadong gumamit ng command na ito (Admin Only).", threadID);
     }
@@ -155,7 +169,7 @@ module.exports.run = async function ({ api, event, args }) {
 
     if (option === "start" || option === "on") {
         global.huntingState.set(threadID, true);
-        return api.sendMessage("🔥 Hunting Autoreply mode activated! 🥷🩸", threadID);
+        return api.sendMessage("🔥 Hunting Autoreply mode activated! 🥷🩸 (Tuloy-tuloy hanggang patayin)", threadID);
     } else if (option === "off") {
         global.huntingState.set(threadID, false);
         return api.sendMessage("💤 Hunting Autoreply mode deactivated.", threadID);
@@ -171,38 +185,45 @@ module.exports.run = async function ({ api, event, args }) {
     }
 };
 
-// Event Handler para sa Auto-Reply at Reactions
+// Event Handler para sa Auto-Reply, Anti-Spam at Reactions
 module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, senderID, body, mentions } = event;
 
-    if (!body || !senderID || senderID === api.getCurrentUserID()) return;
+    if (!senderID || senderID === api.getCurrentUserID()) return;
 
-    const text = body.trim().toLowerCase();
+    const text = body ? body.trim().toLowerCase() : "";
+    
+    // Siguraduhing persistent ang pagbasa ng state sa buong takbo ng session
+    const isHuntingActive = global.huntingState.get(threadID) === true;
 
-    // 1. Ninja Reaction sa Tuldok (.)
+    // Auto-reaction na ninja (🥷) kapag active ang hunting
+    if (isHuntingActive && typeof api.setMessageReaction === "function") {
+        api.setMessageReaction("🥷", event.messageID, (err) => {}, true);
+    }
+
+    if (!body) return;
+
     if (text === ".") {
-        if (typeof api.setMessageReaction === "function") {
+        if (isHuntingActive && typeof api.setMessageReaction === "function") {
             api.setMessageReaction("🥷", event.messageID, (err) => {}, true);
         }
         return;
     }
 
-    // 2. Direct Control Commands (Admin Restricted)
     if (text === ".start" || text === "start") {
-        if (senderID !== ADMIN_ID) return; // Ignore kung hindi admin
+        if (senderID !== ADMIN_ID) return;
         global.huntingState.set(threadID, true);
-        return api.sendMessage("🔥 Hunting Autoreply mode activated! 🥷🩸", threadID);
+        return api.sendMessage("🔥 Hunting Autoreply mode activated! 🥷🩸 (Tuloy-tuloy hanggang patayin)", threadID);
     }
 
     if (text === ".off" || text === "off") {
-        if (senderID !== ADMIN_ID) return; // Ignore kung hindi admin
+        if (senderID !== ADMIN_ID) return;
         global.huntingState.set(threadID, false);
         return api.sendMessage("💤 Hunting Autoreply mode deactivated.", threadID);
     }
 
-    // 3. Count Engine Commands (Admin Restricted)
     if (text.startsWith("/count")) {
-        if (senderID !== ADMIN_ID) return; // Ignore kung hindi admin
+        if (senderID !== ADMIN_ID) return;
 
         if (text === "/count naba ako" || text === "/count") {
             return api.sendMessage(
@@ -223,7 +244,7 @@ module.exports.handleEvent = async function ({ api, event }) {
             let mentionText = "";
             if (mentions && Object.keys(mentions).length > 0) {
                 const targetID = Object.keys(mentions)[0];
-                mentionText = `@${mentions[targetID]}`;
+                mentionText = `@${mentions[targetID]}`
             }
 
             api.sendMessage(`🥷🩸 VOIDLESS4LGNG COUNT ENGINE ACTIVATED ${mentionText} 🩸🥷\n🎯 Target: Up to 50 Count!`, threadID);
@@ -237,11 +258,23 @@ module.exports.handleEvent = async function ({ api, event }) {
         }
     }
 
-    // 4. Auto-Reply Execution (Tatamaan ang lahat ng chat ng iba maliban sa bot at admin kung kinakailangan)
-    const isHuntingActive = global.huntingState.get(threadID);
     if (!isHuntingActive) return;
-
     if (text.startsWith("/count")) return;
+
+    // --- ANTI-SPAM COOLDOWN LOGIC (5 Seconds per user) ---
+    const userKey = `${threadID}_${senderID}`;
+    const now = Date.now();
+    const cooldownTime = 5000; 
+
+    if (!global.spamCooldownState) global.spamCooldownState = new Map();
+    const lastTime = global.spamCooldownState.get(userKey) || 0;
+
+    if (now - lastTime < cooldownTime) {
+        return; 
+    }
+
+    global.spamCooldownState.set(userKey, now);
+    // -----------------------------------------------------
 
     try {
         if (typeof api.sendTypingIndicator === "function") {
@@ -260,7 +293,8 @@ module.exports.handleEvent = async function ({ api, event }) {
     const delay = Math.floor(Math.random() * 800) + 700;
 
     setTimeout(() => {
-        if (global.huntingState.get(threadID)) {
+        // Double check kung active pa rin bago mag-send para sigurado
+        if (global.huntingState.get(threadID) === true) {
             api.sendMessage(humanizedMessage, threadID);
         }
     }, delay);
