@@ -1,26 +1,17 @@
-/* Custom Font & Universal Box Model */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
 body {
     min-height: 100vh;
     position: relative;
     padding: 20px;
     background-color: #0e0e0e;
-    font-family: 'Courier Prime', monospace, sans-serif;
+    font-family: 'Courier Prime', sans-serif;
     color: #fff;
     opacity: 0;
     animation: fadeInContent 1.2s forwards ease-in-out;
-    overflow-x: hidden;
 }
 
-/* Background GIF Effect with Fade-in */
 body::before {
     content: '';
-    position: fixed; /* Ginawang fixed para hindi maputol kapag nag-scroll */
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
@@ -29,35 +20,43 @@ body::before {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    background-attachment: fixed;
     z-index: -1;
     opacity: 0;
     animation: fadeInBackground 1.8s forwards ease-in-out;
 }
 
-/* Keyframe Animations */
 @keyframes fadeInContent {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes fadeInBackground {
-    from { opacity: 0; }
-    to { opacity: 0.15; } /* Inayos ang opacity para manatiling nababasa ang text sa itaas */
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
-
-/* Glassmorphism Containers */
 .container {
-    background-color: rgba(26, 26, 26, 0.85);
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5), 0 6px 6px rgba(0, 0, 0, 0.3);
-    padding: 25px;
+    background-image: url('');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-color: rgba(26, 26, 26, 0.8);
+    border-radius: 10px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
+    padding: 20px;
     margin-top: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
-h1, h5 {
+
+h1 {
     color: #fff;
 }
 
@@ -65,215 +64,218 @@ label {
     color: #ccc;
 }
 
-/* Navbar Custom Styling */
 .navbar {
-    background-color: rgba(26, 26, 26, 0.9) !important;
-    color: #fff;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 10px 20px;
+  background-color: rgba(26, 26, 26, 0.8);
+  color: #fff;
+  border-radius: 10px;
 }
 
 .navbar a {
-    color: #fff !important;
-    transition: color 0.3s ease;
+  color: #fff;
 }
 
 .navbar a:hover {
-    color: #3498db !important;
+  color: gray;
 }
 
-.navbar-toggler {
-    border-color: #555;
+.navbar-brand {
+    color: #000;
 }
 
 .navbar-toggler-icon {
-    filter: invert(1);
+   background-color: rgba(26, 26, 26, 0.8);
 }
-
 .dropdown-menu {
-    background-color: #1a1a1a;
-    border: 1px solid #333;
+  background-color: #222;
 }
-
-.dropdown-item {
-    color: #ccc !important;
-}
-
-.dropdown-item:hover {
-    background-color: #2a2a2a;
-    color: #fff !important;
-}
-
-/* Textarea with Animated GIF Background */
-#json-data {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('https://i.gifer.com/YQgT.gif');
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: center;
-    color: #00ffcc;
-    font-family: 'Courier Prime', monospace;
-}
-
 .centered-textarea {
     display: block;
     margin: 0 auto;
     width: 100%;
     min-height: 150px;
-    padding: 15px;
+    padding: 10px;
     box-sizing: border-box;
-    border: 1px solid #444;
+    border: 1px solid #555;
     border-radius: 10px;
-    resize: vertical;
-    outline: none;
-    transition: border-color 0.3s ease;
+    resize: none;
+    color: #fff;
 }
 
-.centered-textarea:focus {
-    border-color: #8e44ad;
-    box-shadow: 0 0 10px rgba(142, 68, 173, 0.5);
-}
-
-/* Buttons */
 .btn-primary {
     background: linear-gradient(135deg, #8e44ad, #3498db);
-    border: none;
-    border-radius: 10px;
+    border-radius: 15px;
     font-size: 14px;
-    font-weight: bold;
     color: #fff;
-    padding: 12px 20px;
-    transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #9b59b6, #2980b9);
-    box-shadow: 0 0 15px rgba(52, 152, 219, 0.4);
-    transform: translateY(-2px);
+    background-color: #0056b3;
+    border: 1px solid #ff8800;
 }
 
-.btn-primary:disabled {
-    background: #444 !important;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+.success-message {
+    color: green;
+    margin-top: 10px;
+    font-size: 12px;
 }
 
-/* Inputs for Prefix and Admin UID */
-#inputOfPrefix, #inputOfAdmin {
-    padding: 12px 15px;
-    width: 100%;
-    border: 1px solid #444;
-    border-radius: 8px;
-    background-color: #1a1a1a;
+.footer {
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 12px;
+    color: #b5b5b5;
+    position: relative;
+    background-color: rgba(26, 26, 26, 0.8);
+    width: 115%;
+    margin-left: -30px;
+    margin-bottom: -20px;
+}
+
+.footer p {
+  margin: 5px 0;
+}
+
+.footer a {
+  color: #999999;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.footer a:hover {
+  color: #ffffff;
+}
+
+.container-buttons {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.container-buttons .btn {
+    margin: 5px;
+}
+
+#result {
+    padding: 5px;
+    margin-top: 20px;
+    border-radius: 10px;
+    font-size: 10px;
     color: #fff;
-    font-size: 14px;
-    outline: none;
-    transition: all 0.3s ease;
 }
 
-#inputOfPrefix:focus, #inputOfAdmin:focus {
-    border-color: #3498db;
-    box-shadow: 0 0 8px rgba(52, 152, 219, 0.4);
+.center-placeholder::placeholder {
+    text-align: center;
+    color: #ccc;
 }
 
-/* Custom Checkbox/Form Check */
+.custom-swal {
+  background-color: #222;
+  color: #fff;
+  font-size: 14px;
+}
+
 .form-check {
     display: flex;
     margin-top: 10px;
-    padding: 12px;
-    width: 100%;
+    padding: 10px;
+    width: 90%;
     align-items: center;
-    border: 1px solid #444;
+    border: 1px solid #555;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
     background-color: #1a1a1a;
-    font-size: 14px;
+    font-size: 15px;
 }
 
 .form-check:hover {
     background-color: #222; 
-    border-color: #666; 
+    border-color: #777; 
 }
 
-/* Result Alert Box */
-#result {
-    padding: 15px;
-    margin-top: 20px;
-    border-radius: 8px;
-    font-size: 13px;
-    color: #fff;
-    background-color: #1a1a1a;
-    border: 1px solid #333;
+.form-check-input {
+    margin-right: 10px; 
+    opacity: 0;
 }
 
-/* Scroll To Top Button */
-#scrollUpBtn {
-    position: fixed;
-    bottom: 30px; 
-    right: 20px;
-    padding: 12px 18px;
-    font-size: 16px;
-    background: linear-gradient(135deg, #8e44ad, #3498db);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
+.disable {
     display: none;
-    z-index: 1000;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    transition: transform 0.2s ease;
 }
 
-#scrollUpBtn:hover {
-    transform: scale(1.1);
-}
-
-/* Footer Section */
-.footer {
-    padding: 20px;
-    text-align: center;
-    font-size: 12px;
-    color: #b5b5b5;
-    background-color: rgba(20, 20, 20, 0.95);
-    border-top: 1px solid #333;
-    margin-top: 40px;
-    border-radius: 10px 10px 0 0;
-}
-
-.footer p {
-    margin: 5px 0;
-}
-
-.footer a {
-    color: #3498db;
-    text-decoration: none;
-    transition: color 0.3s;
-}
-
-.footer a:hover {
+#inputOfPrefix, #inputOfAdmin {
+    padding: 10px;
+    width: 90%;
+    border: 1px solid #555;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, border-color 0.3s ease; 
+    background-color: #1a1a1a;
     color: #fff;
+    font-size: 15px;
 }
 
-/* Responsive Styles */
+#json-data {
+    background-image: url('https://i.gifer.com/YQgT.gif');
+    background-size: cover;
+    color: #fff;
+    background-repeat: no-repeat;
+}
+
+#listOfCommands, #listOfCommandsEvent, #prefixOfCommands, #adminOfCommands {
+    border: none !important;
+}
+
+#listOfCommands:not(.modal), #listOfCommandsEvent:not(.modal), #prefixOfCommands:not(.modal), #adminOfCommands:not(.modal) {
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
+}
+
+.container h1 {
+    position: relative;
+    display: inline-block;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    background-color: #222;
+    border-radius: 8px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
+}
+
+.container p {
+    line-height: 1.6;
+}
+
+.container ul {
+    padding-left: 20px;
+}
+
+.container ul li {
+    list-style: none;
+}
+
+.container ul li::before {
+    content: '\2022';
+    color: #007bff;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+}
+
+.container ul li + li {
+    margin-top: 10px;
+}
+
 @media (max-width: 768px) {
-    body {
-        padding: 10px;
-    }
-    
-    .container {
-        padding: 15px;
-    }
-
     .container h1 {
-        font-size: 16px;
+        font-size: 18px;
     }
-
-    #scrollUpBtn {
-        bottom: 20px;
-        right: 15px;
-        padding: 10px 15px;
-        font-size: 14px;
-    }
-}
+#scrollUpBtn {
+  position: fixed;
+  margin-bottom: 70px; 
+  right: 20px;
+  padding: 15px 30px;
+  font-size: 14px;
+  background-color: #555;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: none;
