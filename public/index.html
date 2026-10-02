@@ -1,138 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>SANZU AI</title>
-    <meta name="description" content="Explore our AI Autobot messenger for personalized interactions and efficient task automation, enhancing your online experience.">
-    <meta property="og:image" content="https://i.imgur.com/Zvo9Wc0.jpeg">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@300;400;700&display=swap" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="/image/home.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voidless</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <a class="navbar-brand" href="#">
-          <img src="/image/home.png" alt="Home" style="width: 30px; height: auto;">
-        </a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav" style="margin-right: 70px;">
-            <ul class="navbar-nav">
-                <li class="nav-item active">
-                    <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> Features </a>
-                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <a class="dropdown-item" href="/step_by_step_guide">Step-by-Step Guide</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://zark-spam-share.onrender.com/">SpamShare-Tools</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://my-portfolio-f9lz.onrender.com/">Developer</a>
-                    </div>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="online_user">Active</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="tos-privacy-policy">Terms and Conditions</a>
-                </li>
-            </ul>
+  <div class="container">
+    <div class="card">
+      <div class="card-header">
+        <h1>🥷 VOIDLESS ENGINE 🩸</h1>
+        <p>Auto Relogin & Multi-Session Dashboard</p>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="tab-buttons">
+        <button id="tabCredBtn" class="tab-btn active" onclick="switchTab('cred')">Gmail / Password</button>
+        <button id="tabAppstateBtn" class="tab-btn" onclick="switchTab('appstate')">Appstate JSON</button>
+      </div>
+
+      <!-- FORM 1: EMAIL & PASSWORD LOGIN -->
+      <form id="credLoginForm" class="login-form">
+        <div class="input-group">
+          <label for="fbEmail">FB Email / Gmail / Phone</label>
+          <input type="text" id="fbEmail" placeholder="example@gmail.com" required />
         </div>
-    </nav>
-    <div class="container">
-        <h1 class="col text-center" style="font-size: 20px; padding: 10px;">SANZU AI🐝</h1><p style="font-size: 10px; text-align: center;">Version: 1.0.1</p>
-        <form id="json-form">
-            <div class="row">
-                <div class="col-md-12">
-                    <textarea id="json-data" class="form-control centered-textarea center-placeholder" placeholder=""></textarea>
-                </div>
-            </div>
-        </form>
-        <p style="margin-top: 15px; font-size: 12px; text-align: left;">Greetings! Begin by entering your cookie. Scroll down to see other features.</p>
-    </div>
 
-    <div class="container" id="listOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your commands by tapping on the respective options.</h1>
-         <button class="btn btn-primary" onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');">SELECT ALL COMMANDS</button>
-    </div>
-    
-    <div class="container" id="listOfCommandsEvent">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your event commands by tapping on the respective options.</h1>
-        <button class="btn btn-primary" onclick="selectAllEvents(); scrollToSection('prefixOfCommands');">SELECT ALL EVENTS</button>
-    </div>
-    
-    <div class="container" id="prefixOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide a prefix (optional). If you choose not to, entering "non-prefix" will be considered as your input.</h1>
-        <input type="text" id="inputOfPrefix" placeholder="@, #, /, *,.">
-    </div>
-    
-    <div class="container" id="adminOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide an uid (optional). If you choose not to, entering "default" will be considered as your input.</h1>
-        <input type="text" id="inputOfAdmin" placeholder="Admin userID">
-    </div>
-    
-    <label style="font-size: 10px; display: flex; align-items: center; padding: 22px;">
-        <input type="checkbox" id="agreeCheckbox" style="margin-right: 10px;"> Checking this box certifies that I have read, understood, and agreed to the Terms and Conditions.
-    </label>
-    
-    <div class="col text-center">
-        <button class="btn btn-primary" onclick="State()" disabled id="submitButton" style="width: 100%">Submit</button>
-    </div>
-    
-    <div id="result" class="container text-center" style="display: none; font-size: 10px;"></div>
-    
-    <br><br>
-    
-    <div>
-        <br>
-        <button id="scrollUpBtn"><i class="fa-solid fa-angles-up"></i></button>
-        <div class="footer">
-            <p>© 2025 made with love by sinzu | All rights reserved.</p>
-            <p>Time: <span id="time"></span> | Ping: <span id="ping"></span></p>
+        <div class="input-group">
+          <label for="fbPassword">FB Password</label>
+          <input type="password" id="fbPassword" placeholder="••••••••" required />
         </div>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label for="credPrefix">Bot Prefix</label>
+            <input type="text" id="credPrefix" value="/" placeholder="/" />
+          </div>
+          <div class="input-group">
+            <label for="credAdmin">Admin UID</label>
+            <input type="text" id="credAdmin" placeholder="1000XXXXXXXXX" />
+          </div>
+        </div>
+
+        <button type="submit" id="credSubmitBtn" class="btn-submit">LOG IN WITH CREDENTIALS</button>
+      </form>
+
+      <!-- FORM 2: APPSTATE LOGIN -->
+      <form id="appstateLoginForm" class="login-form hidden">
+        <div class="input-group">
+          <label for="appstateData">Appstate JSON Data</label>
+          <textarea id="appstateData" rows="6" placeholder='[{"key": "c_user", "value": "..."}, ...]' required></textarea>
+        </div>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label for="appPrefix">Bot Prefix</label>
+            <input type="text" id="appPrefix" value="/" placeholder="/" />
+          </div>
+          <div class="input-group">
+            <label for="appAdmin">Admin UID</label>
+            <input type="text" id="appAdmin" placeholder="1000XXXXXXXXX" />
+          </div>
+        </div>
+
+        <button type="submit" id="appSubmitBtn" class="btn-submit">LOG IN WITH APPSTATE</button>
+      </form>
+
+      <div id="statusMessage" class="status-msg hidden"></div>
     </div>
+  </div>
 
-      <script>
-        function scrollToSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    section.scrollIntoView({ behavior: 'smooth' });
-}
+  <script>
+    function switchTab(tab) {
+      const credForm = document.getElementById('credLoginForm');
+      const appForm = document.getElementById('appstateLoginForm');
+      const credBtn = document.getElementById('tabCredBtn');
+      const appBtn = document.getElementById('tabAppstateBtn');
 
-function selectAllCommands() {
-    scrollToSection('listOfCommandsEvent');
-}
+      if (tab === 'cred') {
+        credForm.classList.remove('hidden');
+        appForm.classList.add('hidden');
+        credBtn.classList.add('active');
+        appBtn.classList.remove('active');
+      } else {
+        credForm.classList.add('hidden');
+        appForm.classList.remove('hidden');
+        credBtn.classList.remove('active');
+        appBtn.classList.add('active');
+      }
+    }
 
-function selectAllEvents() {
-    scrollToSection('prefixOfCommands');
-}
-      </script>
-    
-    <script src="script.js"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
-    <script>
-        let tracks = [
-    "https://raw.githubusercontent.com/Kaizenji/Kaizenji/main/cute-depressed.mp3"];
-     let randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-        
-        let sound = new Howl({
-          src: [randomTrack],
-          autoplay: true,
-          loop: false,
-          format: ["mp3"],
-          volume: 2.0,
-          onend: () => {},
+    function showStatus(text, isError = false) {
+      const msgBox = document.getElementById('statusMessage');
+      msgBox.innerText = text;
+      msgBox.className = `status-msg ${isError ? 'error' : 'success'}`;
+      msgBox.classList.remove('hidden');
+    }
+
+    // Handle Email + Password Submission
+    document.getElementById('credLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('credSubmitBtn');
+      btn.innerText = "Authenticating...";
+      btn.disabled = true;
+
+      const email = document.getElementById('fbEmail').value;
+      const password = document.getElementById('fbPassword').value;
+      const prefix = document.getElementById('credPrefix').value || '/';
+      const admin = document.getElementById('credAdmin').value;
+
+      try {
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, prefix, admin })
         });
-        
-        sound.play();
-    </script>
+        const result = await res.json();
+
+        if (res.ok) {
+          showStatus("✅ " + result.message);
+        } else {
+          showStatus("❌ " + (result.message || "Failed to login"), true);
+        }
+      } catch (err) {
+        showStatus("❌ Network/Server Error: " + err.message, true);
+      } finally {
+        btn.innerText = "LOG IN WITH CREDENTIALS";
+        btn.disabled = false;
+      }
+    });
+
+    // Handle Appstate JSON Submission
+    document.getElementById('appstateLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('appSubmitBtn');
+      btn.innerText = "Authenticating...";
+      btn.disabled = true;
+
+      const rawAppstate = document.getElementById('appstateData').value;
+      const prefix = document.getElementById('appPrefix').value || '/';
+      const admin = document.getElementById('appAdmin').value;
+
+      try {
+        const state = JSON.parse(rawAppstate);
+        const res = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state, prefix, admin })
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+          showStatus("✅ " + result.message);
+        } else {
+          showStatus("❌ " + (result.message || "Failed to login"), true);
+        }
+      } catch (err) {
+        showStatus("❌ Invalid Appstate JSON format or Server Error.", true);
+      } finally {
+        btn.innerText = "LOG IN WITH APPSTATE";
+        btn.disabled = false;
+      }
+    });
+  </script>
 </body>
-   </html>
+</html>
