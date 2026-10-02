@@ -2,10 +2,10 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "5.4.0",
+    version: "5.5.0",
     hasPermission: 2, // Admin only
     credits: "User",
-    description: "Admin-Only Persistent Hunting with Continuous Chat, Bot Can Last-Chat, Typing Indicator, and Spam Cooldown",
+    description: "Continuous Rapid Reply and Spammer Anti-Pause Engine",
     usePrefix: false,
     commandCategory: "system",
     usages: ".start | .off | /count on | /count off",
@@ -50,7 +50,7 @@ const massiveTaunts = [
     "moka ka tabo bro hahaha 🤪🪠 iyak na yarn haha sige pa 😭🩸",
     "san ka na pupunta haha takbo pa 🏃‍♂💨 hinga muna baka mahimatay ka 😮‍‍💨💀",
     "hanggang madaling araw to boy wag ka susuko 🥷🩸 bagsak ka nanaman boy aral ka muna 📚📉",
-    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓️️🥷",
+    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓️🥷",
     "galaw galaw baka pumanaw ka diyan 💀⚰️ mabilis mag-type pero walang laman 🗑️🤷‍♂️",
     "bawal magpahinga dito laban lang 🥊🔥 paulit-ulit na lang sinasabi mo 🔁🤦‍♂️",
     "isa pa nga diyan bawi ka dali 🎯 walang epekto yang ginagawa mo 🧊⚡",
@@ -72,7 +72,7 @@ const massiveTaunts = [
     "may tubig pa ba diyan? tagak ka na eh 💧🥵 chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭",
     "parang computer icon lang lods, stock up ka na 🖥️🤡 pilit na pilit ang banat mo lods tigil mo na 🛑🤡",
     "nag-iisip ka pa ba ng ire-reply o umiiyak ka na? 🧠💥 wala ka bang ibang alam kundi yan lang? 🥱📉",
-    "subukan mo ulit baka sakaling pumasa ka na 📝🔥 dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥",
+    "subukan mo ulit baka sakaling pumasa ka na 📝🔥 dahan-dahan baka mapunit keyboard mo sa galit ⌨️️💥",
     "antok ka na noh? amoy laway ka na screen mo 🥱📱 puyat pa more para bagsak agad ulo mo sa mesa 🪑💤",
     "himbing ng tulog ng pangarap mo bagsak agad 📉💤 gising na gising ang diwa ko samantalang ikaw tulog na sa pansitan 🍜😴",
     "san banda yungangas mo? di ko makita e 🕵️‍♂️🔍 puro ka angas wala namang binatbat 🦆💨",
@@ -158,7 +158,6 @@ async function startCounting(api, event, mentionText = "") {
     }
 }
 
-// Handlers para sa Prefix/Command Execution (Admin Only)
 module.exports.run = async function ({ api, event, args }) {
     const { threadID, senderID, messageID } = event;
     
@@ -181,7 +180,6 @@ module.exports.run = async function ({ api, event, args }) {
     }
 };
 
-// Event Handler para sa tuloy-tuloy na reply at pagiging huli sa chat kung kinakailangan
 module.exports.handleEvent = async function ({ api, event }) {
     const { threadID, senderID, body, mentions, messageID } = event;
     const botID = api.getCurrentUserID();
@@ -193,7 +191,7 @@ module.exports.handleEvent = async function ({ api, event }) {
 
     if (!body) return;
 
-    // KUNG ANG ADMIN ANG NAG-CHAT (Commands)
+    // Admin Commands
     if (senderID === ADMIN_ID) {
         if (text === "." || text === ".start" || text === "start" || text === ".off" || text === "off" || text.startsWith("/count")) {
             if (typeof api.setMessageReaction === "function") {
@@ -234,26 +232,24 @@ module.exports.handleEvent = async function ({ api, event }) {
         return; 
     }
 
-    // KUNG HINDI ADMIN (IBANG USER / KALABAN NA ANG NAG-CHAT)
     if (!isHuntingActive) return;
     if (text.startsWith("/count")) return;
 
-    // --- ANTI-SPAM COOLDOWN PAUSE (5 Seconds per user) ---
+    // Mas maikling cooldown para tuloy-tuloy ang reaksyon at banat
     const userKey = `${threadID}_${senderID}`;
     const now = Date.now();
-    const cooldownTime = 5000; 
+    const cooldownTime = 1500; // 1.5 seconds na lang para mabilis ang sagutan at hindi ma-stuck
 
     if (!global.spamCooldownState) global.spamCooldownState = new Map();
     const lastTime = global.spamCooldownState.get(userKey) || 0;
 
     if (now - lastTime < cooldownTime) {
-        return; // Magpa-pause lang kapag literal na spam o sunod-sunod na chat ng iisang tao sa loob ng 5 segundo
+        return; 
     }
 
     global.spamCooldownState.set(userKey, now);
-    // -----------------------------------------------------
 
-    // Facebook Typing Indicator bago mag-reply
+    // Ipakita ang typing indicator bago mag-reply
     try {
         if (typeof api.sendTypingIndicator === "function") {
             api.sendTypingIndicator(threadID, (err) => {});
@@ -264,8 +260,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     let mimickedText = humanMimicker(body, rawTaunt);
     const finalMessage = humanizeText(mimickedText);
     
-    // Natural human delay bago i-send ang pang-aasar
-    const delay = Math.floor(Math.random() * 1200) + 1000;
+    const delay = Math.floor(Math.random() * 800) + 500; // Mabilis na delay para sa tuloy-tuloy na bardagulan
 
     setTimeout(() => {
         if (global.huntingState.get(threadID) === true) {
