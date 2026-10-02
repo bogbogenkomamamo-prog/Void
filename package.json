@@ -2,9 +2,10 @@
   "name": "auto-messenger-bot",
   "version": "1.0.0",
   "description": "Facebook Messenger Auto Bot with Watchdog and Anti-Crash System",
-  "main": "auto.js",
+  "main": "watchdog.js",
   "scripts": {
-    "start": "node auto.js"
+    "start": "node watchdog.js",
+    "dev": "node auto.js"
   },
   "keywords": [],
   "author": "",
