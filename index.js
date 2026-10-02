@@ -10,18 +10,31 @@ const SCRIPT_PATH = path.join(__dirname, SCRIPT_FILE);
 class BotProtectionEngine {
   constructor(options = {}) {
     this.maxMessagesPerWindow = options.maxMessages || 3;
-    this.windowMs = options.windowMs || 10000; // 10s window
-    this.cooldownMs = options.cooldownMs || 30000; // 30s block kapag nag-spam
+    this.windowMs = options.windowMs || 10000;
+    this.cooldownMs = options.cooldownMs || 30000;
     this.userHistory = new Map();
 
-    this.dedupWindowMs = options.dedupWindowMs || 5000; // 5s duplicate check
+    this.dedupWindowMs = options.dedupWindowMs || 5000;
     this.recentMessages = new Map();
 
-    this.cpm = options.cpm || 260; // Characters per minute typing speed
-    this.minDelay = options.minDelay || 800; // Minimum delay in ms
+    this.cpm = options.cpm || 260;
+    this.minDelay = options.minDelay || 800;
+
+    // AUTO CLEANUP: Lilinisin ang RAM memory tuwing 1 oras para sa 1-week stability
+    setInterval(() => this.cleanupMemory(), 60 * 60 * 1000);
   }
 
-  // LIMITER: Pag may nag-spam, dedmahin
+  cleanupMemory() {
+    const now = Date.now();
+    // Alisin ang lumang history ng users
+    for (const [userId, data] of this.userHistory.entries()) {
+      if (now > data.blockedUntil && data.timestamps.length === 0) {
+        this.userHistory.delete(userId);
+      }
+    }
+    console.log("[SYSTEM] Memory cleanup completed for long-running stability.");
+  }
+
   isSpamming(userId) {
     const now = Date.now();
     let userData = this.userHistory.get(userId) || { timestamps: [], blockedUntil: 0 };
@@ -42,7 +55,6 @@ class BotProtectionEngine {
     return false;
   }
 
-  // TRAFFIC GOVERNOR: Supress duplicate / double messages
   isDuplicate(userId, messageText) {
     if (!messageText) return false;
     const now = Date.now();
@@ -60,47 +72,47 @@ class BotProtectionEngine {
     return false;
   }
 
-  // HUMAN MIMICKER: Kalkulahin ang natural typing delay base sa haba ng text
   getTypingDelay(text) {
     if (!text) return this.minDelay;
     const delayFromLength = (text.length / (this.cpm / 60)) * 1000;
-    const variance = (Math.random() * 0.4) + 0.8; // Randomizer (±20%)
+    const variance = (Math.random() * 0.4) + 0.8;
     return Math.max(this.minDelay, Math.floor(delayFromLength * variance));
   }
 }
 
-// Global instance para magamit o ma-export
 const botProtection = new BotProtectionEngine();
 
 // ==========================================
-// 2. MAIN PROCESS STARTER
+// 2. STABLE CHILD PROCESS MANAGEMENT
 // ==========================================
-function start() {
-  console.log("[SYSTEM] Starting main bot process with Protection Engine active...");
+let childProcess = null;
 
-  const main = spawn("node", [SCRIPT_PATH], {
+function start() {
+  console.log("[SYSTEM] Starting main bot process...");
+
+  childProcess = spawn("node", [SCRIPT_PATH], {
     cwd: __dirname,
     stdio: "inherit",
     shell: true
   });
 
-  main.on("close", (exitCode) => {
-    if (exitCode === 0) {
-      console.log("Main process exited with code 0");
-    } else if (exitCode === 1) {
-      console.log("Main process exited with code 1. Restarting...");
-      start();
-    } else {
-      console.error(`Main process exited with code ${exitCode}`);
-    }
+  childProcess.on("close", (exitCode) => {
+    console.log(`[SYSTEM] Main process exited with code ${exitCode}. Reconnecting in 5 seconds...`);
+    setTimeout(() => start(), 5000); // 5 seconds interval bago mag-restart kapag nag-crash
   });
 }
 
-// I-export ang protection engine para magamit nang direkta sa auto.js kung kinakailangan
+// DAILY RESTART: Kusa nitong ire-restart ang script tuwing 24 oras para hindi mag-lag ang bot sa loob ng 1 linggo
+setInterval(() => {
+  console.log("[SYSTEM] Scheduled 24-hour refresh. Restarting bot process...");
+  if (childProcess) {
+    childProcess.kill();
+  }
+}, 24 * 60 * 60 * 1000);
+
 module.exports = {
   start,
   botProtection
 };
 
-// Patakbuhin ang bot process
 start();
