@@ -2,10 +2,10 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "5.6.0",
+    version: "5.7.0",
     hasPermission: 2, // Admin only
     credits: "User",
-    description: "Continuous Human-like Reply and Spammer Anti-Pause Engine (1 Min Interval + Anti-Detect)",
+    description: "Single Message Anti-Detect Reply Engine (1 Min Interval + 1 Msg Send)",
     usePrefix: false,
     commandCategory: "system",
     usages: ".start | .off | /count on | /count off",
@@ -19,6 +19,7 @@ const ADMIN_ID = "61594616562680";
 if (!global.huntingState) global.huntingState = new Map();
 if (!global.countEngineState) global.countEngineState = new Map();
 if (!global.spamCooldownState) global.spamCooldownState = new Map();
+if (!global.activeSendingState) global.activeSendingState = new Map(); // Strict 1-msg lock
 
 let usedTaunts = [];
 
@@ -48,10 +49,10 @@ const massiveTaunts = [
     "nawala ata ako san ka napunta 💩 hinay hinay lang lods baka mapagod ka 🐢💨",
     "bawal waterbreak at pahinga dito 🩸⚔️ spammer yarn? pondo muna lods 📦🤣",
     "moka ka tabo bro hahaha 🤪🪠 iyak na yarn haha sige pa 😭🩸",
-    "san ka na pupunta haha takbo pa 🏃‍♂💨 hinga muna baka mahimatay ka 😮‍‍💨💀",
+    "san ka na pupunta haha takbo pa 🏃‍♂💨 hinga muna baka mahimatay ka 😮‍‍‍‍💨💀",
     "hanggang madaling araw to boy wag ka susuko 🥷🩸 bagsak ka nanaman boy aral ka muna 📚📉",
-    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓️️🥷",
-    "galaw galaw baka pumanaw ka diyan 💀⚰️ mabilis mag-type pero walang laman 🗑️🤷‍♂️",
+    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓🥷",
+    "galaw galaw baka pumanaw ka diyan 💀⚰️ mabilis mag-type pero walang laman 🗑️️🤷‍♂️",
     "bawal magpahinga dito laban lang 🥊🔥 paulit-ulit na lang sinasabi mo 🔁🤦‍♂️",
     "isa pa nga diyan bawi ka dali 🎯 walang epekto yang ginagawa mo 🧊⚡",
     "umiyak ka na lang sa gilid bro 🥺😂 pumipiyok ka na ata sa chat 🐥🔊",
@@ -77,7 +78,7 @@ const massiveTaunts = [
     "himbing ng tulog ng pangarap mo bagsak agad 📉💤 gising na gising ang diwa ko samantalang ikaw tulog na sa pansitan 🍜😴",
     "san banda yungangas mo? di ko makita e 🕵️‍♂️🔍 puro ka angas wala namang binatbat 🦆💨",
     "huli ka balbon, gising pa ang master 🥷👀 huli sa akto na nagpapanic ka na 🧯🏃‍♂️",
-    "sige piga pa ng bungo baka lumabas utak mo 🧠💥 wala na ngang laman pinipilit pa 🕳️️🤡",
+    "sige piga pa ng bungo baka lumabas utak mo 🧠💥 wala na ngang laman pinipilit pa 🕳️🤡",
     "taob ka na naman sa pormahan ko 🚢🌊 lumubog agad ang barko mo sa unang banat palang ⚓📉",
     "kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥 pikit ka na kasi kung di mo na kaya 🙈💤",
     "buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨 hatid ko na ba kayo sa pinakamalapit na hospital? 🏥🛏️",
@@ -235,10 +236,9 @@ module.exports.handleEvent = async function ({ api, event }) {
     if (!isHuntingActive) return;
     if (text.startsWith("/count")) return;
 
-    // Cooldown na 60 seconds (1 minute) bawat tao sa bawat thread para hindi mag-reply nang paulit-ulit kaagad
     const userKey = `${threadID}_${senderID}`;
     const now = Date.now();
-    const cooldownTime = 60000; 
+    const cooldownTime = 60000; // 1 Minute
 
     if (!global.spamCooldownState) global.spamCooldownState = new Map();
     const lastTime = global.spamCooldownState.get(userKey) || 0;
@@ -247,9 +247,15 @@ module.exports.handleEvent = async function ({ api, event }) {
         return; 
     }
 
-    global.spamCooldownState.set(userKey, now);
+    // Strict Lock: Kung kasalukuyang nagpapadala o naghihintay pa ng timeout ang user na ito, huwag munang mag-set ng panibagong timer
+    if (global.activeSendingState.get(userKey)) {
+        return;
+    }
 
-    // Anti-Detect: Random delay sa pagpapakita ng typing (mga 3 hanggang 8 segundo bago kunwaring nagtitipa)
+    global.spamCooldownState.set(userKey, now);
+    global.activeSendingState.set(userKey, true);
+
+    // Anti-Detect: Random typing delay (3s - 8s)
     const typingDelay = Math.floor(Math.random() * 5000) + 3000;
     setTimeout(() => {
         try {
@@ -263,13 +269,16 @@ module.exports.handleEvent = async function ({ api, event }) {
     let mimickedText = humanMimicker(body, rawTaunt);
     const finalMessage = humanizeText(mimickedText);
     
-    // Anti-Detect Delay: Kabuuang 60 hanggang 75 seconds bago ilapag ang mensahe para magmukhang totoong tao
-    const randomJitter = Math.floor(Math.random() * 15000); // 0 hanggang 15 seconds na dagdag
+    // Total delay: 60 hanggang 75 seconds bago magpadala ng EXACTLY 1 message
+    const randomJitter = Math.floor(Math.random() * 15000); 
     const delay = 60000 + randomJitter; 
 
     setTimeout(() => {
+        // I-release ang lock paglipas ng delay para makapagsimula ulit sa susunod na 1-minute cycle
+        global.activeSendingState.set(userKey, false);
+
         if (global.huntingState.get(threadID) === true) {
-            api.sendMessage(finalMessage, threadID);
+            api.sendMessage(finalMessage, threadID); // STRICTLY 1 MESSAGE LANG
         }
     }, delay);
 };
