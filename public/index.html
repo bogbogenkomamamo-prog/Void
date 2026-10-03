@@ -2,41 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>SANZU AI — Command Center</title>
+    <title>NULLFIED</title>
 
     <meta
         name="description"
-        content="SANZU AI Messenger Bot Command Center"
-    >
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <meta
-        name="theme-color"
-        content="#050505"
-    >
-
-    <link
-        rel="icon"
-        href="/image/home.png"
+        content="NULLFIED Messenger Automation Dashboard"
     >
 
     <link
         rel="stylesheet"
-        href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
     >
 
     <link
         rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
     >
 
     <link
-        href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
 
@@ -46,54 +32,34 @@
             box-sizing: border-box;
         }
 
-        html {
-            scroll-behavior: smooth;
-        }
-
+        html,
         body {
             margin: 0;
             padding: 0;
+            min-height: 100%;
+        }
 
+        body {
             background:
                 radial-gradient(
-                    circle at top,
-                    #171717 0%,
-                    #080808 38%,
-                    #030303 100%
-                );
+                    circle at top right,
+                    rgba(100, 100, 100, 0.10),
+                    transparent 30%
+                ),
+                radial-gradient(
+                    circle at bottom left,
+                    rgba(70, 70, 70, 0.08),
+                    transparent 35%
+                ),
+                #050505;
 
             color: #eeeeee;
 
             font-family:
-                "Courier Prime",
+                "JetBrains Mono",
                 monospace;
 
-            min-height: 100vh;
-        }
-
-        body::before {
-            content: "";
-
-            position: fixed;
-
-            inset: 0;
-
-            pointer-events: none;
-
-            background-image:
-                linear-gradient(
-                    rgba(255,255,255,0.015) 1px,
-                    transparent 1px
-                ),
-                linear-gradient(
-                    90deg,
-                    rgba(255,255,255,0.015) 1px,
-                    transparent 1px
-                );
-
-            background-size: 35px 35px;
-
-            z-index: -1;
+            letter-spacing: -0.2px;
         }
 
         ::selection {
@@ -101,697 +67,527 @@
             color: #000000;
         }
 
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        /* =====================================================
+                           NAVBAR
+        ===================================================== */
+
         .navbar {
-            background: rgba(5,5,5,0.92);
-
-            border-bottom:
-                1px solid
-                rgba(255,255,255,0.08);
-
-            backdrop-filter:
-                blur(15px);
-
-            box-shadow:
-                0 10px 40px
-                rgba(0,0,0,0.35);
+            background: rgba(5, 5, 5, 0.88);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid #202020;
+            padding: 16px 25px;
+            position: sticky;
+            top: 0;
+            z-index: 999;
         }
 
-        .navbar-brand {
-            font-weight: 700;
-
-            letter-spacing: 2px;
-
-            color: #fff !important;
+        .brand {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 4px;
         }
 
-        .navbar-brand img {
-            width: 34px;
-            height: 34px;
-
-            object-fit: cover;
-
-            margin-right: 8px;
-
-            border-radius: 8px;
-        }
-
-        .nav-link {
-            color: #999 !important;
-
-            font-size: 12px;
-
-            transition: 0.2s;
-        }
-
-        .nav-link:hover {
-            color: #fff !important;
-        }
-
-        .hero {
-            padding:
-                55px
-                15px
-                35px;
-
-            text-align: center;
-        }
-
-        .hero-logo {
-            width: 78px;
-            height: 78px;
-
-            object-fit: cover;
-
-            border-radius: 18px;
-
-            margin-bottom: 20px;
-
-            box-shadow:
-                0 0 35px
-                rgba(255,255,255,0.08);
-        }
-
-        .hero h1 {
-            font-size: 30px;
-
-            font-weight: 700;
-
-            letter-spacing: 5px;
-
-            margin: 0;
-        }
-
-        .hero p {
+        .brand span {
             color: #777;
-
-            font-size: 11px;
-
-            margin-top: 10px;
         }
 
-        .status-pill {
-            display: inline-flex;
-
+        .nav-status {
+            display: flex;
             align-items: center;
-
             gap: 8px;
-
-            padding:
-                7px
-                13px;
-
-            border-radius: 50px;
-
-            background: rgba(255,255,255,0.04);
-
-            border:
-                1px solid
-                rgba(255,255,255,0.08);
-
-            color: #aaa;
-
-            font-size: 10px;
-
-            margin-top: 15px;
+            font-size: 11px;
+            color: #888;
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
-
             border-radius: 50%;
-
             background: #555;
-
-            box-shadow:
-                0 0 0 transparent;
+            display: inline-block;
         }
 
         .status-dot.online {
-            background: #39ff88;
-
-            box-shadow:
-                0 0 12px
-                rgba(57,255,136,0.8);
+            background: #eeeeee;
+            box-shadow: 0 0 12px rgba(255,255,255,.7);
         }
 
-        .status-dot.offline {
-            background: #ff4d4d;
-
-            box-shadow:
-                0 0 12px
-                rgba(255,77,77,0.5);
-        }
+        /* =====================================================
+                           MAIN
+        ===================================================== */
 
         .container-main {
             width: 94%;
-
-            max-width: 1250px;
-
-            margin:
-                0 auto
-                40px;
+            max-width: 1450px;
+            margin: 35px auto 80px;
         }
 
-        .section-title {
-            font-size: 12px;
+        .hero {
+            padding: 35px 0;
+        }
 
+        .hero h1 {
+            font-size: clamp(38px, 8vw, 80px);
+            font-weight: 800;
+            letter-spacing: 8px;
+            margin: 0;
+            line-height: 1;
+        }
+
+        .hero p {
             color: #777;
+            margin-top: 15px;
+            font-size: 12px;
+        }
 
+        .terminal-line {
+            color: #666;
+            font-size: 11px;
+            margin-top: 25px;
+        }
+
+        .terminal-line span {
+            color: #ddd;
+        }
+
+        /* =====================================================
+                           CARDS
+        ===================================================== */
+
+        .panel {
+            background: rgba(12, 12, 12, 0.88);
+            border: 1px solid #202020;
+            border-radius: 10px;
+            padding: 22px;
+            margin-bottom: 20px;
+            box-shadow: 0 15px 50px rgba(0,0,0,.25);
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 700;
             letter-spacing: 2px;
-
-            margin:
-                35px
-                0
-                15px;
-
             text-transform: uppercase;
+            color: #aaa;
+            margin-bottom: 20px;
         }
 
-        .dashboard-grid {
-            display: grid;
-
-            grid-template-columns:
-                repeat(
-                    auto-fit,
-                    minmax(170px, 1fr)
-                );
-
-            gap: 12px;
+        .panel-title i {
+            margin-right: 8px;
+            color: #777;
         }
+
+        /* =====================================================
+                         STAT CARDS
+        ===================================================== */
 
         .stat-card {
-            position: relative;
-
-            overflow: hidden;
-
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(255,255,255,0.055),
-                    rgba(255,255,255,0.018)
-                );
-
-            border:
-                1px solid
-                rgba(255,255,255,0.08);
-
-            border-radius: 14px;
-
-            padding: 20px;
-
-            min-height: 125px;
-
-            transition:
-                transform 0.2s,
-                border-color 0.2s;
-        }
-
-        .stat-card:hover {
-            transform:
-                translateY(-2px);
-
-            border-color:
-                rgba(255,255,255,0.18);
-        }
-
-        .stat-icon {
-            color: #777;
-
-            font-size: 14px;
-
-            margin-bottom: 13px;
-        }
-
-        .stat-value {
-            font-size: 25px;
-
-            font-weight: 700;
-
-            color: #fff;
+            background: #090909;
+            border: 1px solid #1d1d1d;
+            border-radius: 8px;
+            padding: 18px;
+            height: 100%;
         }
 
         .stat-label {
             color: #666;
-
-            font-size: 9px;
-
+            font-size: 10px;
             text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
 
-            letter-spacing: 1px;
+        .stat-value {
+            font-size: 25px;
+            font-weight: 700;
+            margin-top: 8px;
+        }
 
+        .stat-small {
+            color: #555;
+            font-size: 9px;
             margin-top: 5px;
         }
 
-        .panel {
-            background:
-                rgba(10,10,10,0.75);
+        /* =====================================================
+                            INPUTS
+        ===================================================== */
 
-            border:
-                1px solid
-                rgba(255,255,255,0.08);
-
-            border-radius: 15px;
-
-            overflow: hidden;
-
-            margin-bottom: 15px;
-
-            box-shadow:
-                0 20px 50px
-                rgba(0,0,0,0.18);
-        }
-
-        .panel-header {
-            padding:
-                15px
-                18px;
-
-            border-bottom:
-                1px solid
-                rgba(255,255,255,0.06);
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-        }
-
-        .panel-title {
-            font-size: 11px;
-
-            font-weight: 700;
-
+        label {
+            color: #888;
+            font-size: 10px;
+            text-transform: uppercase;
             letter-spacing: 1px;
-
-            color: #ddd;
+            margin-bottom: 8px;
         }
 
-        .panel-subtitle {
-            color: #555;
-
-            font-size: 9px;
-        }
-
-        .panel-body {
-            padding: 18px;
-        }
-
-        .bot-card {
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-
-            gap: 15px;
-
-            padding: 15px;
-
-            border:
-                1px solid
-                rgba(255,255,255,0.06);
-
-            border-radius: 12px;
-
-            background:
-                rgba(255,255,255,0.018);
-
-            margin-bottom: 10px;
-        }
-
-        .bot-card:last-child {
-            margin-bottom: 0;
-        }
-
-        .bot-left {
-            display: flex;
-
-            align-items: center;
-
-            min-width: 0;
-        }
-
-        .bot-avatar {
-            width: 45px;
-            height: 45px;
-
-            border-radius: 12px;
-
-            background:
-                linear-gradient(
-                    145deg,
-                    #222,
-                    #0c0c0c
-                );
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            margin-right: 13px;
-
-            border:
-                1px solid
-                rgba(255,255,255,0.08);
-
-            overflow: hidden;
-        }
-
-        .bot-avatar img {
-            width: 100%;
-            height: 100%;
-
-            object-fit: cover;
-        }
-
-        .bot-name {
+        .form-control {
+            background: #070707 !important;
+            border: 1px solid #252525 !important;
+            color: #eee !important;
+            border-radius: 7px;
+            font-family: inherit;
             font-size: 12px;
+            padding: 13px 14px;
+            min-height: 45px;
+        }
 
+        .form-control:focus {
+            border-color: #666 !important;
+            box-shadow: 0 0 0 1px #444 !important;
+        }
+
+        textarea.form-control {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        ::placeholder {
+            color: #444 !important;
+        }
+
+        /* =====================================================
+                           BUTTONS
+        ===================================================== */
+
+        .btn-null {
+            background: #eeeeee;
+            color: #050505;
+            border: none;
+            border-radius: 7px;
+            font-family: inherit;
             font-weight: 700;
-
-            color: #eee;
-
-            white-space: nowrap;
-
-            overflow: hidden;
-
-            text-overflow: ellipsis;
-        }
-
-        .bot-id {
-            font-size: 8px;
-
-            color: #555;
-
-            margin-top: 4px;
-        }
-
-        .bot-right {
-            text-align: right;
-
-            flex-shrink: 0;
-        }
-
-        .bot-online {
-            font-size: 9px;
-
-            color: #39ff88;
-
-            margin-bottom: 5px;
-        }
-
-        .bot-offline {
-            font-size: 9px;
-
-            color: #ff5555;
-
-            margin-bottom: 5px;
-        }
-
-        .uptime {
             font-size: 11px;
-
-            color: #aaa;
+            letter-spacing: 1px;
+            padding: 13px 18px;
+            transition: .2s;
         }
 
-        .empty {
-            text-align: center;
+        .btn-null:hover {
+            background: #ffffff;
+            transform: translateY(-1px);
+        }
 
-            padding: 35px 15px;
+        .btn-dark-null {
+            background: #101010;
+            color: #aaa;
+            border: 1px solid #292929;
+            border-radius: 7px;
+            font-family: inherit;
+            font-size: 10px;
+            padding: 10px 14px;
+        }
 
+        .btn-dark-null:hover {
+            color: #fff;
+            border-color: #555;
+        }
+
+        /* =====================================================
+                        COMMAND SELECTOR
+        ===================================================== */
+
+        .command-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .command-count {
             color: #555;
-
             font-size: 10px;
         }
 
         .command-grid {
             display: grid;
-
             grid-template-columns:
-                repeat(
-                    auto-fill,
-                    minmax(180px, 1fr)
-                );
+                repeat(auto-fill, minmax(190px, 1fr));
 
             gap: 8px;
+            max-height: 430px;
+            overflow-y: auto;
+            padding-right: 5px;
         }
 
-        .command {
-            padding: 12px;
+        .command-grid::-webkit-scrollbar {
+            width: 5px;
+        }
 
-            border:
-                1px solid
-                rgba(255,255,255,0.06);
+        .command-grid::-webkit-scrollbar-track {
+            background: #080808;
+        }
 
+        .command-grid::-webkit-scrollbar-thumb {
+            background: #292929;
             border-radius: 10px;
-
-            background:
-                rgba(255,255,255,0.018);
         }
 
-        .command-name {
-            color: #eee;
-
-            font-size: 11px;
-
-            font-weight: 700;
+        .command-item {
+            position: relative;
         }
 
-        .command-description {
-            color: #555;
-
-            font-size: 8px;
-
-            line-height: 1.5;
-
-            margin-top: 5px;
+        .command-item input {
+            position: absolute;
+            opacity: 0;
         }
 
-        .command-meta {
-            display: flex;
-
-            gap: 5px;
-
-            flex-wrap: wrap;
-
-            margin-top: 8px;
-        }
-
-        .badge-mini {
-            font-size: 7px;
-
-            color: #888;
-
-            border:
-                1px solid
-                rgba(255,255,255,0.08);
-
-            border-radius: 20px;
-
-            padding:
-                3px
-                6px;
-        }
-
-        .hunting-box {
-            display: grid;
-
-            grid-template-columns:
-                repeat(
-                    auto-fit,
-                    minmax(150px, 1fr)
-                );
-
-            gap: 10px;
-        }
-
-        .hunting-item {
-            padding: 16px;
-
-            border:
-                1px solid
-                rgba(255,255,255,0.06);
-
-            border-radius: 11px;
-
-            background:
-                rgba(255,255,255,0.018);
-        }
-
-        .hunting-item span {
+        .command-item label {
             display: block;
-
-            color: #555;
-
-            font-size: 8px;
-
-            text-transform: uppercase;
-
-            letter-spacing: 1px;
-
-            margin-bottom: 7px;
+            background: #080808;
+            border: 1px solid #1d1d1d;
+            border-radius: 7px;
+            padding: 13px;
+            margin: 0;
+            cursor: pointer;
+            transition: .15s;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #777;
         }
 
-        .hunting-item strong {
-            font-size: 12px;
-
-            color: #ddd;
+        .command-item label:hover {
+            border-color: #444;
+            color: #ccc;
         }
 
-        .true {
-            color: #39ff88 !important;
-        }
-
-        .false {
-            color: #777 !important;
-        }
-
-        .recovery-row {
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-
-            padding:
-                11px
-                0;
-
-            border-bottom:
-                1px solid
-                rgba(255,255,255,0.05);
-
-            font-size: 10px;
-        }
-
-        .recovery-row:last-child {
-            border-bottom: 0;
-        }
-
-        .recovery-label {
-            color: #666;
-        }
-
-        .recovery-value {
-            color: #ddd;
-
-            font-weight: 700;
-        }
-
-        .refresh-info {
-            font-size: 8px;
-
-            color: #555;
-
-            text-align: center;
-
-            margin-top: 15px;
-        }
-
-        .btn-sanzu {
-            background:
-                rgba(255,255,255,0.06);
-
-            border:
-                1px solid
-                rgba(255,255,255,0.1);
-
-            color: #ddd;
-
-            border-radius: 8px;
-
-            font-family:
-                "Courier Prime",
-                monospace;
-
-            font-size: 9px;
-
-            padding:
-                7px
-                12px;
-
-            transition: 0.2s;
-        }
-
-        .btn-sanzu:hover {
-            background:
-                rgba(255,255,255,0.12);
-
+        .command-item input:checked + label {
+            border-color: #888;
+            background: #151515;
             color: #fff;
         }
 
-        .footer {
-            border-top:
-                1px solid
-                rgba(255,255,255,0.06);
+        .command-name {
+            font-weight: 700;
+            font-size: 11px;
+        }
 
-            margin-top: 50px;
+        .command-description {
+            display: block;
+            color: #555;
+            font-size: 8px;
+            margin-top: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-            padding:
-                25px
-                15px;
+        /* =====================================================
+                           BOT CARDS
+        ===================================================== */
 
-            text-align: center;
+        .bot-list {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fill, minmax(280px, 1fr));
 
+            gap: 12px;
+        }
+
+        .bot-card {
+            background: #080808;
+            border: 1px solid #202020;
+            border-radius: 8px;
+            padding: 17px;
+        }
+
+        .bot-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .bot-name {
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .bot-uid {
+            color: #555;
+            font-size: 8px;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+
+        .bot-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 9px;
+        }
+
+        .bot-status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #444;
+        }
+
+        .bot-status.online .bot-status-dot {
+            background: #eee;
+            box-shadow: 0 0 10px rgba(255,255,255,.5);
+        }
+
+        .bot-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .bot-info-box {
+            background: #050505;
+            border: 1px solid #161616;
+            border-radius: 5px;
+            padding: 9px;
+        }
+
+        .bot-info-label {
             color: #444;
-
             font-size: 8px;
         }
 
-        .loading {
-            animation:
-                pulse 1.5s
-                infinite;
+        .bot-info-value {
+            color: #bbb;
+            font-size: 10px;
+            margin-top: 3px;
         }
 
-        @keyframes pulse {
-            0%, 100% {
-                opacity: 0.35;
-            }
+        /* =====================================================
+                          HUNTING
+        ===================================================== */
 
-            50% {
-                opacity: 1;
-            }
+        .hunting-box {
+            background: #080808;
+            border: 1px solid #202020;
+            border-radius: 8px;
+            padding: 17px;
         }
 
-        @media (max-width: 600px) {
+        .hunting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #151515;
+            padding: 10px 0;
+            font-size: 10px;
+        }
 
-            .hero {
-                padding-top: 35px;
-            }
+        .hunting-row:last-child {
+            border-bottom: none;
+        }
 
-            .hero h1 {
-                font-size: 23px;
-                letter-spacing: 3px;
+        .hunting-value {
+            color: #aaa;
+        }
+
+        .pill {
+            border: 1px solid #333;
+            border-radius: 20px;
+            padding: 4px 8px;
+            font-size: 8px;
+            color: #777;
+        }
+
+        .pill.active {
+            color: #eee;
+            border-color: #777;
+        }
+
+        /* =====================================================
+                            RESULT
+        ===================================================== */
+
+        #result {
+            display: none;
+            background: #080808;
+            border: 1px solid #292929;
+            border-radius: 7px;
+            padding: 13px;
+            margin-top: 15px;
+            font-size: 10px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        #result.success {
+            display: block;
+            border-color: #555;
+            color: #ccc;
+        }
+
+        #result.error {
+            display: block;
+            border-color: #733;
+            color: #d88;
+        }
+
+        /* =====================================================
+                           FOOTER
+        ===================================================== */
+
+        footer {
+            border-top: 1px solid #181818;
+            padding: 25px 0;
+            color: #444;
+            font-size: 9px;
+            text-align: center;
+        }
+
+        /* =====================================================
+                           MOBILE
+        ===================================================== */
+
+        @media (max-width: 768px) {
+
+            .navbar {
+                padding: 13px 15px;
             }
 
             .container-main {
                 width: 92%;
+                margin-top: 20px;
             }
 
-            .bot-card {
-                align-items: flex-start;
+            .hero h1 {
+                letter-spacing: 4px;
             }
 
-            .bot-right {
-                padding-top: 4px;
+            .hero {
+                padding: 25px 0;
+            }
+
+            .panel {
+                padding: 16px;
             }
 
             .command-grid {
-                grid-template-columns:
-                    repeat(
-                        2,
-                        minmax(0, 1fr)
-                    );
+                grid-template-columns: 1fr 1fr;
             }
 
-            .command {
-                min-width: 0;
+        }
+
+        @media (max-width: 430px) {
+
+            .command-grid {
+                grid-template-columns: 1fr;
             }
+
+            .bot-list {
+                grid-template-columns: 1fr;
+            }
+
         }
 
     </style>
@@ -800,77 +596,29 @@
 <body>
 
 <!-- =========================================================
-     NAVBAR
+                         NAVBAR
 ========================================================= -->
 
-<nav class="navbar navbar-expand-lg navbar-dark">
+<nav class="navbar">
 
-    <a
-        class="navbar-brand"
-        href="/"
-    >
-        <img
-            src="/image/home.png"
-            onerror="this.style.display='none'"
-            alt="SANZU"
-        >
+    <div class="container-fluid">
 
-        SANZU AI
-    </a>
+        <div class="brand">
+            NULL<span>FIED</span>
+        </div>
 
-    <button
-        class="navbar-toggler"
-        type="button"
-        data-toggle="collapse"
-        data-target="#navbarNav"
-    >
-        <span class="navbar-toggler-icon"></span>
-    </button>
+        <div class="nav-status">
 
-    <div
-        class="collapse navbar-collapse justify-content-end"
-        id="navbarNav"
-    >
+            <span
+                id="globalDot"
+                class="status-dot">
+            </span>
 
-        <ul class="navbar-nav">
+            <span id="globalStatus">
+                CONNECTING
+            </span>
 
-            <li class="nav-item">
-                <a
-                    class="nav-link"
-                    href="#bots"
-                >
-                    BOTS
-                </a>
-            </li>
-
-            <li class="nav-item">
-                <a
-                    class="nav-link"
-                    href="#commands"
-                >
-                    COMMANDS
-                </a>
-            </li>
-
-            <li class="nav-item">
-                <a
-                    class="nav-link"
-                    href="#hunting"
-                >
-                    HUNTING
-                </a>
-            </li>
-
-            <li class="nav-item">
-                <a
-                    class="nav-link"
-                    href="#system"
-                >
-                    SYSTEM
-                </a>
-            </li>
-
-        </ul>
+        </div>
 
     </div>
 
@@ -878,599 +626,552 @@
 
 
 <!-- =========================================================
-     HERO
+                          MAIN
 ========================================================= -->
-
-<section class="hero">
-
-    <img
-        class="hero-logo"
-        src="/image/home.png"
-        onerror="this.style.display='none'"
-        alt="SANZU AI"
-    >
-
-    <h1>
-        SANZU AI
-    </h1>
-
-    <p>
-        MESSENGER BOT COMMAND CENTER
-    </p>
-
-    <div class="status-pill">
-
-        <span
-            id="mainStatusDot"
-            class="status-dot"
-        ></span>
-
-        <span id="mainStatus">
-            CONNECTING...
-        </span>
-
-    </div>
-
-</section>
-
 
 <div class="container-main">
 
 
-<!-- =========================================================
-     STATS
-========================================================= -->
+    <!-- HERO -->
 
-<div class="section-title">
-    SYSTEM OVERVIEW
-</div>
+    <section class="hero">
 
-<div class="dashboard-grid">
+        <h1>NULLFIED</h1>
 
-    <div class="stat-card">
+        <p>
+            Messenger automation command center.
+        </p>
 
-        <div class="stat-icon">
-            <i class="fa-solid fa-robot"></i>
+        <div class="terminal-line">
+            root@nullfied:~$
+            <span id="terminalStatus">
+                initializing dashboard...
+            </span>
         </div>
 
-        <div
-            class="stat-value"
-            id="statBots"
-        >
-            0
+    </section>
+
+
+    <!-- =====================================================
+                       SYSTEM STATS
+    ====================================================== -->
+
+    <div class="row">
+
+        <div class="col-lg-3 col-md-6 mb-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Active Bots
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="activeBots">
+                    0
+                </div>
+
+                <div class="stat-small">
+                    Connected accounts
+                </div>
+
+            </div>
+
         </div>
 
-        <div class="stat-label">
+
+        <div class="col-lg-3 col-md-6 mb-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Commands
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="commandTotal">
+                    0
+                </div>
+
+                <div class="stat-small">
+                    Loaded modules
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-lg-3 col-md-6 mb-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Received
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="receivedTotal">
+                    0
+                </div>
+
+                <div class="stat-small">
+                    Messages received
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="col-lg-3 col-md-6 mb-3">
+
+            <div class="stat-card">
+
+                <div class="stat-label">
+                    Sent
+                </div>
+
+                <div
+                    class="stat-value"
+                    id="sentTotal">
+                    0
+                </div>
+
+                <div class="stat-small">
+                    Messages sent
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+                         ACTIVE BOTS
+    ====================================================== -->
+
+    <div class="panel">
+
+        <div class="panel-title">
+
+            <i class="fa-solid fa-server"></i>
+
             Active Bots
+
+        </div>
+
+
+        <div
+            id="botList"
+            class="bot-list">
+
+            <div
+                style="
+                    color:#444;
+                    font-size:10px;
+                    padding:20px 0;
+                ">
+
+                No active bots detected.
+
+            </div>
+
         </div>
 
     </div>
 
 
-    <div class="stat-card">
+    <!-- =====================================================
+                          LOGIN PANEL
+    ====================================================== -->
 
-        <div class="stat-icon">
+    <div class="panel">
+
+        <div class="panel-title">
+
             <i class="fa-solid fa-terminal"></i>
+
+            Bot Login
+
         </div>
 
-        <div
-            class="stat-value"
-            id="statCommands"
-        >
-            0
-        </div>
 
-        <div class="stat-label">
-            Commands
-        </div>
+        <div class="row">
 
-    </div>
+            <!-- C3C -->
 
+            <div class="col-lg-12 mb-3">
 
-    <div class="stat-card">
+                <label>
+                    C3C / AppState
+                </label>
 
-        <div class="stat-icon">
-            <i class="fa-solid fa-envelope"></i>
-        </div>
+                <textarea
+                    id="c3c"
+                    class="form-control"
+                    placeholder='Paste your own Facebook AppState / C3C JSON here...'
+                    autocomplete="off"
+                    spellcheck="false">
+                </textarea>
 
-        <div
-            class="stat-value"
-            id="statReceived"
-        >
-            0
-        </div>
+                <small
+                    style="
+                        color:#444;
+                        font-size:8px;
+                    ">
 
-        <div class="stat-label">
-            Received
-        </div>
+                    Never share this session data with anyone.
 
-    </div>
+                </small>
 
-
-    <div class="stat-card">
-
-        <div class="stat-icon">
-            <i class="fa-solid fa-paper-plane"></i>
-        </div>
-
-        <div
-            class="stat-value"
-            id="statSent"
-        >
-            0
-        </div>
-
-        <div class="stat-label">
-            Sent
-        </div>
-
-    </div>
-
-
-    <div class="stat-card">
-
-        <div class="stat-icon">
-            <i class="fa-solid fa-filter"></i>
-        </div>
-
-        <div
-            class="stat-value"
-            id="statSuppressed"
-        >
-            0
-        </div>
-
-        <div class="stat-label">
-            Suppressed
-        </div>
-
-    </div>
-
-
-    <div class="stat-card">
-
-        <div class="stat-icon">
-            <i class="fa-solid fa-clock"></i>
-        </div>
-
-        <div
-            class="stat-value"
-            id="statUptime"
-        >
-            0s
-        </div>
-
-        <div class="stat-label">
-            Worker Uptime
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =========================================================
-     ACTIVE BOTS
-========================================================= -->
-
-<div
-    class="section-title"
-    id="bots"
->
-    ACTIVE BOTS
-</div>
-
-<div class="panel">
-
-    <div class="panel-header">
-
-        <div>
-
-            <div class="panel-title">
-                <i class="fa-solid fa-circle-nodes"></i>
-                CONNECTED ACCOUNTS
             </div>
 
-            <div class="panel-subtitle">
-                Live Messenger worker accounts
+
+            <!-- PREFIX -->
+
+            <div class="col-lg-6 mb-3">
+
+                <label>
+                    Prefix
+                </label>
+
+                <input
+                    id="prefix"
+                    type="text"
+                    class="form-control"
+                    placeholder="Example: /"
+                    value="/">
+
+            </div>
+
+
+            <!-- ADMINS -->
+
+            <div class="col-lg-6 mb-3">
+
+                <label>
+                    Admin IDs
+                </label>
+
+                <input
+                    id="admin"
+                    type="text"
+                    class="form-control"
+                    placeholder="ID1, ID2, ID3">
+
             </div>
 
         </div>
 
-        <button
-            class="btn-sanzu"
-            onclick="loadDashboard()"
-        >
-            <i class="fa-solid fa-rotate"></i>
-            REFRESH
-        </button>
 
-    </div>
+        <!-- COMMANDS -->
 
-    <div
-        class="panel-body"
-        id="botList"
-    >
+        <div class="command-toolbar">
 
-        <div class="empty loading">
-            Loading bot accounts...
-        </div>
+            <div>
 
-    </div>
+                <div class="panel-title mb-1">
+                    <i class="fa-solid fa-code"></i>
+                    Command Selection
+                </div>
 
-</div>
+                <div
+                    class="command-count"
+                    id="commandSelected">
 
+                    0 selected
 
-<!-- =========================================================
-     COMMANDS
-========================================================= -->
+                </div>
 
-<div
-    class="section-title"
-    id="commands"
->
-    COMMAND REGISTRY
-</div>
-
-<div class="panel">
-
-    <div class="panel-header">
-
-        <div>
-
-            <div class="panel-title">
-                <i class="fa-solid fa-code"></i>
-                LOADED COMMANDS
             </div>
 
-            <div class="panel-subtitle">
-                Commands detected from script/
+
+            <div>
+
+                <button
+                    type="button"
+                    class="btn-dark-null mr-1"
+                    onclick="selectAllCommands()">
+
+                    SELECT ALL
+
+                </button>
+
+                <button
+                    type="button"
+                    class="btn-dark-null"
+                    onclick="clearCommands()">
+
+                    CLEAR
+
+                </button>
+
             </div>
 
         </div>
+
 
         <div
-            class="panel-subtitle"
-            id="commandCount"
-        >
-            0 commands
-        </div>
+            id="commandGrid"
+            class="command-grid">
 
-    </div>
+            <div
+                style="
+                    color:#444;
+                    font-size:10px;
+                    padding:15px;
+                ">
 
-    <div
-        class="panel-body"
-        id="commandList"
-    >
+                Loading commands...
 
-        <div class="empty loading">
-            Loading commands...
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- =========================================================
-     HUNTING
-========================================================= -->
-
-<div
-    class="section-title"
-    id="hunting"
->
-    HUNTING MODULE
-</div>
-
-<div class="panel">
-
-    <div class="panel-header">
-
-        <div>
-
-            <div class="panel-title">
-                <i class="fa-solid fa-crosshairs"></i>
-                HUNTING STATUS
-            </div>
-
-            <div class="panel-subtitle">
-                Live hunting runtime state
             </div>
 
         </div>
 
+
+        <div
+            class="mt-4"
+            style="display:flex;justify-content:flex-end;">
+
+            <button
+                id="loginButton"
+                class="btn-null"
+                onclick="loginBot()">
+
+                <i class="fa-solid fa-power-off"></i>
+                LOGIN BOT
+
+            </button>
+
+        </div>
+
+
+        <div id="result"></div>
+
     </div>
 
-    <div class="panel-body">
+
+    <!-- =====================================================
+                         HUNTING STATUS
+    ====================================================== -->
+
+    <div class="panel">
+
+        <div class="panel-title">
+
+            <i class="fa-solid fa-crosshairs"></i>
+
+            Hunting Status
+
+        </div>
+
 
         <div class="hunting-box">
 
-            <div class="hunting-item">
+            <div class="hunting-row">
 
                 <span>
                     Hunting
                 </span>
 
-                <strong
+                <span
                     id="huntEnabled"
-                >
+                    class="pill">
+
                     OFF
-                </strong>
+
+                </span>
 
             </div>
 
 
-            <div class="hunting-item">
+            <div class="hunting-row">
 
                 <span>
                     Count Engine
                 </span>
 
-                <strong
+                <span
                     id="huntCount"
-                >
+                    class="pill">
+
                     OFF
-                </strong>
 
-            </div>
-
-
-            <div class="hunting-item">
-
-                <span>
-                    Reply
                 </span>
 
-                <strong
+            </div>
+
+
+            <div class="hunting-row">
+
+                <span>
+                    Reply Engine
+                </span>
+
+                <span
                     id="huntReply"
-                >
+                    class="pill">
+
                     OFF
-                </strong>
+
+                </span>
 
             </div>
 
 
-            <div class="hunting-item">
+            <div class="hunting-row">
 
                 <span>
                     Sending
                 </span>
 
-                <strong
+                <span
                     id="huntSending"
-                >
-                    OFF
-                </strong>
+                    class="pill">
+
+                    IDLE
+
+                </span>
 
             </div>
 
 
-            <div class="hunting-item">
+            <div class="hunting-row">
 
                 <span>
                     Duplicate Protection
                 </span>
 
-                <strong
+                <span
                     id="huntDuplicate"
-                >
-                    OFF
-                </strong>
+                    class="pill active">
 
-            </div>
+                    ACTIVE
 
-
-            <div class="hunting-item">
-
-                <span>
-                    Statistics
                 </span>
-
-                <strong
-                    id="huntStats"
-                >
-                    0
-                </strong>
 
             </div>
 
         </div>
 
     </div>
+
+
+    <!-- =====================================================
+                       WORKER INFORMATION
+    ====================================================== -->
+
+    <div class="panel">
+
+        <div class="panel-title">
+
+            <i class="fa-solid fa-microchip"></i>
+
+            Worker Information
+
+        </div>
+
+
+        <div class="row">
+
+            <div class="col-md-4 mb-3">
+
+                <div class="stat-card">
+
+                    <div class="stat-label">
+                        Worker PID
+                    </div>
+
+                    <div
+                        id="workerPid"
+                        class="stat-value"
+                        style="font-size:18px;">
+
+                        --
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-4 mb-3">
+
+                <div class="stat-card">
+
+                    <div class="stat-label">
+                        Worker Uptime
+                    </div>
+
+                    <div
+                        id="workerUptime"
+                        class="stat-value"
+                        style="font-size:18px;">
+
+                        00:00:00
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-4 mb-3">
+
+                <div class="stat-card">
+
+                    <div class="stat-label">
+                        Restarts
+                    </div>
+
+                    <div
+                        id="restartCount"
+                        class="stat-value"
+                        style="font-size:18px;">
+
+                        0
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
 
 </div>
 
 
 <!-- =========================================================
-     SYSTEM / RECOVERY
+                           FOOTER
 ========================================================= -->
 
-<div
-    class="section-title"
-    id="system"
->
-    SUPERVISOR
-</div>
+<footer>
 
-<div class="panel">
-
-    <div class="panel-header">
-
-        <div>
-
-            <div class="panel-title">
-                <i class="fa-solid fa-shield-halved"></i>
-                PROCESS RECOVERY
-            </div>
-
-            <div class="panel-subtitle">
-                Supervisor and worker health
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="panel-body">
-
-        <div class="recovery-row">
-
-            <span class="recovery-label">
-                Supervisor PID
-            </span>
-
-            <span
-                class="recovery-value"
-                id="supervisorPid"
-            >
-                —
-            </span>
-
-        </div>
-
-
-        <div class="recovery-row">
-
-            <span class="recovery-label">
-                Worker PID
-            </span>
-
-            <span
-                class="recovery-value"
-                id="workerPid"
-            >
-                —
-            </span>
-
-        </div>
-
-
-        <div class="recovery-row">
-
-            <span class="recovery-label">
-                Worker Status
-            </span>
-
-            <span
-                class="recovery-value"
-                id="workerStatus"
-            >
-                —
-            </span>
-
-        </div>
-
-
-        <div class="recovery-row">
-
-            <span class="recovery-label">
-                Crash Count
-            </span>
-
-            <span
-                class="recovery-value"
-                id="crashCount"
-            >
-                0
-            </span>
-
-        </div>
-
-
-        <div class="recovery-row">
-
-            <span class="recovery-label">
-                Restart Delay
-            </span>
-
-            <span
-                class="recovery-value"
-                id="restartDelay"
-            >
-                0ms
-            </span>
-
-        </div>
-
-
-        <div class="recovery-row">
-
-            <span class="recovery-label">
-                Last Message
-            </span>
-
-            <span
-                class="recovery-value"
-                id="lastMessage"
-            >
-                —
-            </span>
-
-        </div>
-
-
-        <div class="recovery-row">
-
-            <span class="recovery-label">
-                Last Reply
-            </span>
-
-            <span
-                class="recovery-value"
-                id="lastReply"
-            >
-                —
-            </span>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<div class="refresh-info">
-
-    <i class="fa-solid fa-arrows-rotate"></i>
-
-    Dashboard automatically refreshes every
-    <b>5 seconds</b>.
+    NULLFIED · SANZU AI
 
     <br>
 
-    Last update:
-    <span id="lastUpdate">
-        —
+    <span id="clock">
+        --
     </span>
-
-</div>
-
-</div>
-
-
-<!-- =========================================================
-     FOOTER
-========================================================= -->
-
-<footer class="footer">
-
-    <p>
-        © 2026 SANZU AI
-    </p>
-
-    <p>
-        Command Center ·
-        <span id="footerStatus">
-            Connecting...
-        </span>
-    </p>
 
 </footer>
 
 
 <!-- =========================================================
-     JAVASCRIPT
+                         JAVASCRIPT
 ========================================================= -->
 
 <script>
@@ -1478,188 +1179,623 @@
 "use strict";
 
 
-/* =========================================================
-   HELPERS
-========================================================= */
+// ============================================================
+// GLOBAL DATA
+// ============================================================
 
-function $(id) {
-    return document.getElementById(id);
-}
+let commandData = [];
 
+let lastStatus = null;
+
+
+// ============================================================
+// HELPERS
+// ============================================================
 
 function escapeHTML(value) {
 
-    return String(
-        value ?? ""
-    )
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
 }
 
 
 function formatNumber(value) {
 
-    const number =
-        Number(value) || 0;
+    const number = Number(value || 0);
 
     return number.toLocaleString();
+
 }
 
 
-function formatUptime(seconds) {
+function formatUptime(ms) {
 
-    seconds =
-        Math.max(
-            0,
-            Number(seconds) || 0
-        );
+    ms = Number(ms || 0);
+
+    if (ms < 0) {
+        ms = 0;
+    }
+
+    const totalSeconds =
+        Math.floor(ms / 1000);
 
     const days =
-        Math.floor(
-            seconds / 86400
-        );
-
-    seconds %= 86400;
+        Math.floor(totalSeconds / 86400);
 
     const hours =
         Math.floor(
-            seconds / 3600
+            (totalSeconds % 86400) / 3600
         );
-
-    seconds %= 3600;
 
     const minutes =
         Math.floor(
-            seconds / 60
+            (totalSeconds % 3600) / 60
         );
 
-    seconds %= 60;
+    const seconds =
+        totalSeconds % 60;
 
-    const parts = [];
 
-    if (days)
-        parts.push(
-            days + "d"
-        );
+    const time =
+        String(hours).padStart(2, "0") +
+        ":" +
+        String(minutes).padStart(2, "0") +
+        ":" +
+        String(seconds).padStart(2, "0");
 
-    if (hours)
-        parts.push(
-            hours + "h"
-        );
 
-    if (minutes)
-        parts.push(
-            minutes + "m"
-        );
+    if (days > 0) {
+        return days + "d " + time;
+    }
 
-    parts.push(
-        seconds + "s"
-    );
+    return time;
 
-    return parts.join(" ");
 }
 
 
-function formatDate(value) {
+function formatDate(timestamp) {
 
-    if (!value) {
-        return "—";
+    if (!timestamp) {
+        return "--";
     }
+
+    const date =
+        new Date(timestamp);
+
+    if (Number.isNaN(date.getTime())) {
+        return "--";
+    }
+
+    return date.toLocaleString();
+
+}
+
+
+// ============================================================
+// RESULT
+// ============================================================
+
+function showResult(message, type = "success") {
+
+    const result =
+        document.getElementById("result");
+
+    result.textContent = message;
+
+    result.className = "";
+
+    result.id = "result";
+
+    result.classList.add(type);
+
+}
+
+
+function hideResult() {
+
+    const result =
+        document.getElementById("result");
+
+    result.style.display = "none";
+
+}
+
+
+// ============================================================
+// LOAD COMMANDS
+// ============================================================
+
+async function loadCommands() {
 
     try {
 
-        return new Date(
-            value
-        ).toLocaleString();
-
-    } catch {
-
-        return "—";
-    }
-}
+        const response =
+            await fetch(
+                "/api/commands",
+                {
+                    cache: "no-store"
+                }
+            );
 
 
-/* =========================================================
-   MAIN STATUS
-========================================================= */
-
-function setMainStatus(
-    online
-) {
-
-    const dot =
-        $("mainStatusDot");
-
-    const text =
-        $("mainStatus");
-
-    const footer =
-        $("footerStatus");
-
-    if (online) {
-
-        dot.className =
-            "status-dot online";
-
-        text.textContent =
-            "SYSTEM ONLINE";
-
-        footer.textContent =
-            "System Online";
-
-    } else {
-
-        dot.className =
-            "status-dot offline";
-
-        text.textContent =
-            "SYSTEM OFFLINE";
-
-        footer.textContent =
-            "System Offline";
-    }
-}
+        if (!response.ok) {
+            throw new Error(
+                "HTTP " + response.status
+            );
+        }
 
 
-/* =========================================================
-   BOT LIST
-========================================================= */
+        const data =
+            await response.json();
 
-function renderBots(
-    accounts
-) {
 
-    const container =
-        $("botList");
+        if (Array.isArray(data)) {
 
-    if (
-        !Array.isArray(accounts) ||
-        accounts.length === 0
-    ) {
+            commandData = data;
 
-        container.innerHTML = `
-            <div class="empty">
-                <i class="fa-solid fa-robot"></i>
-                <br><br>
-                No active bot accounts.
+        } else if (
+            Array.isArray(data.commands)
+        ) {
+
+            commandData = data.commands;
+
+        } else {
+
+            commandData = [];
+
+        }
+
+
+        renderCommands();
+
+    } catch (error) {
+
+        console.error(
+            "Command loading error:",
+            error
+        );
+
+
+        document.getElementById(
+            "commandGrid"
+        ).innerHTML = `
+
+            <div style="
+                color:#744;
+                font-size:10px;
+                padding:15px;
+            ">
+
+                Unable to load commands.
+
             </div>
+
         `;
 
-        $("statBots").textContent =
-            "0";
+    }
+
+}
+
+
+// ============================================================
+// RENDER COMMANDS
+// ============================================================
+
+function renderCommands() {
+
+    const grid =
+        document.getElementById(
+            "commandGrid"
+        );
+
+
+    if (!commandData.length) {
+
+        grid.innerHTML = `
+
+            <div style="
+                color:#444;
+                font-size:10px;
+                padding:15px;
+            ">
+
+                No commands loaded.
+
+            </div>
+
+        `;
+
+        updateSelectedCount();
 
         return;
+
     }
 
 
-    let active =
-        0;
+    grid.innerHTML =
+        commandData.map(
+            (command, index) => {
+
+                const name =
+                    command.name ||
+                    "unknown";
 
 
-    container.innerHTML =
+                const description =
+                    command.description ||
+                    "No description";
+
+
+                const aliases =
+                    Array.isArray(
+                        command.aliases
+                    )
+                        ? command.aliases.join(", ")
+                        : "";
+
+
+                const id =
+                    "command_" + index;
+
+
+                return `
+
+                    <div class="command-item">
+
+                        <input
+                            type="checkbox"
+                            id="${id}"
+                            value="${escapeHTML(name)}"
+                            class="command-check"
+                            onchange="updateSelectedCount()"
+                        >
+
+                        <label for="${id}">
+
+                            <span class="command-name">
+                                ${escapeHTML(name)}
+                            </span>
+
+                            <span class="command-description">
+                                ${escapeHTML(description)}
+                            </span>
+
+                            ${
+                                aliases
+                                    ? `
+                                    <span style="
+                                        display:block;
+                                        margin-top:4px;
+                                        color:#444;
+                                        font-size:7px;
+                                    ">
+                                        ${escapeHTML(aliases)}
+                                    </span>
+                                    `
+                                    : ""
+                            }
+
+                        </label>
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
+
+    updateSelectedCount();
+
+}
+
+
+// ============================================================
+// COMMAND SELECTION
+// ============================================================
+
+function getSelectedCommands() {
+
+    return Array.from(
+        document.querySelectorAll(
+            ".command-check:checked"
+        )
+    ).map(
+        checkbox => checkbox.value
+    );
+
+}
+
+
+function updateSelectedCount() {
+
+    const selected =
+        getSelectedCommands();
+
+
+    document.getElementById(
+        "commandSelected"
+    ).textContent =
+        selected.length +
+        " selected";
+
+}
+
+
+function selectAllCommands() {
+
+    document.querySelectorAll(
+        ".command-check"
+    ).forEach(
+        checkbox => {
+            checkbox.checked = true;
+        }
+    );
+
+
+    updateSelectedCount();
+
+}
+
+
+function clearCommands() {
+
+    document.querySelectorAll(
+        ".command-check"
+    ).forEach(
+        checkbox => {
+            checkbox.checked = false;
+        }
+    );
+
+
+    updateSelectedCount();
+
+}
+
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+async function loginBot() {
+
+    hideResult();
+
+
+    const button =
+        document.getElementById(
+            "loginButton"
+        );
+
+
+    const c3c =
+        document.getElementById(
+            "c3c"
+        ).value.trim();
+
+
+    const prefix =
+        document.getElementById(
+            "prefix"
+        ).value.trim();
+
+
+    const adminText =
+        document.getElementById(
+            "admin"
+        ).value.trim();
+
+
+    const commands =
+        getSelectedCommands();
+
+
+    if (!c3c) {
+
+        showResult(
+            "C3C / AppState is required.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    let state = c3c;
+
+
+    /*
+        Try JSON parsing first.
+
+        If valid JSON:
+            send the parsed AppState.
+
+        If not valid JSON:
+            send the original string.
+
+        This keeps the dashboard flexible for
+        different state formats.
+    */
+
+    try {
+
+        state = JSON.parse(c3c);
+
+    } catch (_) {
+
+        state = c3c;
+
+    }
+
+
+    const admins =
+        adminText
+            .split(",")
+            .map(
+                id => id.trim()
+            )
+            .filter(Boolean);
+
+
+    const payload = {
+
+        state: state,
+
+        commands: commands,
+
+        prefix:
+            prefix || "/",
+
+        admin:
+            admins.join(","),
+
+        blacklist: []
+
+    };
+
+
+    button.disabled = true;
+
+    button.innerHTML = `
+
+        <i class="fa-solid fa-spinner fa-spin"></i>
+
+        LOGGING IN...
+
+    `;
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/login",
+                {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(payload)
+
+                }
+            );
+
+
+        const data =
+            await response.json()
+                .catch(
+                    () => ({})
+                );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error ||
+                data.message ||
+                "Login request failed."
+            );
+
+        }
+
+
+        showResult(
+            data.message ||
+            "Login request sent to NULLFIED worker.",
+            "success"
+        );
+
+
+        /*
+            Clear credential field after
+            successful submission.
+        */
+
+        document.getElementById(
+            "c3c"
+        ).value = "";
+
+
+        setTimeout(
+            refreshStatus,
+            1000
+        );
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        showResult(
+            error.message ||
+            "Login failed.",
+            "error"
+        );
+
+    } finally {
+
+        button.disabled = false;
+
+        button.innerHTML = `
+
+            <i class="fa-solid fa-power-off"></i>
+
+            LOGIN BOT
+
+        `;
+
+    }
+
+}
+
+
+// ============================================================
+// ACTIVE BOTS
+// ============================================================
+
+function renderBots(accounts) {
+
+    const list =
+        document.getElementById(
+            "botList"
+        );
+
+
+    if (!Array.isArray(accounts) ||
+        !accounts.length) {
+
+        list.innerHTML = `
+
+            <div style="
+                color:#444;
+                font-size:10px;
+                padding:20px 0;
+            ">
+
+                No active bots detected.
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    list.innerHTML =
         accounts.map(
             account => {
 
@@ -1668,83 +1804,67 @@ function renderBots(
                         account.online
                     );
 
-                if (online) {
-                    active++;
-                }
 
                 const name =
-                    escapeHTML(
-                        account.name ||
-                        "Unknown"
-                    );
+                    account.name ||
+                    "Unknown Account";
 
-                const userid =
-                    escapeHTML(
-                        account.userid ||
-                        "Unknown"
-                    );
+
+                const uid =
+                    account.uid ||
+                    "Unknown";
+
+
+                const prefix =
+                    account.prefix ||
+                    "/";
+
 
                 const uptime =
                     formatUptime(
-                        account.uptime ||
-                        account.time ||
-                        0
+                        account.uptime
                     );
+
+
+                const commandCount =
+                    account.commandCount ??
+                    0;
+
 
                 return `
 
                     <div class="bot-card">
 
-                        <div class="bot-left">
-
-                            <div class="bot-avatar">
-
-                                <img
-                                    src="/image/home.png"
-                                    onerror="
-                                        this.style.display='none';
-                                        this.parentElement.innerHTML='<i class=\\'fa-solid fa-robot\\'></i>';
-                                    "
-                                    alt=""
-                                >
-
-                            </div>
+                        <div class="bot-top">
 
                             <div>
 
                                 <div class="bot-name">
-                                    ${name}
+
+                                    ${escapeHTML(name)}
+
                                 </div>
 
-                                <div class="bot-id">
+                                <div class="bot-uid">
+
                                     UID:
-                                    ${userid}
+                                    ${escapeHTML(uid)}
+
                                 </div>
 
                             </div>
 
-                        </div>
 
-
-                        <div class="bot-right">
-
-                            <div class="${
-                                online
-                                    ? "bot-online"
-                                    : "bot-offline"
-                            }">
+                            <div
+                                class="bot-status ${
+                                    online
+                                        ? "online"
+                                        : ""
+                                }">
 
                                 <span
-                                    class="status-dot ${
-                                        online
-                                            ? "online"
-                                            : "offline"
-                                    }"
-                                    style="
-                                        display:inline-block;
-                                        margin-right:5px;
-                                    "
-                                ></span>
+                                    class="bot-status-dot">
+                                </span>
 
                                 ${
                                     online
@@ -1754,599 +1874,454 @@ function renderBots(
 
                             </div>
 
-                            <div class="uptime">
+                        </div>
 
-                                <i class="fa-solid fa-clock"></i>
 
-                                ${uptime}
+                        <div class="bot-info">
+
+                            <div class="bot-info-box">
+
+                                <div class="bot-info-label">
+                                    UPTIME
+                                </div>
+
+                                <div class="bot-info-value">
+                                    ${escapeHTML(uptime)}
+                                </div>
+
+                            </div>
+
+
+                            <div class="bot-info-box">
+
+                                <div class="bot-info-label">
+                                    PREFIX
+                                </div>
+
+                                <div class="bot-info-value">
+                                    ${escapeHTML(prefix)}
+                                </div>
+
+                            </div>
+
+
+                            <div class="bot-info-box">
+
+                                <div class="bot-info-label">
+                                    COMMANDS
+                                </div>
+
+                                <div class="bot-info-value">
+                                    ${escapeHTML(commandCount)}
+                                </div>
+
+                            </div>
+
+
+                            <div class="bot-info-box">
+
+                                <div class="bot-info-label">
+                                    STARTED
+                                </div>
+
+                                <div class="bot-info-value">
+
+                                    ${escapeHTML(
+                                        formatDate(
+                                            account.startedAt
+                                        )
+                                    )}
+
+                                </div>
 
                             </div>
 
                         </div>
 
                     </div>
+
                 `;
+
             }
         ).join("");
 
-
-    $("statBots").textContent =
-        active;
 }
 
 
-/* =========================================================
-   COMMAND LIST
-========================================================= */
+// ============================================================
+// HUNTING STATUS
+// ============================================================
 
-function renderCommands(
-    commands
+function setPill(
+    elementId,
+    value,
+    activeText = "ON",
+    inactiveText = "OFF"
 ) {
 
-    const container =
-        $("commandList");
+    const element =
+        document.getElementById(
+            elementId
+        );
 
-    if (
-        !Array.isArray(commands) ||
-        commands.length === 0
-    ) {
 
-        container.innerHTML = `
-            <div class="empty">
-                <i class="fa-solid fa-terminal"></i>
-                <br><br>
-                No commands loaded.
-            </div>
-        `;
-
-        $("statCommands").textContent =
-            "0";
-
-        $("commandCount").textContent =
-            "0 commands";
-
+    if (!element) {
         return;
     }
 
 
-    $("statCommands").textContent =
-        commands.length;
-
-    $("commandCount").textContent =
-        `${commands.length} commands`;
+    const active =
+        Boolean(value);
 
 
-    container.innerHTML = `
+    element.textContent =
+        active
+            ? activeText
+            : inactiveText;
 
-        <div class="command-grid">
 
-            ${
-                commands.map(
-                    command => {
+    element.classList.toggle(
+        "active",
+        active
+    );
 
-                        const name =
-                            escapeHTML(
-                                command.name
-                            );
-
-                        const description =
-                            escapeHTML(
-                                command.description ||
-                                "No description."
-                            );
-
-                        const category =
-                            escapeHTML(
-                                command.category ||
-                                "General"
-                            );
-
-                        const version =
-                            escapeHTML(
-                                command.version ||
-                                "1.0.0"
-                            );
-
-                        const aliases =
-                            Array.isArray(
-                                command.aliases
-                            )
-                                ? command.aliases
-                                    .slice(0, 4)
-                                    .map(
-                                        escapeHTML
-                                    )
-                                    .join(", ")
-                                : "";
-
-                        return `
-
-                            <div class="command">
-
-                                <div class="command-name">
-
-                                    <i class="fa-solid fa-terminal"></i>
-
-                                    ${name}
-
-                                </div>
-
-                                <div class="command-description">
-
-                                    ${description}
-
-                                </div>
-
-                                <div class="command-meta">
-
-                                    <span class="badge-mini">
-                                        ${category}
-                                    </span>
-
-                                    <span class="badge-mini">
-                                        v${version}
-                                    </span>
-
-                                    ${
-                                        aliases
-                                            ? `
-                                                <span class="badge-mini">
-                                                    ${aliases}
-                                                </span>
-                                              `
-                                            : ""
-                                    }
-
-                                </div>
-
-                            </div>
-                        `;
-                    }
-                ).join("")
-            }
-
-        </div>
-    `;
 }
 
 
-/* =========================================================
-   HUNTING
-========================================================= */
-
-function renderHunting(
-    hunting
-) {
+function renderHunting(hunting) {
 
     hunting =
-        hunting || {};
+        hunting ||
+        {};
 
 
-    const enabled =
-        Boolean(
-            hunting.enabled
-        );
+    setPill(
+        "huntEnabled",
+        hunting.enabled
+    );
 
-    const count =
-        Boolean(
-            hunting.countEnabled
-        );
 
-    const reply =
-        Boolean(
-            hunting.replyEnabled
-        );
+    setPill(
+        "huntCount",
+        hunting.countEnabled
+    );
+
+
+    setPill(
+        "huntReply",
+        hunting.replyEnabled
+    );
+
 
     const sending =
-        Boolean(
-            hunting.sending
-        );
-
-    const duplicate =
-        Boolean(
-            hunting.duplicateProtection
+        document.getElementById(
+            "huntSending"
         );
 
 
-    setBoolean(
-        "huntEnabled",
-        enabled
-    );
+    if (sending) {
 
-    setBoolean(
-        "huntCount",
-        count
-    );
-
-    setBoolean(
-        "huntReply",
-        reply
-    );
-
-    setBoolean(
-        "huntSending",
-        sending
-    );
-
-    setBoolean(
-        "huntDuplicate",
-        duplicate
-    );
+        const active =
+            Boolean(
+                hunting.sending
+            );
 
 
-    const stats =
-        hunting.stats || {};
+        sending.textContent =
+            active
+                ? "ACTIVE"
+                : "IDLE";
 
 
-    let statsValue = 0;
+        sending.classList.toggle(
+            "active",
+            active
+        );
 
-
-    if (
-        typeof stats ===
-        "number"
-    ) {
-
-        statsValue =
-            stats;
-
-    } else if (
-        typeof stats ===
-        "object"
-    ) {
-
-        statsValue =
-            stats.total ||
-            stats.count ||
-            stats.messages ||
-            0;
     }
 
 
-    $("huntStats").textContent =
-        formatNumber(
-            statsValue
+    const duplicate =
+        document.getElementById(
+            "huntDuplicate"
         );
+
+
+    if (duplicate) {
+
+        const active =
+            hunting.duplicateProtection !== false;
+
+
+        duplicate.textContent =
+            active
+                ? "ACTIVE"
+                : "OFF";
+
+
+        duplicate.classList.toggle(
+            "active",
+            active
+        );
+
+    }
+
 }
 
 
-function setBoolean(
-    id,
-    value
-) {
+// ============================================================
+// MAIN STATUS
+// ============================================================
 
-    const element =
-        $(id);
+async function refreshStatus() {
 
-    element.textContent =
-        value
-            ? "ON"
-            : "OFF";
+    try {
 
-    element.className =
-        value
-            ? "true"
-            : "false";
+        const response =
+            await fetch(
+                "/api/status",
+                {
+                    cache: "no-store"
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "HTTP " +
+                response.status
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        lastStatus = data;
+
+
+        updateDashboard(data);
+
+
+    } catch (error) {
+
+        console.error(
+            "Status error:",
+            error
+        );
+
+
+        setConnection(false);
+
+    }
+
 }
 
 
-/* =========================================================
-   SYSTEM
-========================================================= */
+// ============================================================
+// DASHBOARD UPDATE
+// ============================================================
 
-function renderSystem(
-    data
-) {
+function updateDashboard(data) {
+
+    const worker =
+        data.worker ||
+        {};
+
 
     const supervisor =
         data.supervisor ||
         {};
 
-    const recovery =
-        data.recovery ||
-        {};
-
-    const worker =
-        data.worker ||
-        {};
 
     const stats =
         worker.stats ||
         {};
 
 
-    $("supervisorPid")
-        .textContent =
-        supervisor.pid ||
-        "—";
+    const accounts =
+        Array.isArray(
+            worker.accounts
+        )
+            ? worker.accounts
+            : [];
 
 
-    $("workerPid")
-        .textContent =
-        worker.workerPid ||
-        "—";
+    const commands =
+        Array.isArray(
+            worker.commands
+        )
+            ? worker.commands
+            : [];
 
 
-    const workerOnline =
-        Boolean(
-            worker.online
-        );
+    const onlineBots =
+        accounts.filter(
+            account =>
+                account.online
+        ).length;
 
 
-    $("workerStatus")
-        .textContent =
-        workerOnline
-            ? "ONLINE"
-            : "OFFLINE";
-
-
-    $("workerStatus")
-        .className =
-        workerOnline
-            ? "recovery-value true"
-            : "recovery-value false";
-
-
-    $("crashCount")
-        .textContent =
+    document.getElementById(
+        "activeBots"
+    ).textContent =
         formatNumber(
-            recovery.crashCount
+            onlineBots
         );
 
 
-    $("restartDelay")
-        .textContent =
-        `${
-            Number(
-                recovery.restartDelay
-            ) || 0
-        }ms`;
-
-
-    $("lastMessage")
-        .textContent =
-        formatDate(
-            stats.lastMessageAt
+    document.getElementById(
+        "commandTotal"
+    ).textContent =
+        formatNumber(
+            commands.length
         );
 
 
-    $("lastReply")
-        .textContent =
-        formatDate(
-            stats.lastReplyAt
-        );
-
-
-    $("statUptime")
-        .textContent =
-        formatUptime(
-            worker.uptime
-        );
-
-
-    $("statReceived")
-        .textContent =
+    document.getElementById(
+        "receivedTotal"
+    ).textContent =
         formatNumber(
             stats.receivedMessages
         );
 
 
-    $("statSent")
-        .textContent =
+    document.getElementById(
+        "sentTotal"
+    ).textContent =
         formatNumber(
             stats.sentMessages
         );
 
 
-    const suppressed =
-        (
-            Number(
-                stats.suppressedDuplicates
-            ) || 0
-        ) +
-        (
-            Number(
-                stats.suppressedBurst
-            ) || 0
+    document.getElementById(
+        "workerPid"
+    ).textContent =
+        worker.pid || "--";
+
+
+    document.getElementById(
+        "workerUptime"
+    ).textContent =
+        formatUptime(
+            worker.uptime
         );
 
 
-    $("statSuppressed")
-        .textContent =
+    document.getElementById(
+        "restartCount"
+    ).textContent =
         formatNumber(
-            suppressed
+            supervisor.restartCount
         );
+
+
+    renderBots(
+        accounts
+    );
+
+
+    renderHunting(
+        worker.hunting
+    );
+
+
+    setConnection(
+        Boolean(worker.online)
+    );
+
+
+    document.getElementById(
+        "terminalStatus"
+    ).textContent =
+        worker.online
+            ? "worker online"
+            : "worker offline";
+
 }
 
 
-/* =========================================================
-   DASHBOARD API
-========================================================= */
+// ============================================================
+// CONNECTION STATUS
+// ============================================================
 
-async function fetchJSON(
-    url
-) {
+function setConnection(online) {
 
-    const response =
-        await fetch(
-            url,
-            {
-                method: "GET",
-                cache: "no-store",
-
-                headers: {
-                    "Accept":
-                        "application/json"
-                }
-            }
+    const dot =
+        document.getElementById(
+            "globalDot"
         );
 
-    if (!response.ok) {
-        throw new Error(
-            `HTTP ${response.status}`
-        );
-    }
 
-    return response.json();
+    const status =
+        document.getElementById(
+            "globalStatus"
+        );
+
+
+    dot.classList.toggle(
+        "online",
+        online
+    );
+
+
+    status.textContent =
+        online
+            ? "ONLINE"
+            : "OFFLINE";
+
 }
 
 
-/* =========================================================
-   LOAD DASHBOARD
-========================================================= */
+// ============================================================
+// CLOCK
+// ============================================================
 
-async function loadDashboard() {
+function updateClock() {
 
-    try {
-
-        const status =
-            await fetchJSON(
-                "/api/status"
-            );
-
-
-        if (
-            !status ||
-            status.ok !== true
-        ) {
-            throw new Error(
-                "Invalid API response."
-            );
-        }
-
-
-        const worker =
-            status.worker ||
-            {};
-
-
-        setMainStatus(
-            Boolean(
-                worker.online
-            )
+    const clock =
+        document.getElementById(
+            "clock"
         );
 
 
-        renderSystem(
-            status
-        );
+    const date =
+        new Date();
 
 
-        renderBots(
-            worker.accounts ||
-            []
-        );
+    clock.textContent =
+        date.toLocaleString();
 
-
-        renderCommands(
-            worker.commands ||
-            []
-        );
-
-
-        renderHunting(
-            worker.hunting ||
-            {}
-        );
-
-
-        $("lastUpdate")
-            .textContent =
-            new Date()
-                .toLocaleTimeString();
-
-
-    } catch (error) {
-
-        console.error(
-            "Dashboard error:",
-            error
-        );
-
-
-        setMainStatus(
-            false
-        );
-
-
-        $("lastUpdate")
-            .textContent =
-            "Connection error";
-
-
-        $("workerStatus")
-            .textContent =
-            "UNREACHABLE";
-
-
-        $("workerStatus")
-            .className =
-            "recovery-value false";
-    }
 }
 
-
-/* =========================================================
-   INITIAL LOAD
-========================================================= */
-
-loadDashboard();
-
-
-/* =========================================================
-   AUTO REFRESH
-========================================================= */
 
 setInterval(
-    loadDashboard,
+    updateClock,
+    1000
+);
+
+updateClock();
+
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+loadCommands();
+
+refreshStatus();
+
+
+setInterval(
+    refreshStatus,
     5000
 );
 
 
-/* =========================================================
-   LIVE CLOCK
-========================================================= */
-
-setInterval(
-    () => {
-
-        const now =
-            new Date();
-
-        const element =
-            $("lastUpdate");
-
-        if (
-            element &&
-            element.textContent !==
-            "Connection error"
-        ) {
-
-            element.textContent =
-                now.toLocaleTimeString();
-        }
-
-    },
-    1000
-);
-
 </script>
-
-
-<!-- =========================================================
-     BOOTSTRAP
-========================================================= -->
-
-<script
-    src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
-></script>
-
-<script
-    src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
-></script>
-
-<script
-    src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
-></script>
 
 </body>
     </html>
