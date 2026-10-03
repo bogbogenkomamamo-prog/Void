@@ -1,106 +1,36 @@
-/* =========================================================
-   VOIDLESS4LGNG
-   SANZU AI
-   BLACK / RED DRAGON THEME
-   ========================================================= */
-
-* {
-    box-sizing: border-box;
-}
-
-html {
-    min-height: 100%;
-    scroll-behavior: smooth;
-}
-
-body {
+Body {
     min-height: 100vh;
     position: relative;
-
     padding: 20px;
-    margin: 0;
-
-    background-color: #050000;
-
-    font-family: 'Courier Prime', 'Courier New', sans-serif;
-
-    color: #fff;
-
-    overflow-x: hidden;
-
+    background-color: #080202;
+    font-family: 'Courier Prime', sans-serif;
+    color: #ffcccc;
     opacity: 0;
-
-    animation:
-        fadeInContent 1.2s forwards ease-in-out;
+    animation: fadeInContent 1.2s forwards ease-in-out;
 }
-
-
-/* =========================================================
-   MAIN ANIMATED BACKGROUND
-   ========================================================= */
 
 body::before {
     content: '';
-
-    position: fixed;
-
+    position: absolute;
     top: 0;
     left: 0;
-
     width: 100%;
     height: 100%;
-
-    background-image:
-        linear-gradient(
-            rgba(0, 0, 0, 0.55),
-            rgba(25, 0, 0, 0.68)
-        ),
-        url('https://i.gifer.com/2YcW.gif');
-
+    /* Dark gothic/reddish ambient background vibe */
+    background-image: url('https://i.gifer.com/origin/7b/7b848c772e2cfbc99d9154f8e0d4c1da_w200.gif');
     background-size: cover;
-
     background-position: center;
-
     background-repeat: no-repeat;
-
     background-attachment: fixed;
-
-    /*
-       IMPORTANT:
-       Positive z-index para hindi mag-black screen.
-    */
-
-    z-index: 0;
-
-    opacity: 0;
-
-    animation:
-        fadeInBackground 1.8s forwards ease-in-out;
-
-    pointer-events: none;
+    z-index: -1;
+    opacity: 0.25;
+    animation: fadeInBackground 1.8s forwards ease-in-out;
 }
-
-
-/* =========================================================
-   ALL PAGE CONTENT ABOVE BACKGROUND
-   ========================================================= */
-
-body > * {
-    position: relative;
-
-    z-index: 1;
-}
-
-
-/* =========================================================
-   PAGE ANIMATIONS
-   ========================================================= */
 
 @keyframes fadeInContent {
     from {
         opacity: 0;
     }
-
     to {
         opacity: 1;
     }
@@ -110,497 +40,298 @@ body > * {
     from {
         opacity: 0;
     }
-
     to {
-        opacity: 0.9;
+        opacity: 0.25;
     }
 }
-
-
-/* =========================================================
-   GENERAL CONTAINER
-   ========================================================= */
 
 .container {
-    position: relative;
-
-    background-image: none;
-
-    background-color:
-        rgba(8, 0, 0, 0.88);
-
+    background-image: url('');
     background-size: cover;
-
     background-repeat: no-repeat;
-
-    border: 1px solid #350000;
-
+    background-color: rgba(20, 5, 5, 0.85);
+    border: 1px solid rgba(255, 0, 0, 0.2);
     border-radius: 10px;
-
-    box-shadow:
-        0 10px 20px rgba(0, 0, 0, 0.55),
-        0 6px 6px rgba(0, 0, 0, 0.35),
-        0 0 20px rgba(255, 0, 0, 0.06);
-
+    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.5);
     padding: 20px;
-
     margin-top: 20px;
-
     margin-bottom: 10px;
-
-    backdrop-filter: blur(5px);
 }
-
-
-/* =========================================================
-   C3C CONTAINER
-   ========================================================= */
-
-.container:has(#json-data) {
-    position: relative;
-
-    overflow: hidden;
-
-    isolation: isolate;
-}
-
-
-/* =========================================================
-   ROTATING RED DRAGON
-   ========================================================= */
-
-.container:has(#json-data)::before {
-    content: '';
-
-    position: absolute;
-
-    top: 50%;
-    left: 50%;
-
-    width: 145%;
-    height: 145%;
-
-    background-image:
-        url('https://i.gifer.com/origin/7b/7b7d8bfa7962c68e146a4805bb5f769d_w200.gif');
-
-    background-size: contain;
-
-    background-position: center;
-
-    background-repeat: no-repeat;
-
-    opacity: 0.27;
-
-    mix-blend-mode: screen;
-
-    pointer-events: none;
-
-    z-index: 0;
-
-    transform:
-        translate(-50%, -50%)
-        rotate(0deg);
-
-    animation:
-        dragonFullRotation 15s linear infinite;
-
-    will-change: transform;
-}
-
-
-/* =========================================================
-   DARK MASK
-   ========================================================= */
-
-.container:has(#json-data)::after {
-    content: '';
-
-    position: absolute;
-
-    inset: 0;
-
-    background:
-        radial-gradient(
-            circle at center,
-            transparent 10%,
-            rgba(0, 0, 0, 0.12) 40%,
-            rgba(0, 0, 0, 0.45) 100%
-        );
-
-    pointer-events: none;
-
-    z-index: 1;
-}
-
-
-/* =========================================================
-   C3C CONTAINER CONTENT
-   ========================================================= */
-
-.container:has(#json-data) > * {
-    position: relative;
-
-    z-index: 2;
-}
-
-
-/* =========================================================
-   C3C / JSON DATA
-   ========================================================= */
-
-#json-data {
-    position: relative;
-
-    z-index: 3;
-
-    background-image:
-        linear-gradient(
-            rgba(5, 0, 0, 0.78),
-            rgba(12, 0, 0, 0.88)
-        ),
-        url('https://i.gifer.com/YQgT.gif');
-
-    background-size: cover;
-
-    background-position: center;
-
-    color: #fff;
-
-    background-repeat: no-repeat;
-
-    border: 1px solid #4a0000;
-
-    border-radius: 10px;
-
-    box-shadow:
-        inset 0 0 25px rgba(255, 0, 0, 0.06),
-        0 0 15px rgba(255, 0, 0, 0.08);
-
-    outline: none;
-
-    transition:
-        border-color 0.25s ease,
-        box-shadow 0.25s ease;
-}
-
-#json-data:focus {
-    border-color: #ff0000;
-
-    box-shadow:
-        0 0 18px rgba(255, 0, 0, 0.22),
-        inset 0 0 25px rgba(255, 0, 0, 0.08);
-}
-
-
-/* =========================================================
-   DRAGON ROTATION
-   ========================================================= */
-
-@keyframes dragonFullRotation {
-
-    0% {
-        transform:
-            translate(-50%, -50%)
-            rotate(0deg);
-    }
-
-    25% {
-        transform:
-            translate(-50%, -50%)
-            rotate(90deg);
-    }
-
-    50% {
-        transform:
-            translate(-50%, -50%)
-            rotate(180deg);
-    }
-
-    75% {
-        transform:
-            translate(-50%, -50%)
-            rotate(270deg);
-    }
-
-    100% {
-        transform:
-            translate(-50%, -50%)
-            rotate(360deg);
-    }
-}
-
-
-/* =========================================================
-   HEADINGS
-   ========================================================= */
 
 h1 {
-    color: #fff;
-
-    text-shadow:
-        0 0 8px rgba(255, 0, 0, 0.35);
+    color: #ff3333;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
 }
 
 label {
-    color: #ccc;
+    color: #ff9999;
+}
+
+.navbar {
+  background-color: rgba(20, 5, 5, 0.9);
+  color: #fff;
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  border-radius: 10px;
+}
+
+.navbar a {
+  color: #ff9999;
+}
+
+.navbar a:hover {
+  color: #ff3333;
+}
+
+/* Dashboard Brand styled for voidless4lgng with an animated rotating dragon element */
+.navbar-brand {
+    color: #ff3333 !important;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+}
+
+/* Rotating Dragon Logo Animation */
+.navbar-brand::before {
+    content: '🐉';
+    display: inline-block;
+    font-size: 24px;
+    animation: rotateDragon 6s linear infinite;
+    filter: drop-shadow(0 0 5px #ff0000);
+}
+
+@keyframes rotateDragon {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.navbar-toggler-icon {
+   background-color: rgba(40, 10, 10, 0.8);
+}
+
+.dropdown-menu {
+  background-color: #1a0505;
+  border: 1px solid #ff3333;
+}
+
+.centered-textarea {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    min-height: 150px;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #771111;
+    border-radius: 10px;
+    resize: none;
+    color: #fff;
+    background-color: #120303;
+}
+
+.centered-textarea:focus {
+    border-color: #ff3333;
+    outline: none;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #b30000, #4d0000);
+    border: 1px solid #ff3333;
+    border-radius: 15px;
+    font-size: 14px;
+    color: #fff;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #ff0000, #800000);
+    border: 1px solid #ff8800;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+}
+
+.success-message {
+    color: #00ff66;
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.footer {
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 12px;
+    color: #b5b5b5;
+    position: relative;
+    background-color: rgba(20, 5, 5, 0.9);
+    border-top: 1px solid rgba(255, 0, 0, 0.2);
+    width: 115%;
+    margin-left: -30px;
+    margin-bottom: -20px;
+}
+
+.footer p {
+  margin: 5px 0;
+}
+
+.footer a {
+  color: #ff9999;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.footer a:hover {
+  color: #ff3333;
+}
+
+.container-buttons {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.container-buttons .btn {
+    margin: 5px;
+}
+
+#result {
+    padding: 5px;
+    margin-top: 20px;
+    border-radius: 10px;
+    font-size: 10px;
+    color: #ffcccc;
+}
+
+.center-placeholder::placeholder {
+    text-align: center;
+    color: #884444;
+}
+
+.custom-swal {
+  background-color: #1a0505;
+  color: #fff;
+  font-size: 14px;
+  border: 1px solid #ff3333;
+}
+
+.form-check {
+    display: flex;
+    margin-top: 10px;
+    padding: 10px;
+    width: 90%;
+    align-items: center;
+    border: 1px solid #661111;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, border-color 0.3s ease; 
+    background-color: #140505;
+    font-size: 15px;
+}
+
+.form-check:hover {
+    background-color: #260a0a; 
+    border-color: #ff3333; 
+}
+
+.form-check-input {
+    margin-right: 10px; 
+    opacity: 0;
+}
+
+.disable {
+    display: none;
+}
+
+#inputOfPrefix, #inputOfAdmin {
+    padding: 10px;
+    width: 90%;
+    border: 1px solid #661111;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, border-color 0.3s ease; 
+    background-color: #140505;
+    color: #fff;
+    font-size: 15px;
+}
+
+#inputOfPrefix:focus, #inputOfAdmin:focus {
+    border-color: #ff3333;
+    outline: none;
+}
+
+#json-data {
+    background-size: cover;
+    color: #fff;
+    background-repeat: no-repeat;
+    background-color: #120303;
+}
+
+#listOfCommands, #listOfCommandsEvent, #prefixOfCommands, #adminOfCommands {
+    border: none !important;
+}
+
+#listOfCommands:not(.modal), #listOfCommandsEvent:not(.modal), #prefixOfCommands:not(.modal), #adminOfCommands:not(.modal) {
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.23);
 }
 
 .container h1 {
     position: relative;
-
     display: inline-block;
-
     padding: 10px 20px;
-
     margin-bottom: 20px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #0d0000,
-            #240000
-        );
-
-    border: 1px solid #450000;
-
+    background-color: #1a0505;
+    border: 1px solid #551111;
     border-radius: 8px;
-
-    box-shadow:
-        0 10px 20px rgba(0, 0, 0, 0.35),
-        0 6px 6px rgba(0, 0, 0, 0.23);
-
-    text-shadow:
-        0 0 10px rgba(255, 0, 0, 0.35);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
 }
 
-
-/* =========================================================
-   NAVBAR
-   ========================================================= */
-
-.navbar {
-    background:
-        linear-gradient(
-            135deg,
-            rgba(7, 0, 0, 0.95),
-            rgba(25, 0, 0, 0.90)
-        );
-
-    border: 1px solid #380000;
-
-    color: #fff;
-
-    border-radius: 10px;
-
-    box-shadow:
-        0 0 18px rgba(255, 0, 0, 0.07);
-
-    backdrop-filter: blur(6px);
+.container p {
+    line-height: 1.6;
 }
 
-.navbar a {
-    color: #fff;
-
-    transition:
-        color 0.25s ease,
-        text-shadow 0.25s ease;
+.container ul {
+    padding-left: 20px;
 }
 
-.navbar a:hover {
-    color: #ff3030;
-
-    text-shadow:
-        0 0 8px rgba(255, 0, 0, 0.55);
+.container ul li {
+    list-style: none;
 }
 
-.navbar-brand {
-    color: #fff;
-
-    text-shadow:
-        0 0 8px rgba(255, 0, 0, 0.30);
-}
-
-.navbar-toggler-icon {
-    background-color:
-        rgba(25, 0, 0, 0.9);
-
-    border-radius: 5px;
-}
-
-
-/* =========================================================
-   DROPDOWN
-   ========================================================= */
-
-.dropdown-menu {
-    background-color: #100000;
-
-    border: 1px solid #400000;
-
-    box-shadow:
-        0 10px 25px rgba(0, 0, 0, 0.55);
-}
-
-.dropdown-item {
-    color: #fff;
-}
-
-.dropdown-item:hover {
-    background-color: #2a0000;
-
+.container ul li::before {
+    content: '\2022';
     color: #ff3333;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
 }
 
-
-/* =========================================================
-   TEXTAREA
-   ========================================================= */
-
-.centered-textarea {
-    display: block;
-
-    margin: 0 auto;
-
-    width: 100%;
-
-    min-height: 150px;
-
-    padding: 10px;
-
-    box-sizing: border-box;
-
-    border: 1px solid #450000;
-
-    border-radius: 10px;
-
-    resize: none;
-
-    color: #fff;
-
-    background:
-        rgba(5, 0, 0, 0.88);
-
-    outline: none;
-
-    transition:
-        border-color 0.25s ease,
-        box-shadow 0.25s ease;
-}
-
-.centered-textarea:focus {
-    border-color: #ff0000;
-
-    box-shadow:
-        0 0 12px rgba(255, 0, 0, 0.18);
-}
-
-
-/* =========================================================
-   PRIMARY BUTTON
-   ========================================================= */
-
-.btn-primary {
-    background:
-        linear-gradient(
-            135deg,
-            #600000,
-            #b80000,
-            #ed0000
-        );
-
-    border: 1px solid #d00000;
-
-    border-radius: 15px;
-
-    font-size: 14px;
-
-    color: #fff;
-
-    box-shadow:
-        0 0 10px rgba(255, 0, 0, 0.08);
-
-    transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease,
-        filter 0.2s ease;
-}
-
-.btn-primary:hover {
-    background:
-        linear-gradient(
-            135deg,
-            #9a0000,
-            #ff0000
-        );
-
-    border: 1px solid #ff4444;
-
-    color: #fff;
-
-    transform: translateY(-2px);
-
-    box-shadow:
-        0 0 18px rgba(255, 0, 0, 0.30);
-
-    filter: brightness(1.08);
-}
-
-.btn-primary:active {
-    transform: scale(0.97);
-}
-
-
-/* =========================================================
-   SUCCESS MESSAGE
-   ========================================================= */
-
-.success-message {
-    color: #ff3333;
-
+.container ul li + li {
     margin-top: 10px;
-
-    font-size: 12px;
-
-    text-shadow:
-        0 0 7px rgba(255, 0, 0, 0.35);
 }
 
-
-/* =========================================================
-   FOOTER
-   ========================================================= */
-
-.footer {
-    padding: 10px 20px;
-
-    text-align: center;
-
-    font-size: 12px;
-
-    color: #b5b5b5;
-
-    position: relative;
-
-    background:
-        rgba(8, 0, 0, 0.92);
-
-    width: 115%;
-
-    margin-left: -30px;
-
-    margin-bottom: -20px;
-
-    border-top: 1px solid #350000;
+@media (max-width: 768px) {
+    .container h1 {
+        font-size: 18px;
+    }
 }
 
-.footer p {
-    margin: 5px 0;
+#scrollUpBtn {
+  position: fixed;
+  margin-bottom: 70px; 
+  right: 20px;
+  padding: 15px 30px;
+  font-size: 14px;
+  background-color: #4d0000;
+  color: white;
+  border: 1px solid #ff3333;
+  border-radius: 8px;
+  cursor: pointer;
+  display: none;
 }
 
-.footer a {
-    color: #ff4444;
-
-    text-decoration: none;
-
-    transition:
-       
+#scrollUpBtn:hover {
+  background-color: #ff0000;
+}
