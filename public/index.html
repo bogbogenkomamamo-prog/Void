@@ -13,9 +13,7 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
-        <a class="navbar-brand" href="#">
-          <span class="brand-dragon">🐉</span> voidless4lgng
-        </a>
+        <a class="navbar-brand" href="#">voidless4lgng</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -45,10 +43,9 @@
     </nav>
     
     <div class="container">
-        <h1 class="col text-center" style="font-size: 20px; padding: 10px;">voidless4lgng AI 🐉</h1>
+        <h1 class="col text-center" style="font-size: 20px; padding: 10px;">voidless4lgng AI</h1>
         <p style="font-size: 10px; text-align: center;">Version: 1.0.1</p>
         
-        <!-- C3C/Image box layout intact as requested -->
         <form id="json-form">
             <div class="row">
                 <div class="col-md-12">
@@ -59,11 +56,13 @@
         <p style="margin-top: 15px; font-size: 12px; text-align: left;">Greetings! Begin by entering your cookie. Scroll down to see other features.</p>
     </div>
 
+    <!-- Dito lalabas ang commands list na galing sa script.js mo -->
     <div class="container" id="listOfCommands">
         <h1 style="font-size: 12px; padding: 10px;">Please choose your commands by tapping on the respective options.</h1>
-         <button class="btn btn-primary" onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');">SELECT ALL COMMANDS</button>
+        <button class="btn btn-primary" onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');">SELECT ALL COMMANDS</button>
     </div>
     
+    <!-- Dito lalabas ang event commands na galing sa script.js mo -->
     <div class="container" id="listOfCommandsEvent">
         <h1 style="font-size: 12px; padding: 10px;">Please choose your event commands by tapping on the respective options.</h1>
         <button class="btn btn-primary" onclick="selectAllEvents(); scrollToSection('prefixOfCommands');">SELECT ALL EVENTS</button>
@@ -79,7 +78,7 @@
         <input type="text" id="inputOfAdmin" placeholder="Admin userID">
     </div>
     
-    <label style="font-size: 10px; display: flex; align-items: center; padding: 22px;">
+    <label style="font-size: 10px; display: flex; align-items: center; padding: 22px; color: #ffcccc;">
         <input type="checkbox" id="agreeCheckbox" style="margin-right: 10px;"> Checking this box certifies that I have read, understood, and agreed to the Terms and Conditions.
     </label>
     
