@@ -1,54 +1,131 @@
 "use strict";
 
-const { spawn } = require("child_process");
+/*
+ * ============================================================
+ * SANZU AI — BOT SUPERVISOR
+ * Framework:
+ *   index.js
+ *      └── auto.js
+ *            └── script/*
+ *
+ * PURPOSE:
+ *   - Process supervision
+ *   - Crash recovery
+ *   - Health monitoring
+ *   - Dashboard API
+ *   - Safe restart
+ *   - Runtime statistics
+ *   - Resource protection
+ *   - Graceful shutdown
+ *
+ * NOTE:
+ *   This supervisor does NOT attempt to evade platform
+ *   detection or impersonate a human.
+ * ============================================================
+ */
+
+const {
+  spawn
+} = require("child_process");
+
 const path = require("path");
+const fs = require("fs");
+const http = require("http");
 
 // ============================================================
-// BOT SUPERVISOR
+// PATHS
 // ============================================================
+
+const ROOT_DIR = __dirname;
 
 const SCRIPT_FILE = "auto.js";
-const SCRIPT_PATH = path.join(__dirname, SCRIPT_FILE);
+
+const SCRIPT_PATH =
+  path.join(ROOT_DIR, SCRIPT_FILE);
 
 // ============================================================
 // CONFIGURATION
 // ============================================================
 
 const CONFIG = {
+
+  // ----------------------------------------------------------
+  // SERVER
+  // ----------------------------------------------------------
+
+  host:
+    process.env.HOST ||
+    "0.0.0.0",
+
+  port:
+    Number(
+      process.env.PORT ||
+      3000
+    ),
+
   // ----------------------------------------------------------
   // PROCESS RECOVERY
   // ----------------------------------------------------------
 
-  initialRestartDelay: 5_000,
+  initialRestartDelay:
+    5_000,
 
-  maxRestartDelay: 60_000,
+  maxRestartDelay:
+    60_000,
 
-  backoffMultiplier: 2,
+  backoffMultiplier:
+    2,
 
   // ----------------------------------------------------------
   // CRASH PROTECTION
   // ----------------------------------------------------------
 
-  crashWindow: 60_000,
+  crashWindow:
+    60_000,
 
-  maxCrashesInWindow: 5,
+  maxCrashesInWindow:
+    5,
 
-  crashPause: 5 * 60_000,
+  crashPause:
+    5 * 60_000,
 
   // ----------------------------------------------------------
   // HEALTH MONITOR
   // ----------------------------------------------------------
 
-  healthCheckInterval: 30_000,
+  healthCheckInterval:
+    30_000,
 
   // ----------------------------------------------------------
   // SHUTDOWN
   // ----------------------------------------------------------
 
-  shutdownTimeout: 10_000,
+  shutdownTimeout:
+    10_000,
 
-  // Prevent multiple start() calls
-  startLockMs: 3_000
+  // ----------------------------------------------------------
+  // START LOCK
+  // ----------------------------------------------------------
+
+  startLockMs:
+    3_000,
+
+  // ----------------------------------------------------------
+  // DASHBOARD RATE LIMIT
+  // ----------------------------------------------------------
+
+  dashboardWindow:
+    60_000,
+
+  dashboardMaxRequests:
+    120,
+
+  // ----------------------------------------------------------
+  // STATS
+  // ----------------------------------------------------------
+
+  statsRetention:
+    100
 };
 
 // ============================================================
@@ -63,6 +140,8 @@ let healthTimer = null;
 
 let forceKillTimer = null;
 
+let shutdownTimer = null;
+
 let shuttingDown = false;
 
 let starting = false;
@@ -76,22 +155,66 @@ let processStartedAt = 0;
 
 let lastStartAttempt = 0;
 
+let lastExit = null;
+
+let lastError = null;
+
+let totalStarts = 0;
+
+let totalRestarts = 0;
+
+let totalCrashes = 0;
+
+let totalHealthyChecks = 0;
+
+let totalDashboardRequests = 0;
+
+let bootTime = Date.now();
+
+// ============================================================
+// DASHBOARD RATE LIMIT STATE
+// ============================================================
+
+const dashboardRate =
+  new Map();
+
 // ============================================================
 // LOGGING
 // ============================================================
 
 function log(message) {
+
   console.log(
     `[${new Date().toISOString()}] ${message}`
   );
 }
 
 // ============================================================
-// CRASH HISTORY CLEANUP
+// SAFE JSON
+// ============================================================
+
+function safeJSON(value) {
+
+  try {
+
+    return JSON.stringify(
+      value
+    );
+
+  } catch (_) {
+
+    return "{}";
+  }
+}
+
+// ============================================================
+// CLEAN CRASH HISTORY
 // ============================================================
 
 function cleanCrashHistory() {
-  const now = Date.now();
+
+  const now =
+    Date.now();
 
   crashHistory =
     crashHistory.filter(
@@ -106,10 +229,489 @@ function cleanCrashHistory() {
 // ============================================================
 
 function clearRestartTimer() {
+
   if (restartTimer) {
-    clearTimeout(restartTimer);
+
+    clearTimeout(
+      restartTimer
+    );
+
     restartTimer = null;
   }
+}
+
+// ============================================================
+// CLEAR SHUTDOWN TIMER
+// ============================================================
+
+function clearShutdownTimer() {
+
+  if (shutdownTimer) {
+
+    clearTimeout(
+      shutdownTimer
+    );
+
+    shutdownTimer = null;
+  }
+}
+
+// ============================================================
+// CHECK AUTO.JS
+// ============================================================
+
+function scriptExists() {
+
+  try {
+
+    return fs.existsSync(
+      SCRIPT_PATH
+    );
+
+  } catch (_) {
+
+    return false;
+  }
+}
+
+// ============================================================
+// PROCESS STATUS
+// ============================================================
+
+function getProcessStatus() {
+
+  if (!childProcess) {
+
+    return {
+      online: false,
+      pid: null,
+      uptime: 0
+    };
+  }
+
+  const uptime =
+    Math.max(
+      0,
+      Math.floor(
+        (
+          Date.now() -
+          processStartedAt
+        ) / 1000
+      )
+    );
+
+  return {
+    online: true,
+    pid: childProcess.pid,
+    uptime
+  };
+}
+
+// ============================================================
+// CRASH STATUS
+// ============================================================
+
+function getCrashStatus() {
+
+  cleanCrashHistory();
+
+  return {
+
+    crashesInWindow:
+      crashHistory.length,
+
+    maxCrashes:
+      CONFIG.maxCrashesInWindow,
+
+    crashWindow:
+      CONFIG.crashWindow,
+
+    recoveryPaused:
+      Boolean(
+        restartTimer &&
+        crashHistory.length >=
+        CONFIG.maxCrashesInWindow
+      )
+  };
+}
+
+// ============================================================
+// FULL STATUS
+// ============================================================
+
+function getStatus() {
+
+  const processStatus =
+    getProcessStatus();
+
+  return {
+
+    ok: true,
+
+    service:
+      "SANZU AI",
+
+    framework:
+      "index.js → auto.js",
+
+    node:
+      process.version,
+
+    platform:
+      process.platform,
+
+    architecture:
+      process.arch,
+
+    supervisor: {
+
+      online:
+        true,
+
+      pid:
+        process.pid,
+
+      uptime:
+        Math.floor(
+          (
+            Date.now() -
+            bootTime
+          ) / 1000
+        )
+    },
+
+    autojs:
+      processStatus,
+
+    recovery:
+      getCrashStatus(),
+
+    statistics: {
+
+      starts:
+        totalStarts,
+
+      restarts:
+        totalRestarts,
+
+      crashes:
+        totalCrashes,
+
+      healthyChecks:
+        totalHealthyChecks,
+
+      dashboardRequests:
+        totalDashboardRequests
+    },
+
+    lastExit,
+
+    lastError,
+
+    timestamp:
+      new Date().toISOString()
+  };
+}
+
+// ============================================================
+// SEND JSON
+// ============================================================
+
+function sendJSON(
+  response,
+  statusCode,
+  data
+) {
+
+  const body =
+    safeJSON(data);
+
+  response.statusCode =
+    statusCode;
+
+  response.setHeader(
+    "Content-Type",
+    "application/json; charset=utf-8"
+  );
+
+  response.setHeader(
+    "Cache-Control",
+    "no-store"
+  );
+
+  response.end(
+    body
+  );
+}
+
+// ============================================================
+// DASHBOARD RATE LIMIT
+// ============================================================
+
+function dashboardAllowed(
+  request
+) {
+
+  const ip =
+    request.socket?.remoteAddress ||
+    "unknown";
+
+  const now =
+    Date.now();
+
+  let entry =
+    dashboardRate.get(ip);
+
+  if (!entry) {
+
+    entry = {
+      started: now,
+      count: 0
+    };
+
+    dashboardRate.set(
+      ip,
+      entry
+    );
+  }
+
+  if (
+    now - entry.started >=
+    CONFIG.dashboardWindow
+  ) {
+
+    entry.started = now;
+    entry.count = 0;
+  }
+
+  entry.count++;
+
+  if (
+    entry.count >
+    CONFIG.dashboardMaxRequests
+  ) {
+
+    return false;
+  }
+
+  return true;
+}
+
+// ============================================================
+// DASHBOARD SERVER
+// ============================================================
+
+const dashboardServer =
+  http.createServer(
+    (request, response) => {
+
+      totalDashboardRequests++;
+
+      if (
+        !dashboardAllowed(
+          request
+        )
+      ) {
+
+        sendJSON(
+          response,
+          429,
+          {
+            ok: false,
+            error:
+              "Too many dashboard requests"
+          }
+        );
+
+        return;
+      }
+
+      const url =
+        new URL(
+          request.url,
+          `http://${CONFIG.host}:${CONFIG.port}`
+        );
+
+      // ------------------------------------------------------
+      // ROOT
+      // ------------------------------------------------------
+
+      if (
+        url.pathname === "/" ||
+        url.pathname === "/health"
+      ) {
+
+        sendJSON(
+          response,
+          200,
+          {
+            ok: true,
+            service:
+              "SANZU AI",
+            status:
+              getProcessStatus(),
+            timestamp:
+              new Date().toISOString()
+          }
+        );
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // STATUS
+      // ------------------------------------------------------
+
+      if (
+        url.pathname ===
+        "/api/status"
+      ) {
+
+        sendJSON(
+          response,
+          200,
+          getStatus()
+        );
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // BOT STATUS
+      // ------------------------------------------------------
+
+      if (
+        url.pathname ===
+        "/api/bot/status"
+      ) {
+
+        sendJSON(
+          response,
+          200,
+          {
+            ok: true,
+            ...getProcessStatus(),
+            timestamp:
+              new Date().toISOString()
+          }
+        );
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // RECOVERY
+      // ------------------------------------------------------
+
+      if (
+        url.pathname ===
+        "/api/recovery"
+      ) {
+
+        sendJSON(
+          response,
+          200,
+          {
+            ok: true,
+            ...getCrashStatus(),
+            restartDelay,
+            timestamp:
+              new Date().toISOString()
+          }
+        );
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // RESTART
+      // ------------------------------------------------------
+
+      if (
+        url.pathname ===
+        "/api/restart"
+      ) {
+
+        if (
+          request.method !==
+          "POST"
+        ) {
+
+          sendJSON(
+            response,
+            405,
+            {
+              ok: false,
+              error:
+                "POST required"
+            }
+          );
+
+          return;
+        }
+
+        restart();
+
+        sendJSON(
+          response,
+          200,
+          {
+            ok: true,
+            message:
+              "Restart requested"
+          }
+        );
+
+        return;
+      }
+
+      // ------------------------------------------------------
+      // 404
+      // ------------------------------------------------------
+
+      sendJSON(
+        response,
+        404,
+        {
+          ok: false,
+          error:
+            "Endpoint not found"
+        }
+      );
+    }
+  );
+
+// ============================================================
+// START DASHBOARD SERVER
+// ============================================================
+
+function startDashboard() {
+
+  dashboardServer.listen(
+    CONFIG.port,
+    CONFIG.host,
+    () => {
+
+      log(
+        `[DASHBOARD] API listening on ${CONFIG.host}:${CONFIG.port}`
+      );
+
+      log(
+        `[DASHBOARD] Status endpoint: /api/status`
+      );
+
+    }
+  );
+
+  dashboardServer.on(
+    "error",
+    error => {
+
+      log(
+        `[DASHBOARD ERROR] ${error.message}`
+      );
+    }
+  );
 }
 
 // ============================================================
@@ -117,10 +719,6 @@ function clearRestartTimer() {
 // ============================================================
 
 function start() {
-
-  // ----------------------------------------------------------
-  // SHUTDOWN CHECK
-  // ----------------------------------------------------------
 
   if (shuttingDown) {
     return;
@@ -140,6 +738,24 @@ function start() {
   }
 
   // ----------------------------------------------------------
+  // FILE CHECK
+  // ----------------------------------------------------------
+
+  if (!scriptExists()) {
+
+    lastError =
+      "auto.js was not found.";
+
+    log(
+      `[SYSTEM] ${lastError}`
+    );
+
+    scheduleRestart();
+
+    return;
+  }
+
+  // ----------------------------------------------------------
   // START LOCK
   // ----------------------------------------------------------
 
@@ -147,16 +763,19 @@ function start() {
     return;
   }
 
-  const now = Date.now();
+  const now =
+    Date.now();
 
   if (
     now - lastStartAttempt <
     CONFIG.startLockMs
   ) {
+
     return;
   }
 
-  lastStartAttempt = now;
+  lastStartAttempt =
+    now;
 
   starting = true;
 
@@ -177,31 +796,47 @@ function start() {
 
   try {
 
-    child = spawn(
-      process.execPath,
-      [SCRIPT_PATH],
-      {
-        cwd: __dirname,
+    child =
+      spawn(
+        process.execPath,
+        [
+          SCRIPT_PATH
+        ],
+        {
+          cwd:
+            ROOT_DIR,
 
-        stdio: "inherit",
+          stdio:
+            "inherit",
 
-        shell: false,
+          shell:
+            false,
 
-        env: {
-          ...process.env,
+          env: {
 
-          NODE_ENV:
-            process.env.NODE_ENV ||
-            "production",
+            ...process.env,
 
-          BOT_SUPERVISOR: "true"
+            NODE_ENV:
+              process.env.NODE_ENV ||
+              "production",
+
+            BOT_SUPERVISOR:
+              "true",
+
+            BOT_SUPERVISOR_PID:
+              String(
+                process.pid
+              )
+          }
         }
-      }
-    );
+      );
 
   } catch (error) {
 
     starting = false;
+
+    lastError =
+      error.message;
 
     log(
       `[SYSTEM] Failed to spawn auto.js: ${error.message}`
@@ -212,47 +847,74 @@ function start() {
     return;
   }
 
-  childProcess = child;
+  childProcess =
+    child;
 
   starting = false;
+
+  totalStarts++;
 
   log(
     `[SYSTEM] auto.js started. PID=${child.pid}`
   );
 
   // ==========================================================
-  // CHILD PROCESS ERROR
+  // CHILD ERROR
   // ==========================================================
 
   child.on(
     "error",
     error => {
 
+      lastError =
+        error.message;
+
       log(
         `[CHILD ERROR] ${error.message}`
       );
-
     }
   );
 
   // ==========================================================
-  // CHILD PROCESS EXIT
+  // CHILD EXIT
   // ==========================================================
 
   child.on(
     "close",
-    (exitCode, signal) => {
+    (
+      exitCode,
+      signal
+    ) => {
 
       const runtime =
         Date.now() -
         processStartedAt;
 
-      // Only clear current process
       if (
         childProcess === child
       ) {
-        childProcess = null;
+
+        childProcess =
+          null;
       }
+
+      lastExit = {
+
+        code:
+          exitCode,
+
+        signal:
+          signal ||
+          null,
+
+        runtime:
+          Math.floor(
+            runtime / 1000
+          ),
+
+        timestamp:
+          new Date().toISOString()
+      };
 
       // ------------------------------------------------------
       // SHUTDOWN
@@ -268,7 +930,7 @@ function start() {
       }
 
       // ------------------------------------------------------
-      // LOG EXIT
+      // LOG
       // ------------------------------------------------------
 
       log(
@@ -292,10 +954,14 @@ function start() {
           CONFIG.initialRestartDelay;
 
         crashHistory = [];
+
+      } else {
+
+        totalCrashes++;
       }
 
       // ------------------------------------------------------
-      // RECORD CRASH/EXIT
+      // RECORD EXIT
       // ------------------------------------------------------
 
       crashHistory.push(
@@ -327,9 +993,13 @@ function start() {
           setTimeout(
             () => {
 
-              restartTimer = null;
+              restartTimer =
+                null;
 
-              if (shuttingDown) {
+              if (
+                shuttingDown
+              ) {
+
                 return;
               }
 
@@ -337,7 +1007,8 @@ function start() {
                 "[RECOVERY] Crash pause finished. Resuming auto.js."
               );
 
-              crashHistory = [];
+              crashHistory =
+                [];
 
               restartDelay =
                 CONFIG.initialRestartDelay;
@@ -351,6 +1022,7 @@ function start() {
         if (
           restartTimer.unref
         ) {
+
           restartTimer.unref();
         }
 
@@ -403,9 +1075,13 @@ function scheduleRestart() {
     setTimeout(
       () => {
 
-        restartTimer = null;
+        restartTimer =
+          null;
 
-        if (!shuttingDown) {
+        if (
+          !shuttingDown
+        ) {
+
           start();
         }
 
@@ -416,6 +1092,7 @@ function scheduleRestart() {
   if (
     restartTimer.unref
   ) {
+
     restartTimer.unref();
   }
 }
@@ -430,8 +1107,10 @@ function restart() {
     return;
   }
 
+  totalRestarts++;
+
   // ----------------------------------------------------------
-  // START IF NOT RUNNING
+  // NOT RUNNING
   // ----------------------------------------------------------
 
   if (!childProcess) {
@@ -449,25 +1128,30 @@ function restart() {
   }
 
   // ----------------------------------------------------------
-  // STOP CURRENT PROCESS
+  // RUNNING
   // ----------------------------------------------------------
 
+  const child =
+    childProcess;
+
   log(
-    `[SYSTEM] Restart requested for PID=${childProcess.pid}`
+    `[SYSTEM] Restart requested for PID=${child.pid}`
   );
 
   try {
 
-    childProcess.kill(
+    child.kill(
       "SIGTERM"
     );
 
   } catch (error) {
 
+    lastError =
+      error.message;
+
     log(
       `[SYSTEM] Restart error: ${error.message}`
     );
-
   }
 }
 
@@ -495,7 +1179,10 @@ function startHealthMonitor() {
             "[HEALTH] auto.js is not running."
           );
 
-          if (!restartTimer) {
+          if (
+            !restartTimer
+          ) {
+
             start();
           }
 
@@ -514,6 +1201,8 @@ function startHealthMonitor() {
             ) / 1000
           );
 
+        totalHealthyChecks++;
+
         log(
           `[HEALTH] auto.js OK | PID=${childProcess.pid} | uptime=${uptime}s`
         );
@@ -525,8 +1214,79 @@ function startHealthMonitor() {
   if (
     healthTimer.unref
   ) {
+
     healthTimer.unref();
   }
+}
+
+// ============================================================
+// MEMORY MONITOR
+// ============================================================
+
+function getMemoryStatus() {
+
+  const memory =
+    process.memoryUsage();
+
+  return {
+
+    rss:
+      memory.rss,
+
+    heapUsed:
+      memory.heapUsed,
+
+    heapTotal:
+      memory.heapTotal,
+
+    external:
+      memory.external,
+
+    arrayBuffers:
+      memory.arrayBuffers
+  };
+}
+
+// ============================================================
+// MEMORY LOG
+// ============================================================
+
+function startMemoryMonitor() {
+
+  setInterval(
+    () => {
+
+      if (
+        shuttingDown
+      ) {
+
+        return;
+      }
+
+      const memory =
+        getMemoryStatus();
+
+      const rssMB =
+        Math.round(
+          memory.rss /
+          1024 /
+          1024
+        );
+
+      const heapMB =
+        Math.round(
+          memory.heapUsed /
+          1024 /
+          1024
+        );
+
+      log(
+        `[MEMORY] RSS=${rssMB}MB | Heap=${heapMB}MB`
+      );
+
+    },
+    60_000
+  ).unref();
 }
 
 // ============================================================
@@ -552,7 +1312,7 @@ function shutdown(signal) {
   clearRestartTimer();
 
   // ----------------------------------------------------------
-  // STOP HEALTH MONITOR
+  // HEALTH TIMER
   // ----------------------------------------------------------
 
   if (healthTimer) {
@@ -561,8 +1321,26 @@ function shutdown(signal) {
       healthTimer
     );
 
-    healthTimer = null;
+    healthTimer =
+      null;
   }
+
+  // ----------------------------------------------------------
+  // DASHBOARD
+  // ----------------------------------------------------------
+
+  try {
+
+    dashboardServer.close(
+      () => {
+
+        log(
+          "[DASHBOARD] Server closed."
+        );
+      }
+    );
+
+  } catch (_) {}
 
   // ----------------------------------------------------------
   // CURRENT CHILD
@@ -571,7 +1349,8 @@ function shutdown(signal) {
   const child =
     childProcess;
 
-  childProcess = null;
+  childProcess =
+    null;
 
   // ----------------------------------------------------------
   // NO CHILD
@@ -589,7 +1368,7 @@ function shutdown(signal) {
   }
 
   // ----------------------------------------------------------
-  // GRACEFUL STOP
+  // SIGTERM
   // ----------------------------------------------------------
 
   try {
@@ -610,7 +1389,7 @@ function shutdown(signal) {
   }
 
   // ----------------------------------------------------------
-  // FORCE STOP FALLBACK
+  // FORCE KILL
   // ----------------------------------------------------------
 
   forceKillTimer =
@@ -620,7 +1399,8 @@ function shutdown(signal) {
         try {
 
           if (
-            child.exitCode === null
+            child.exitCode ===
+            null
           ) {
 
             log(
@@ -638,24 +1418,20 @@ function shutdown(signal) {
       CONFIG.shutdownTimeout
     );
 
-  if (
-    forceKillTimer.unref
-  ) {
-    forceKillTimer.unref();
-  }
-
   // ----------------------------------------------------------
-  // EXIT SUPERVISOR
+  // FINAL EXIT
   // ----------------------------------------------------------
 
-  setTimeout(
-    () => {
+  shutdownTimer =
+    setTimeout(
+      () => {
 
-      process.exit(0);
+        process.exit(0);
 
-    },
-    CONFIG.shutdownTimeout + 1_000
-  );
+      },
+      CONFIG.shutdownTimeout +
+        1_000
+    );
 }
 
 // ============================================================
@@ -665,14 +1441,20 @@ function shutdown(signal) {
 process.on(
   "SIGINT",
   () => {
-    shutdown("SIGINT");
+
+    shutdown(
+      "SIGINT"
+    );
   }
 );
 
 process.on(
   "SIGTERM",
   () => {
-    shutdown("SIGTERM");
+
+    shutdown(
+      "SIGTERM"
+    );
   }
 );
 
@@ -684,8 +1466,12 @@ process.on(
   "uncaughtException",
   error => {
 
+    lastError =
+      error.stack ||
+      error.message;
+
     log(
-      `[FATAL] ${error.stack || error.message}`
+      `[FATAL] ${lastError}`
     );
 
     shutdown(
@@ -702,13 +1488,19 @@ process.on(
   "unhandledRejection",
   reason => {
 
+    lastError =
+      reason?.stack ||
+      String(reason);
+
     log(
-      `[WARNING] Unhandled rejection: ${
-        reason?.stack ||
-        reason
-      }`
+      `[WARNING] Unhandled rejection: ${lastError}`
     );
 
+    /*
+     * Do not immediately kill the supervisor.
+     * auto.js can continue running if the rejection
+     * is recoverable.
+     */
   }
 );
 
@@ -717,9 +1509,16 @@ process.on(
 // ============================================================
 
 module.exports = {
+
   start,
+
   restart,
-  shutdown
+
+  shutdown,
+
+  getStatus,
+
+  getProcessStatus
 };
 
 // ============================================================
@@ -731,7 +1530,11 @@ log(
 );
 
 log(
-  "BOT SUPERVISOR STARTING"
+  "SANZU AI BOT SUPERVISOR"
+);
+
+log(
+  "============================================================"
 );
 
 log(
@@ -743,7 +1546,15 @@ log(
 );
 
 log(
+  `Architecture: ${process.arch}`
+);
+
+log(
   `Script: ${SCRIPT_PATH}`
+);
+
+log(
+  `Dashboard Port: ${CONFIG.port}`
 );
 
 log(
@@ -763,6 +1574,14 @@ log(
 );
 
 log(
+  "Dashboard API: ENABLED"
+);
+
+log(
+  "Memory monitor: ENABLED"
+);
+
+log(
   "Graceful shutdown: ENABLED"
 );
 
@@ -771,9 +1590,13 @@ log(
 );
 
 // ============================================================
-// START
+// START SERVICES
 // ============================================================
+
+startDashboard();
 
 start();
 
 startHealthMonitor();
+
+startMemoryMonitor();
