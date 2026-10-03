@@ -1,4 +1,4 @@
-Body {
+body {
     min-height: 100vh;
     position: relative;
     padding: 20px;
@@ -16,7 +16,7 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    /* Dark gothic/reddish ambient background vibe */
+    /* Dark aesthetic background vibe */
     background-image: url('https://i.gifer.com/origin/7b/7b848c772e2cfbc99d9154f8e0d4c1da_w200.gif');
     background-size: cover;
     background-position: center;
@@ -28,25 +28,16 @@ body::before {
 }
 
 @keyframes fadeInContent {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes fadeInBackground {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 0.25;
-    }
+    from { opacity: 0; }
+    to { opacity: 0.25; }
 }
 
 .container {
-    background-image: url('');
     background-size: cover;
     background-repeat: no-repeat;
     background-color: rgba(20, 5, 5, 0.85);
@@ -82,32 +73,25 @@ label {
   color: #ff3333;
 }
 
-/* Dashboard Brand styled for voidless4lgng with an animated rotating dragon element */
 .navbar-brand {
     color: #ff3333 !important;
     font-weight: bold;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     text-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
 }
 
 /* Rotating Dragon Logo Animation */
-.navbar-brand::before {
-    content: '🐉';
+.brand-dragon {
     display: inline-block;
-    font-size: 24px;
     animation: rotateDragon 6s linear infinite;
     filter: drop-shadow(0 0 5px #ff0000);
 }
 
 @keyframes rotateDragon {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .navbar-toggler-icon {
