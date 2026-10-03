@@ -1,330 +1,112 @@
-Body {
+/* =========================================================
+   VOIDLESS4LGNG
+   BLACK / RED DRAGON UI
+   ========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
     min-height: 100vh;
     position: relative;
     padding: 20px;
-    background-color: #080202;
-    font-family: 'Courier Prime', sans-serif;
+    margin: 0;
+
+    background: #030000;
+
+    font-family: 'Courier Prime', 'Courier New', monospace;
     color: #fff;
+
+    overflow-x: hidden;
+
     opacity: 0;
     animation: fadeInContent 1.2s forwards ease-in-out;
 }
 
-/* Base animated background */
+
+/* =========================================================
+   MAIN ANIMATED BACKGROUND
+   ========================================================= */
+
 body::before {
     content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
+
+    position: fixed;
+    inset: 0;
+
     width: 100%;
     height: 100%;
-    background-image: url('https://i.gifer.com/2YcW.gif');
+
+    background:
+        linear-gradient(
+            rgba(0, 0, 0, 0.72),
+            rgba(15, 0, 0, 0.82)
+        ),
+        url('https://i.gifer.com/2YcW.gif');
+
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-attachment: fixed;
-    z-index: -2;
+
+    z-index: -5;
+
     opacity: 0;
-    animation: fadeInBackground 1.8s forwards ease-in-out;
+
+    animation:
+        fadeInBackground 1.8s forwards ease-in-out,
+        backgroundPulse 8s ease-in-out infinite;
 }
 
-/* Red Dragon Background Effect na umiikot/lumulutang sa likod */
+
+/* =========================================================
+   RED ATMOSPHERE
+   ========================================================= */
+
 body::after {
     content: '';
+
     position: fixed;
-    top: 50%;
-    left: 50%;
-    width: 120vw;
-    height: 120vh;
-    transform: translate(-50%, -50%);
-    /* Gumamit ako ng pulang dragon/fire theme GIF bilang overlay sa background */
-    background-image: url('https://i.gifer.com/origin/7b/7b7d8bfa7962c68e146a4805bb5f769d_w200.gif');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    z-index: -1;
-    opacity: 0.25; /* Banayad lang para hindi matakpan ang mga teksto */
-    mix-blend-mode: screen;
-    animation: rotateDragon 30s linear infinite;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(255, 0, 0, 0.10),
+            transparent 45%
+        ),
+        radial-gradient(
+            circle at 50% 100%,
+            rgba(150, 0, 0, 0.18),
+            transparent 55%
+        );
+
     pointer-events: none;
+
+    z-index: -4;
+
+    animation: redAtmosphere 5s ease-in-out infinite;
 }
 
-@keyframes rotateDragon {
-    from {
-        transform: translate(-50%, -50%) rotate(0deg) scale(1.1);
-    }
-    to {
-        transform: translate(-50%, -50%) rotate(360deg) scale(1.1);
-    }
-}
 
-@keyframes fadeInContent {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
+/* =========================================================
+   C3C CONTAINER
+   DRAGON ROTATES AROUND THIS CONTAINER
+   ========================================================= */
 
-@keyframes fadeInBackground {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-.container {
-    background-image: url('');
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-color: rgba(20, 5, 5, 0.85);
-    border: 1px solid #331111;
-    border-radius: 10px;
-    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.1), 0 6px 6px rgba(0, 0, 0, 0.5);
-    padding: 20px;
-    margin-top: 20px;
-    margin-bottom: 10px;
-}
-
-h1 {
-    color: #fff;
-}
-
-label {
-    color: #ccc;
-}
-
-.navbar {
-  background-color: rgba(20, 5, 5, 0.9);
-  border: 1px solid #331111;
-  color: #fff;
-  border-radius: 10px;
-}
-
-.navbar a {
-  color: #fff;
-}
-
-.navbar a:hover {
-  color: #ff4444;
-}
-
-.navbar-brand {
-    color: #fff;
-}
-
-.navbar-toggler-icon {
-   background-color: rgba(30, 10, 10, 0.8);
-}
-.dropdown-menu {
-  background-color: #1a0505;
-  border: 1px solid #441111;
-}
-.dropdown-item {
-  color: #fff;
-}
-.dropdown-item:hover {
-  background-color: #331111;
-  color: #ff4444;
-}
-
-.centered-textarea {
-    display: block;
-    margin: 0 auto;
-    width: 100%;
-    min-height: 150px;
-    padding: 10px;
-    box-sizing: border-box;
-    border: 1px solid #551111;
-    border-radius: 10px;
-    resize: none;
-    color: #fff;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #8b0000, #ff0000);
-    border: none;
-    border-radius: 15px;
-    font-size: 14px;
-    color: #fff;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, #ff0000, #ff4444);
-    border: 1px solid #ff8800;
-}
-
-.success-message {
-    color: #00ff66;
-    margin-top: 10px;
-    font-size: 12px;
-}
-
-.footer {
-    padding: 10px 20px;
-    text-align: center;
-    font-size: 12px;
-    color: #b5b5b5;
+.container:has(#json-data) {
     position: relative;
-    background-color: rgba(20, 5, 5, 0.9);
-    width: 115%;
-    margin-left: -30px;
-    margin-bottom: -20px;
-    border-top: 1px solid #331111;
-}
 
-.footer p {
-  margin: 5px 0;
-}
+    isolation: isolate;
 
-.footer a {
-  color: #ff6666;
-  text-decoration: none;
-  transition: color 0.3s;
-}
+    overflow: hidden;
 
-.footer a:hover {
-  color: #ffffff;
-}
-
-.container-buttons {
-    margin-top: 20px;
-    text-align: center;
-}
-
-.container-buttons .btn {
-    margin: 5px;
-}
-
-#result {
-    padding: 5px;
-    margin-top: 20px;
-    border-radius: 10px;
-    font-size: 10px;
-    color: #fff;
-}
-
-.center-placeholder::placeholder {
-    text-align: center;
-    color: #aaa;
-}
-
-.custom-swal {
-  background-color: #1a0505;
-  color: #fff;
-  font-size: 14px;
-  border: 1px solid #441111;
-}
-
-.form-check {
-    display: flex;
-    margin-top: 10px;
-    padding: 10px;
-    width: 90%;
-    align-items: center;
-    border: 1px solid #551111;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #140505;
-    font-size: 15px;
-}
-
-.form-check:hover {
-    background-color: #220808; 
-    border-color: #aa1111; 
-}
-
-.form-check-input {
-    margin-right: 10px; 
-    opacity: 0;
-}
-
-.disable {
-    display: none;
-}
-
-#inputOfPrefix, #inputOfAdmin {
-    padding: 10px;
-    width: 90%;
-    border: 1px solid #551111;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #140505;
-    color: #fff;
-    font-size: 15px;
-}
-
-#json-data {
-    background-image: url('https://i.gifer.com/YQgT.gif');
-    background-size: cover;
-    color: #fff;
-    background-repeat: no-repeat;
-}
-
-#listOfCommands, #listOfCommandsEvent, #prefixOfCommands, #adminOfCommands {
-    border: none !important;
-}
-
-#listOfCommands:not(.modal), #listOfCommandsEvent:not(.modal), #prefixOfCommands:not(.modal), #adminOfCommands:not(.modal) {
-    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.1), 0 6px 6px rgba(0, 0, 0, 0.5);
-}
-
-.container h1 {
-    position: relative;
-    display: inline-block;
-    padding: 10px 20px;
-    margin-bottom: 20px;
-    background-color: #1c0707;
-    border: 1px solid #441111;
-    border-radius: 8px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
-}
-
-.container p {
-    line-height: 1.6;
-}
-
-.container ul {
-    padding-left: 20px;
-}
-
-.container ul li {
-    list-style: none;
-}
-
-.container ul li::before {
-    content: '\2022';
-    color: #ff3333;
-    font-weight: bold;
-    display: inline-block;
-    width: 1em;
-    margin-left: -1em;
-}
-
-.container ul li + li {
-    margin-top: 10px;
-}
-
-@media (max-width: 768px) {
-    .container h1 {
-        font-size: 18px;
-    }
-}
-
-#scrollUpBtn {
-  position: fixed;
-  margin-bottom: 70px; 
-  right: 20px;
-  padding: 15px 30px;
-  font-size: 14px;
-  background-color: #551111;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  display: none;
-}
+    background:
+        linear-gradient(
+            135deg,
+            rgba(8, 0, 0, 0.96),
+            rgba(22, 0, 
