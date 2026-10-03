@@ -7,128 +7,128 @@ const express = require("express");
 const chalk = require("chalk");
 const bodyParser = require("body-parser");
 
-const app = express();
+// ============================================================
+// PATHS
+// ============================================================
 
-const script = path.join(
-  __dirname,
-  "script"
-);
+const ROOT = __dirname;
+
+const DATA_DIR = path.join(ROOT, "data");
+const SESSION_DIR = path.join(DATA_DIR, "session");
+const SCRIPT_DIR = path.join(ROOT, "script");
+
+const CONFIG_FILE = path.join(DATA_DIR, "config.json");
+const HISTORY_FILE = path.join(DATA_DIR, "history.json");
+const DATABASE_FILE = path.join(DATA_DIR, "database.json");
 
 // ============================================================
-// CONFIG
+// DIRECTORIES
+// ============================================================
+
+for (const dir of [DATA_DIR, SESSION_DIR, SCRIPT_DIR]) {
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+// ============================================================
+// SAFE FILE HELPERS
+// ============================================================
+
+function readJSON(file, fallback) {
+  try {
+    if (!fs.existsSync(file)) return fallback;
+
+    const raw = fs.readFileSync(file, "utf8").trim();
+
+    if (!raw) return fallback;
+
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error(`[JSON READ ERROR] ${file}`, error.message);
+    return fallback;
+  }
+}
+
+function writeJSON(file, data) {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+
+    const temp = `${file}.tmp`;
+
+    fs.writeFileSync(
+      temp,
+      JSON.stringify(data, null, 2),
+      "utf8"
+    );
+
+    fs.renameSync(temp, file);
+
+    return true;
+  } catch (error) {
+    console.error(`[JSON WRITE ERROR] ${file}`, error.message);
+    return false;
+  }
+}
+
+// ============================================================
+// DEFAULT CONFIG
 // ============================================================
 
 function createConfig() {
-
   const config = [
     {
       masterKey: {
-        admin: [],
-        devMode: false,
-        database: false,
-        restartTime: 15
+        admin: []
       },
 
-      fcaOption: {
-        forceLogin: true,
-        listenEvents: true,
-        logLevel: "silent",
-        updatePresence: true,
-        selfListen: true,
+      devMode: false,
+      database: false,
+      restartTime: 15,
 
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+      forceLogin: true,
+      listenEvents: true,
+      logLevel: "silent",
+      updatePresence: true,
+      selfListen: true,
 
-        online: true,
-        autoMarkDelivery: false,
-        autoMarkRead: false
-      }
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/120.0.0.0 Safari/537.36",
+
+      online: true,
+      autoMarkDelivery: false,
+      autoMarkRead: false
     }
   ];
 
-  if (!fs.existsSync("./data")) {
-    fs.mkdirSync(
-      "./data",
-      { recursive: true }
-    );
+  writeJSON(CONFIG_FILE, config);
+
+  if (!fs.existsSync(HISTORY_FILE)) {
+    writeJSON(HISTORY_FILE, []);
   }
 
-  fs.writeFileSync(
-    "./data/config.json",
-    JSON.stringify(
-      config,
-      null,
-      2
-    )
-  );
+  if (!fs.existsSync(DATABASE_FILE)) {
+    writeJSON(DATABASE_FILE, {});
+  }
 
   return config;
 }
 
-// ============================================================
-// DATA FOLDERS
-// ============================================================
-
-if (!fs.existsSync("./data")) {
-
-  fs.mkdirSync(
-    "./data",
-    { recursive: true }
-  );
-}
-
-if (!fs.existsSync("./data/history.json")) {
-
-  fs.writeFileSync(
-    "./data/history.json",
-    "[]",
-    "utf8"
-  );
-}
-
-if (!fs.existsSync("./data/session")) {
-
-  fs.mkdirSync(
-    "./data/session",
-    { recursive: true }
-  );
-}
-
-if (!fs.existsSync("./data/database.json")) {
-
-  fs.writeFileSync(
-    "./data/database.json",
-    "[]",
-    "utf8"
-  );
-}
-
-// ============================================================
-// LOAD CONFIG
-// ============================================================
+const configData = fs.existsSync(CONFIG_FILE)
+  ? readJSON(CONFIG_FILE, null)
+  : createConfig();
 
 const config =
-  fs.existsSync("./data/config.json")
-    ? JSON.parse(
-        fs.readFileSync(
-          "./data/config.json",
-          "utf8"
-        )
-      )
-    : createConfig();
+  Array.isArray(configData) && configData.length
+    ? configData[0]
+    : createConfig()[0];
 
-const dev =
-  fs.existsSync("./dev.json")
-    ? JSON.parse(
-        fs.readFileSync(
-          "./dev.json",
-          "utf8"
-        )
-      )
-    : [];
+const dev = fs.existsSync("./dev.json")
+  ? readJSON("./dev.json", [])
+  : [];
 
 // ============================================================
-// UTILS
+// GLOBAL UTILS
 // ============================================================
 
 const Utils = {
@@ -139,826 +139,709 @@ const Utils = {
 };
 
 // ============================================================
-// TRAFFIC CONTROL
+// CONSERVATIVE TRAFFIC CONTROLLER
 // ============================================================
 
-const HumanTraffic = {
-
+const Traffic = {
   users: new Map(),
-
   duplicates: new Map(),
-
-  threadQueue: new Map(),
-
+  queues: new Map(),
   lastReply: new Map(),
+  blockedThreads: new Map(),
 
+  // Conservative values.
   maxBurst: 3,
+  burstWindow: 10000,
 
-  burstWindow: 10_000,
+  // Temporary local cooldown after excessive incoming traffic.
+  burstCooldown: 30000,
 
-  cooldown: 30_000,
+  // Duplicate incoming message window.
+  duplicateWindow: 5000,
 
-  duplicateWindow: 5_000,
+  // Minimum spacing between outgoing messages in the same thread.
+  replyInterval: 10000,
 
-  replyInterval: 10_000,
-
+  // Typing indicator duration.
   typingMin: 700,
-
   typingMax: 1600,
 
-  cleanup() {
+  // Queue protection.
+  maxQueuePerThread: 5,
 
-    const now =
-      Date.now();
+  // Cleanup interval.
+  cleanupInterval: 30000,
 
-    // Burst data
-    for (
-      const [
-        key,
-        data
-      ] of this.users
-    ) {
-
-      if (
-        !data ||
-        now - data.started >
-        this.burstWindow * 2
-      ) {
-
-        this.users.delete(key);
-      }
+  start() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
     }
 
-    // Duplicate data
-    for (
-      const [
-        key,
-        timestamp
-      ] of this.duplicates
-    ) {
+    this.cleanupTimer = setInterval(() => {
+      const now = Date.now();
 
-      if (
-        now - timestamp >
-        this.duplicateWindow
-      ) {
-
-        this.duplicates.delete(key);
-      }
-    }
-
-    // Reply timestamps
-    for (
-      const [
-        threadID,
-        timestamp
-      ] of this.lastReply
-    ) {
-
-      if (
-        now - timestamp >
-        this.replyInterval * 3
-      ) {
-
-        this.lastReply.delete(
-          threadID
+      for (const [key, data] of this.users.entries()) {
+        data.timestamps = data.timestamps.filter(
+          timestamp => now - timestamp <= this.burstWindow
         );
+
+        if (!data.timestamps.length) {
+          this.users.delete(key);
+        }
       }
-    }
+
+      for (const [key, timestamp] of this.duplicates.entries()) {
+        if (now - timestamp > this.duplicateWindow) {
+          this.duplicates.delete(key);
+        }
+      }
+
+      for (const [threadID, timestamp] of this.blockedThreads.entries()) {
+        if (now >= timestamp) {
+          this.blockedThreads.delete(threadID);
+        }
+      }
+
+      for (const [threadID, timestamp] of this.lastReply.entries()) {
+        if (now - timestamp > 120000) {
+          this.lastReply.delete(threadID);
+        }
+      }
+    }, this.cleanupInterval);
+
+    this.cleanupTimer.unref?.();
   },
 
-  isBursting(
-    threadID,
-    senderID
-  ) {
-
-    if (
-      !threadID ||
-      !senderID
-    ) {
-
-      return false;
-    }
-
-    const key =
-      `${threadID}:${senderID}`;
-
-    const now =
-      Date.now();
-
-    let data =
-      this.users.get(key);
-
-    if (
-      !data ||
-      now - data.started >=
-      this.burstWindow
-    ) {
-
-      data = {
-        started: now,
-        count: 0,
-        blockedUntil: 0
-      };
-    }
-
-    if (
-      now <
-      data.blockedUntil
-    ) {
-
-      return true;
-    }
-
-    data.count++;
-
-    if (
-      data.count >
-      this.maxBurst
-    ) {
-
-      data.blockedUntil =
-        now + this.cooldown;
-
-      this.users.set(
-        key,
-        data
-      );
-
-      console.log(
-        `[LIMITER] Burst suppressed: ${senderID}`
-      );
-
-      return true;
-    }
-
-    this.users.set(
-      key,
-      data
-    );
-
-    return false;
+  normalize(text) {
+    return String(text || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
   },
 
-  isDuplicate(
-    threadID,
-    senderID,
-    body
-  ) {
-
-    if (
-      !threadID ||
-      !senderID ||
-      !body
-    ) {
-
-      return false;
-    }
-
-    const normalized =
-      String(body)
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, " ");
+  isDuplicate(threadID, senderID, body) {
+    const normalized = this.normalize(body);
 
     if (!normalized) {
       return false;
     }
 
-    const key =
-      `${threadID}:${senderID}:${normalized}`;
+    const key = `${threadID}:${senderID}:${normalized}`;
 
-    const now =
-      Date.now();
+    const now = Date.now();
+    const previous = this.duplicates.get(key);
 
-    const previous =
-      this.duplicates.get(key);
-
-    if (
-      previous &&
-      now - previous <
-      this.duplicateWindow
-    ) {
-
-      console.log(
-        `[TRAFFIC] Duplicate suppressed: ${senderID}`
-      );
-
+    if (previous && now - previous < this.duplicateWindow) {
       return true;
     }
 
-    this.duplicates.set(
-      key,
-      now
-    );
+    this.duplicates.set(key, now);
 
     return false;
   },
 
-  typingDuration() {
+  isBursting(threadID, senderID) {
+    const now = Date.now();
 
-    return Math.floor(
-      Math.random() *
-      (
-        this.typingMax -
-        this.typingMin +
-        1
-      )
-    ) +
-    this.typingMin;
-  },
+    if (this.blockedThreads.has(threadID)) {
+      const until = this.blockedThreads.get(threadID);
 
-  responseDelay(text = "") {
+      if (now < until) {
+        return true;
+      }
 
-    const length =
-      String(text).length;
+      this.blockedThreads.delete(threadID);
+    }
 
-    const charsPerSecond =
-      260 / 60;
+    const key = `${threadID}:${senderID}`;
 
-    const typingTime =
-      (
-        length /
-        charsPerSecond
-      ) * 1000;
+    let data = this.users.get(key);
 
-    const variation =
-      0.75 +
-      Math.random() * 0.65;
+    if (!data) {
+      data = {
+        timestamps: []
+      };
 
-    const extra =
-      Math.floor(
-        Math.random() * 1800
+      this.users.set(key, data);
+    }
+
+    data.timestamps = data.timestamps.filter(
+      timestamp => now - timestamp <= this.burstWindow
+    );
+
+    data.timestamps.push(now);
+
+    if (data.timestamps.length > this.maxBurst) {
+      this.blockedThreads.set(
+        threadID,
+        now + this.burstCooldown
       );
 
-    const delay =
-      typingTime *
-      variation +
-      extra;
+      data.timestamps = [];
 
-    return Math.min(
-      Math.max(
-        800,
-        delay
-      ),
-      12_000
+      return true;
+    }
+
+    return false;
+  },
+
+  random(min, max) {
+    return Math.floor(
+      Math.random() * (max - min + 1)
+    ) + min;
+  },
+
+  typingDuration() {
+    return this.random(
+      this.typingMin,
+      this.typingMax
     );
   },
 
-  async typing(
-    api,
-    threadID
-  ) {
+  responseDelay(text) {
+    const content = String(text || "");
 
-    try {
+    const charsPerMinute = 260;
 
-      if (
-        typeof api.sendTypingIndicator ===
-        "function"
-      ) {
+    const base =
+      (content.length / charsPerMinute) * 60000;
 
-        await api.sendTypingIndicator(
-          threadID
-        );
+    const variation =
+      0.75 + Math.random() * 0.65;
 
-        await new Promise(
-          resolve =>
-            setTimeout(
-              resolve,
-              this.typingDuration()
-            )
-        );
-      }
+    const extra =
+      Math.random() * 1200;
 
-    } catch (_) {}
+    return Math.max(
+      800,
+      Math.min(
+        12000,
+        Math.floor(base * variation + extra)
+      )
+    );
   },
 
-  async enqueueSend(
-    api,
-    message,
-    threadID,
-    messageID
-  ) {
-
-    if (!threadID) {
-
-      return api.sendMessage(
-        message,
-        threadID,
-        messageID
-      );
+  async typing(api, threadID) {
+    try {
+      if (
+        api &&
+        typeof api.sendTypingIndicator === "function"
+      ) {
+        await api.sendTypingIndicator(threadID);
+      }
+    } catch (_) {
+      // Typing indicator failure must never crash the bot.
     }
 
-    const previous =
-      this.threadQueue.get(
-        threadID
-      ) ||
-      Promise.resolve();
+    await sleep(this.typingDuration());
+  },
 
-    const current =
-      previous
-        .catch(() => {})
-        .then(async () => {
+  getQueue(threadID) {
+    if (!this.queues.has(threadID)) {
+      this.queues.set(threadID, {
+        running: false,
+        items: []
+      });
+    }
 
-          // --------------------------------------------------
-          // 10 SECOND SPACING
-          // --------------------------------------------------
+    return this.queues.get(threadID);
+  },
 
-          const now =
-            Date.now();
+  enqueueSend(api, message, threadID, messageID) {
+    return new Promise(resolve => {
+      const queue = this.getQueue(threadID);
 
-          const last =
-            this.lastReply.get(
-              threadID
-            ) || 0;
+      if (queue.items.length >= this.maxQueuePerThread) {
+        console.log(
+          chalk.yellow(
+            `[TRAFFIC] Queue full for ${threadID}; message suppressed.`
+          )
+        );
 
-          const elapsed =
-            now - last;
+        resolve(false);
+        return;
+      }
 
-          if (
-            elapsed <
-            this.replyInterval
-          ) {
+      queue.items.push({
+        api,
+        message,
+        threadID,
+        messageID,
+        resolve
+      });
 
-            await new Promise(
-              resolve =>
-                setTimeout(
-                  resolve,
-                  this.replyInterval -
-                  elapsed
-                )
+      this.processQueue(threadID);
+    });
+  },
+
+  async processQueue(threadID) {
+    const queue = this.getQueue(threadID);
+
+    if (queue.running) {
+      return;
+    }
+
+    queue.running = true;
+
+    try {
+      while (queue.items.length) {
+        const item = queue.items.shift();
+
+        if (!item) {
+          continue;
+        }
+
+        try {
+          const now = Date.now();
+
+          const previous =
+            this.lastReply.get(threadID) || 0;
+
+          const elapsed = now - previous;
+
+          if (elapsed < this.replyInterval) {
+            await sleep(
+              this.replyInterval - elapsed
             );
           }
 
-          // --------------------------------------------------
-          // RESPONSE DELAY
-          // --------------------------------------------------
+          const delay =
+            this.responseDelay(item.message);
 
-          const responseDelay =
-            this.responseDelay(
-              message
-            );
-
-          await new Promise(
-            resolve =>
-              setTimeout(
-                resolve,
-                responseDelay
-              )
-          );
-
-          // --------------------------------------------------
-          // TYPING
-          // --------------------------------------------------
+          await sleep(delay);
 
           await this.typing(
-            api,
-            threadID
+            item.api,
+            item.threadID
           );
 
-          // --------------------------------------------------
-          // SEND
-          // --------------------------------------------------
-
-          const result =
-            await api.sendMessage(
-              message,
-              threadID,
-              messageID
+          try {
+            await item.api.sendMessage(
+              item.message,
+              item.threadID,
+              item.messageID
+                ? { replyToMessageID: item.messageID }
+                : undefined
             );
 
-          this.lastReply.set(
-            threadID,
-            Date.now()
+            this.lastReply.set(
+              threadID,
+              Date.now()
+            );
+
+            item.resolve(true);
+          } catch (sendError) {
+            console.error(
+              `[SEND ERROR] ${sendError.message}`
+            );
+
+            item.resolve(false);
+          }
+
+          // Small safety gap after every send.
+          await sleep(500);
+        } catch (error) {
+          console.error(
+            `[QUEUE ERROR] ${error.message}`
           );
 
-          return result;
-        });
-
-    this.threadQueue.set(
-      threadID,
-      current
-    );
-
-    try {
-
-      return await current;
-
+          item.resolve(false);
+        }
+      }
     } finally {
+      queue.running = false;
 
-      if (
-        this.threadQueue.get(
-          threadID
-        ) === current
-      ) {
-
-        this.threadQueue.delete(
-          threadID
-        );
+      if (!queue.items.length) {
+        this.queues.delete(threadID);
       }
     }
   }
 };
 
-setInterval(
-  () => HumanTraffic.cleanup(),
-  30_000
-);
+Traffic.start();
 
 // ============================================================
 // SAFE SEND
 // ============================================================
 
-function safeSend(
-  api,
-  message,
-  threadID,
-  messageID
-) {
+function safeSend(api, message, threadID, messageID) {
+  if (!api || !threadID || message == null) {
+    return Promise.resolve(false);
+  }
 
-  return HumanTraffic.enqueueSend(
+  return Traffic.enqueueSend(
     api,
     message,
     threadID,
     messageID
-  ).catch(
-    error => {
-
-      console.error(
-        "[SEND ERROR]",
-        error?.message ||
-        error
-      );
-    }
   );
 }
 
 // ============================================================
-// LOAD COMMANDS
+// SLEEP
 // ============================================================
 
-function loadCommand(
-  filePath
-) {
+function sleep(ms) {
+  return new Promise(resolve =>
+    setTimeout(resolve, ms)
+  );
+}
 
+// ============================================================
+// COMMAND LOADER
+// ============================================================
+
+function normalizeCommandConfig(command) {
+  if (!command.config) {
+    command.config = {};
+  }
+
+  const cfg = command.config;
+
+  cfg.name = String(
+    cfg.name || "unknown"
+  ).toLowerCase();
+
+  cfg.role =
+    Number.isFinite(cfg.role)
+      ? cfg.role
+      : Number.isFinite(cfg.hasPermission)
+        ? cfg.hasPermission
+        : 0;
+
+  cfg.version =
+    cfg.version || "1.0.0";
+
+  cfg.hasPrefix =
+    cfg.hasPrefix !== false &&
+    cfg.usePrefix !== false;
+
+  cfg.aliases = Array.isArray(cfg.aliases)
+    ? cfg.aliases
+    : [];
+
+  cfg.aliases = cfg.aliases
+    .map(x => String(x).toLowerCase())
+    .filter(Boolean);
+
+  cfg.description =
+    cfg.description || "";
+
+  cfg.usage =
+    cfg.usages ||
+    cfg.usage ||
+    "";
+
+  cfg.credits =
+    cfg.credits || "Unknown";
+
+  cfg.cooldown =
+    Number(cfg.cooldown) || 0;
+
+  cfg.dev =
+    cfg.dev === true;
+
+  return command;
+}
+
+function loadCommand(filePath) {
   try {
+    delete require.cache[
+      require.resolve(filePath)
+    ];
 
-    const module =
-      require(filePath);
+    const command = require(filePath);
 
-    if (!module) {
+    if (!command) {
       return;
     }
 
-    const commandConfig =
-      module.config || {};
+    normalizeCommandConfig(command);
 
-    const run =
-      module.run;
+    const cfg = command.config;
 
-    const handleEvent =
-      module.handleEvent;
+    const names = [
+      cfg.name,
+      ...cfg.aliases
+    ];
 
-    const normalized =
-      Object.fromEntries(
-        Object.entries(
-          commandConfig
-        ).map(
-          ([key, value]) =>
-            [
-              key.toLowerCase(),
-              value
-            ]
-        )
-      );
+    const uniqueNames = [
+      ...new Set(
+        names
+          .map(x => String(x).toLowerCase())
+          .filter(Boolean)
+      )
+    ];
 
-    let {
-      name = [],
-      role = "0",
-      version = "1.0.0",
-      hasPrefix = true,
-      aliases = [],
-      description = "",
-      usage = "",
-      credits = "",
-      cooldown = "5",
-      dev = false
-    } = normalized;
+    Utils.commands.set(
+      cfg.name,
+      {
+        ...command,
+        config: cfg,
+        aliases: uniqueNames
+      }
+    );
 
-    if (!Array.isArray(name)) {
-      name = [name];
-    }
-
-    if (!Array.isArray(aliases)) {
-      aliases = [aliases];
-    }
-
-    const allAliases = [
-      ...new Set([
-        ...name,
-        ...aliases
-      ])
-    ]
-      .filter(Boolean)
-      .map(
-        item =>
-          String(item)
-            .toLowerCase()
-      );
-
-    if (run) {
-
-      Utils.commands.set(
-        allAliases,
-        {
-          name:
-            name[0] ||
-            allAliases[0],
-
-          role,
-          run,
-          aliases:
-            allAliases,
-
-          description,
-          usage,
-          version,
-          hasPrefix,
-          credits,
-          cooldown,
-          dev
-        }
-      );
-    }
-
-    if (handleEvent) {
-
-      Utils.handleEvent.set(
-        allAliases,
-        {
-          name:
-            name[0] ||
-            allAliases[0],
-
-          handleEvent,
-          role,
-          description,
-          usage,
-          version,
-          hasPrefix,
-          credits,
-          cooldown,
-          dev
-        }
-      );
-    }
-
+    console.log(
+      chalk.green(
+        `[COMMAND] Loaded ${cfg.name}`
+      )
+    );
   } catch (error) {
-
     console.error(
       chalk.red(
-        `[COMMAND ERROR] ${filePath}: ${error.message}`
-      )
+        `[COMMAND ERROR] ${filePath}`
+      ),
+      error
     );
   }
 }
 
-if (
-  fs.existsSync(script)
-) {
+function loadEvent(filePath) {
+  try {
+    delete require.cache[
+      require.resolve(filePath)
+    ];
 
-  fs.readdirSync(script)
-    .forEach(file => {
+    const event = require(filePath);
 
-      const filePath =
-        path.join(
-          script,
-          file
-        );
+    if (!event) {
+      return;
+    }
 
-      const stats =
-        fs.statSync(
-          filePath
-        );
+    if (!event.config) {
+      return;
+    }
 
-      if (
-        stats.isDirectory()
-      ) {
+    const cfg = event.config;
 
-        fs.readdirSync(
-          filePath
-        )
-        .forEach(subFile => {
+    cfg.name = String(
+      cfg.name || path.basename(filePath, ".js")
+    ).toLowerCase();
 
-          loadCommand(
-            path.join(
-              filePath,
-              subFile
-            )
-          );
-        });
+    Utils.handleEvent.set(
+      cfg.name,
+      event
+    );
 
-      } else {
-
-        loadCommand(
-          filePath
-        );
-      }
-    });
+    console.log(
+      chalk.cyan(
+        `[EVENT] Loaded ${cfg.name}`
+      )
+    );
+  } catch (error) {
+    console.error(
+      chalk.red(
+        `[EVENT ERROR] ${filePath}`
+      ),
+      error
+    );
+  }
 }
 
+function loadScripts(directory) {
+  if (!fs.existsSync(directory)) {
+    return;
+  }
+
+  const files = fs.readdirSync(directory);
+
+  for (const file of files) {
+    const fullPath =
+      path.join(directory, file);
+
+    let stat;
+
+    try {
+      stat = fs.statSync(fullPath);
+    } catch (_) {
+      continue;
+    }
+
+    if (stat.isDirectory()) {
+      loadScripts(fullPath);
+      continue;
+    }
+
+    if (!file.endsWith(".js")) {
+      continue;
+    }
+
+    try {
+      delete require.cache[
+        require.resolve(fullPath)
+      ];
+
+      const mod = require(fullPath);
+
+      if (
+        mod &&
+        mod.config &&
+        typeof mod.run === "function"
+      ) {
+        loadCommand(fullPath);
+      } else if (
+        mod &&
+        mod.config &&
+        typeof mod.handleEvent === "function"
+      ) {
+        loadEvent(fullPath);
+      } else {
+        console.log(
+          chalk.gray(
+            `[SKIP] ${file}`
+          )
+        );
+      }
+    } catch (error) {
+      console.error(
+        chalk.red(
+          `[LOAD ERROR] ${file}`
+        ),
+        error.message
+      );
+    }
+  }
+}
+
+loadScripts(SCRIPT_DIR);
+
 // ============================================================
-// EXPRESS
+// EXPRESS SERVER
 // ============================================================
+
+const app = express();
 
 app.use(
   express.static(
-    path.join(
-      __dirname,
-      "public"
-    )
+    path.join(ROOT, "public")
   )
 );
 
-app.use(
-  bodyParser.json()
-);
+app.use(bodyParser.json());
+app.use(express.json());
 
-app.use(
-  express.json()
-);
+app.get("/", (req, res) => {
+  const file = path.join(
+    ROOT,
+    "public",
+    "index.html"
+  );
 
-// ============================================================
-// ROUTES
-// ============================================================
-
-const routes = [
-  {
-    path: "/",
-    file: "index.html"
-  },
-  {
-    path: "/step_by_step_guide",
-    file: "guide.html"
-  },
-  {
-    path: "/online_user",
-    file: "online.html"
+  if (fs.existsSync(file)) {
+    return res.sendFile(file);
   }
-];
 
-routes.forEach(
-  route => {
+  res.send("Bot is online.");
+});
 
-    app.get(
-      route.path,
-      (req, res) => {
-
-        const filePath =
-          path.join(
-            __dirname,
-            "public",
-            route.file
-          );
-
-        if (
-          fs.existsSync(filePath)
-        ) {
-
-          res.sendFile(
-            filePath
-          );
-
-        } else {
-
-          res.status(404)
-            .send(
-              "Page not found."
-            );
-        }
-      }
+app.get(
+  "/step_by_step_guide",
+  (req, res) => {
+    const file = path.join(
+      ROOT,
+      "public",
+      "guide.html"
     );
+
+    if (fs.existsSync(file)) {
+      return res.sendFile(file);
+    }
+
+    res.status(404).send("Guide not found.");
   }
 );
 
-// ============================================================
-// INFO
-// ============================================================
+app.get("/online_user", (req, res) => {
+  const file = path.join(
+    ROOT,
+    "public",
+    "online.html"
+  );
 
-app.get(
-  "/info",
-  (req, res) => {
-
-    const data =
-      Array.from(
-        Utils.account.values()
-      ).map(
-        account => ({
-          name: account.name,
-          profileUrl:
-            account.profileUrl,
-          thumbSrc:
-            account.thumbSrc,
-          time: account.time
-        })
-      );
-
-    res.json(data);
+  if (fs.existsSync(file)) {
+    return res.sendFile(file);
   }
-);
 
-// ============================================================
-// COMMANDS
-// ============================================================
+  res.status(404).send("Online page not found.");
+});
 
-app.get(
-  "/commands",
-  (req, res) => {
+app.get("/info", (req, res) => {
+  const accounts = [];
 
-    const commands =
-      Array.from(
-        Utils.commands.values()
-      ).map(
-        command => command.name
-      );
-
-    const handleEvent =
-      Array.from(
-        Utils.handleEvent.values()
-      ).map(
-        command => command.name
-      );
-
-    res.json({
-      commands,
-      handleEvent,
-      count:
-        commands.length +
-        handleEvent.length
+  for (const [
+    userid,
+    account
+  ] of Utils.account.entries()) {
+    accounts.push({
+      userid,
+      name: account.name || "Unknown",
+      time: account.time || 0,
+      online: account.online !== false
     });
   }
-);
+
+  res.json({
+    status: "online",
+    accounts
+  });
+});
+
+app.get("/commands", (req, res) => {
+  res.json({
+    commands: [
+      ...Utils.commands.values()
+    ].map(command => ({
+      name: command.config.name,
+      aliases: command.config.aliases,
+      description:
+        command.config.description
+    })),
+
+    events: [
+      ...Utils.handleEvent.values()
+    ].map(event => ({
+      name: event.config?.name || "unknown"
+    }))
+  });
+});
 
 // ============================================================
-// LOGIN
+// LOGIN API
 // ============================================================
 
-app.post(
-  "/login",
-  async (req, res) => {
-
+app.post("/login", async (req, res) => {
+  try {
     const {
       state,
       commands,
       prefix,
-      admin
+      admin,
+      blacklist
     } = req.body;
 
-    try {
+    if (!Array.isArray(state)) {
+      return res.status(400).json({
+        error: "state must be an array"
+      });
+    }
 
-      if (
-        !Array.isArray(state) ||
-        state.length === 0
-      ) {
+    const validState =
+      state.some(
+        cookie =>
+          cookie &&
+          cookie.key === "c_user" &&
+          cookie.value
+      );
 
-        throw new Error(
-          "Missing app state data."
-        );
-      }
+    if (!validState) {
+      return res.status(400).json({
+        error:
+          "Invalid state: c_user cookie is required"
+      });
+    }
 
-      const cUser =
-        state.find(
-          item =>
-            item.key ===
-            "c_user"
-        );
-
-      if (!cUser) {
-
-        return res.status(400)
-          .json({
-            error: true,
-            message:
-              "Invalid appstate data."
-          });
-      }
-
-      const existingUser =
-        Utils.account.get(
-          cUser.value
-        );
-
-      if (existingUser) {
-
-        return res.status(400)
-          .json({
-            error: false,
-            message:
-              "Active user session detected.",
-            user:
-              existingUser
-          });
-      }
-
+    const result =
       await accountLogin(
         state,
         commands,
@@ -967,63 +850,43 @@ app.post(
           ? admin
           : admin
             ? [admin]
-            : []
+            : [],
+        Array.isArray(blacklist)
+          ? blacklist
+          : []
       );
 
-      res.status(200)
-        .json({
-          success: true,
-          message:
-            "Authentication process completed."
-        });
+    return res.json({
+      success: true,
+      result
+    });
+  } catch (error) {
+    console.error(
+      "[LOGIN ROUTE ERROR]",
+      error
+    );
 
-    } catch (error) {
-
-      console.error(
-        "[LOGIN ERROR]",
-        error
-      );
-
-      res.status(400)
-        .json({
-          error: true,
-          message:
-            error.message ||
-            "Authentication failed."
-        });
-    }
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
-);
+});
 
 // ============================================================
-// SERVER
+// HTTP SERVER
 // ============================================================
 
 const PORT =
-  process.env.PORT ||
-  3000;
+  Number(process.env.PORT) || 3000;
 
-app.listen(
+const server = app.listen(
   PORT,
   () => {
-
     console.log(
-      `Server is running on port ${PORT}`
-    );
-  }
-);
-
-// ============================================================
-// UNHANDLED REJECTION
-// ============================================================
-
-process.on(
-  "unhandledRejection",
-  reason => {
-
-    console.error(
-      "[UNHANDLED REJECTION]",
-      reason
+      chalk.green(
+        `Server is running on port ${PORT}`
+      )
     );
   }
 );
@@ -1032,207 +895,213 @@ process.on(
 // ACCOUNT LOGIN
 // ============================================================
 
+const activeLogins = new Map();
+
 async function accountLogin(
   state,
   enableCommands = [],
   prefix = "",
-  admin = []
+  admin = [],
+  blacklist = []
 ) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
 
-  enableCommands = [
-    {
-      commands:
-        Array.from(
-          Utils.commands.values()
-        ).map(
-          command =>
-            command.name
-        )
-    },
-
-    {
-      handleEvent:
-        Array.from(
-          Utils.handleEvent.values()
-        ).map(
-          command =>
-            command.name
-        )
-    }
-  ];
-
-  return new Promise(
-    (resolve, reject) => {
-
+    try {
       login(
         {
           appState: state
         },
 
-        async (
-          error,
-          api
-        ) => {
-
+        async (error, api) => {
           if (error) {
+            console.error(
+              chalk.red(
+                "[LOGIN ERROR]"
+              ),
+              error
+            );
 
-            reject(error);
+            if (!settled) {
+              settled = true;
+              reject(error);
+            }
 
             return;
           }
 
           try {
-
             const userid =
-              await api.getCurrentUserID();
+              String(
+                api.getCurrentUserID()
+              );
 
-            // ------------------------------------------------
-            // ACCOUNT
-            // ------------------------------------------------
+            console.log(
+              chalk.green(
+                `[LOGIN] Account ${userid} connected`
+              )
+            );
 
-            await addThisUser(
+            /*
+             * Keep supplied command configuration.
+             * If nothing was supplied, enable all loaded commands.
+             */
+            if (
+              !Array.isArray(enableCommands) ||
+              enableCommands.length === 0
+            ) {
+              enableCommands = [
+                {
+                  commands:
+                    Array.from(
+                      Utils.commands.values()
+                    ).map(
+                      command =>
+                        command.config.name
+                    )
+                },
+                {
+                  handleEvent:
+                    Array.from(
+                      Utils.handleEvent.values()
+                    ).map(
+                      event =>
+                        event.config?.name
+                    )
+                }
+              ];
+            }
+
+            addThisUser(
               userid,
               enableCommands,
               state,
               prefix,
-              admin
+              admin,
+              blacklist
             );
 
-            // ------------------------------------------------
-            // ACCOUNT INFORMATION
-            // ------------------------------------------------
+            let userInfo = {};
 
-            const userInfo =
-              await api.getUserInfo(
-                userid
-              );
-
-            if (
-              !userInfo ||
-              !userInfo[userid]
-            ) {
-
-              throw new Error(
-                "Unable to retrieve account information."
+            try {
+              userInfo =
+                await api.getUserInfo(userid);
+            } catch (infoError) {
+              console.error(
+                "[USER INFO ERROR]",
+                infoError.message
               );
             }
 
-            const {
-              name = "Unknown",
-              profileUrl = "",
-              thumbSrc = ""
-            } =
-              userInfo[userid];
+            const account = {
+              userid,
+              name:
+                userInfo?.[userid]?.name ||
+                "Unknown",
 
-            let history =
-              JSON.parse(
-                fs.readFileSync(
-                  "./data/history.json",
-                  "utf8"
-                )
-              );
+              time: 0,
 
-            const oldAccount =
-              history.find(
-                user =>
-                  user.userid ===
-                  userid
-              ) || {};
+              online: true,
+
+              api
+            };
 
             Utils.account.set(
               userid,
+              account
+            );
+
+            /*
+             * Prevent duplicate login handlers
+             * for the same account.
+             */
+            if (
+              activeLogins.has(userid)
+            ) {
+              try {
+                clearInterval(
+                  activeLogins.get(userid)
+                    .timer
+                );
+              } catch (_) {}
+
+              activeLogins.delete(userid);
+            }
+
+            const timer =
+              setInterval(() => {
+                const current =
+                  Utils.account.get(userid);
+
+                if (current) {
+                  current.time += 1;
+                }
+              }, 1000);
+
+            timer.unref?.();
+
+            activeLogins.set(
+              userid,
               {
-                name,
-                profileUrl,
-                thumbSrc,
-                time:
-                  oldAccount.time ||
-                  0
+                api,
+                timer
               }
             );
 
-            const intervalId =
-              setInterval(
-                () => {
-
-                  const account =
-                    Utils.account.get(
-                      userid
-                    );
-
-                  if (!account) {
-
-                    clearInterval(
-                      intervalId
-                    );
-
-                    return;
-                  }
-
-                  account.time++;
-
-                  Utils.account.set(
-                    userid,
-                    account
-                  );
-
-                },
-                1000
-              );
-
-            // ------------------------------------------------
+            // ====================================================
             // FCA OPTIONS
-            // ------------------------------------------------
+            // ====================================================
 
-            api.setOptions({
+            try {
+              api.setOptions({
+                forceLogin:
+                  config.forceLogin !== false,
 
-              listenEvents:
-                config?.[0]?.fcaOption
-                  ?.listenEvents,
+                listenEvents:
+                  config.listenEvents !== false,
 
-              logLevel:
-                config?.[0]?.fcaOption
-                  ?.logLevel,
+                logLevel:
+                  config.logLevel || "silent",
 
-              updatePresence:
-                config?.[0]?.fcaOption
-                  ?.updatePresence,
+                updatePresence:
+                  config.updatePresence !== false,
 
-              selfListen:
-                config?.[0]?.fcaOption
-                  ?.selfListen,
+                selfListen:
+                  config.selfListen === true,
 
-              forceLogin:
-                config?.[0]?.fcaOption
-                  ?.forceLogin,
+                userAgent:
+                  config.userAgent,
 
-              online:
-                config?.[0]?.fcaOption
-                  ?.online,
+                online:
+                  config.online !== false,
 
-              autoMarkDelivery:
-                config?.[0]?.fcaOption
-                  ?.autoMarkDelivery,
+                autoMarkDelivery:
+                  config.autoMarkDelivery === true,
 
-              autoMarkRead:
-                config?.[0]?.fcaOption
-                  ?.autoMarkRead
-            });
+                autoMarkRead:
+                  config.autoMarkRead === true
+              });
+            } catch (optionsError) {
+              console.error(
+                "[OPTIONS ERROR]",
+                optionsError.message
+              );
+            }
 
-            // ------------------------------------------------
-            // LISTEN MQTT
-            // ------------------------------------------------
+            // ====================================================
+            // MQTT LISTENER
+            // ====================================================
 
             api.listenMqtt(
               async (
                 listenError,
                 event
               ) => {
-
                 if (listenError) {
-
                   console.error(
-                    "[MQTT]",
+                    chalk.red(
+                      `[MQTT ERROR] ${userid}`
+                    ),
                     listenError
                   );
 
@@ -1243,775 +1112,731 @@ async function accountLogin(
                   return;
                 }
 
-                // ------------------------------------------------
-                // TRAFFIC GOVERNOR
-                // ------------------------------------------------
-
-                if (
-                  event.threadID &&
-                  event.senderID
-                ) {
-
-                  const body =
-                    typeof event.body ===
-                    "string"
-                      ? event.body.trim()
-                      : "";
-
-                  // Duplicate
-                  if (
-                    body &&
-                    HumanTraffic.isDuplicate(
-                      event.threadID,
-                      event.senderID,
-                      body
-                    )
-                  ) {
-
-                    return;
-                  }
-
-                  // Burst
-                  if (
-                    HumanTraffic.isBursting(
-                      event.threadID,
-                      event.senderID
-                    )
-                  ) {
-
-                    return;
-                  }
-                }
-
-                // ------------------------------------------------
-                // DATABASE
-                // ------------------------------------------------
-
-                let database =
-                  fs.existsSync(
-                    "./data/database.json"
-                  )
-                    ? JSON.parse(
-                        fs.readFileSync(
-                          "./data/database.json",
-                          "utf8"
-                        )
-                      )
-                    : [];
-
-                let threadData =
-                  Array.isArray(database)
-                    ? database.find(
-                        item =>
-                          Object.prototype.hasOwnProperty.call(
-                            item,
-                            event.threadID
-                          )
-                      )
-                    : null;
-
-                if (
-                  !threadData &&
-                  event.threadID
-                ) {
-
-                  database =
-                    await createThread(
-                      event.threadID,
-                      api
-                    );
-
-                  threadData =
-                    database.find(
-                      item =>
-                        Object.prototype.hasOwnProperty.call(
-                          item,
-                          event.threadID
-                        )
-                    );
-                }
-
-                // ------------------------------------------------
-                // BLACKLIST
-                // ------------------------------------------------
-
-                const history =
-                  JSON.parse(
-                    fs.readFileSync(
-                      "./data/history.json",
-                      "utf8"
-                    )
-                  );
-
-                const accountHistory =
-                  history.find(
-                    user =>
-                      user.userid ===
-                      userid
-                  ) || {};
-
-                const blacklist =
-                  Array.isArray(
-                    accountHistory.blacklist
-                  )
-                    ? accountHistory.blacklist
-                    : [];
-
-                // ------------------------------------------------
-                // PARSE COMMAND
-                // ------------------------------------------------
-
-                const body =
-                  typeof event.body ===
-                  "string"
-                    ? event.body.trim()
-                    : "";
-
-                const firstWord =
-                  body
-                    .toLowerCase()
-                    .split(/\s+/)
-                    .shift();
-
-                const commandInfo =
-                  aliases(firstWord);
-
-                let hasPrefix =
-                  commandInfo?.hasPrefix === false
-                    ? ""
-                    : prefix;
-
-                let command = "";
-                let args = [];
-
-                if (
-                  hasPrefix &&
-                  body
-                    .toLowerCase()
-                    .startsWith(
-                      String(
-                        hasPrefix
-                      ).toLowerCase()
-                    )
-                ) {
-
-                  const parsed =
-                    body
-                      .substring(
-                        String(
-                          hasPrefix
-                        ).length
-                      )
-                      .trim()
-                      .split(/\s+/)
-                      .filter(Boolean);
-
-                  command =
-                    (
-                      parsed.shift() ||
-                      ""
-                    ).toLowerCase();
-
-                  args = parsed;
-                }
-
-                if (
-                  !hasPrefix &&
-                  commandInfo
-                ) {
-
-                  const parsed =
-                    body
-                      .trim()
-                      .split(/\s+/)
-                      .filter(Boolean);
-
-                  command =
-                    (
-                      parsed.shift() ||
-                      ""
-                    ).toLowerCase();
-
-                  args = parsed;
-                }
-
-                // ------------------------------------------------
-                // PREFIX VALIDATION
-                // ------------------------------------------------
-
-                if (
-                  commandInfo &&
-                  commandInfo.hasPrefix === false &&
-                  body
-                    .toLowerCase()
-                    .startsWith(
-                      String(prefix)
-                        .toLowerCase()
-                    )
-                ) {
-
-                  await safeSend(
-                    api,
-                    "This command doesn't need a prefix.",
-                    event.threadID,
-                    event.messageID
-                  );
-
-                  return;
-                }
-
-                // ------------------------------------------------
-                // COMMAND
-                // ------------------------------------------------
-
-                const commandData =
-                  aliases(command);
-
-                if (
-                  body &&
-                  body
-                    .toLowerCase()
-                    .startsWith(
-                      String(prefix)
-                        .toLowerCase()
-                    ) &&
-                  command &&
-                  !commandData
-                ) {
-
-                  await safeSend(
-                    api,
-                    `Invalid command '${command}'. Please use ${prefix}help to see the available commands.`,
-                    event.threadID,
-                    event.messageID
-                  );
-
-                  return;
-                }
-
-                // ------------------------------------------------
-                // DEV
-                // ------------------------------------------------
-
-                if (
-                  commandData?.dev
-                ) {
-
-                  if (
-                    !dev.includes(
-                      event.senderID
-                    )
-                  ) {
-
-                    await safeSend(
-                      api,
-                      "You don't have access to this command.",
-                      event.threadID,
-                      event.messageID
-                    );
-
-                    return;
-                  }
-                }
-
-                // ------------------------------------------------
-                // ROLE
-                // ------------------------------------------------
-
-                if (commandData) {
-
-                  const role =
-                    commandData.role ??
-                    0;
-
-                  const isMasterAdmin =
-                    Array.isArray(
-                      config?.[0]
-                        ?.masterKey
-                        ?.admin
-                    ) &&
-                    config[0]
-                      .masterKey
-                      .admin
-                      .includes(
-                        event.senderID
-                      );
-
-                  const isAdmin =
-                    isMasterAdmin ||
-                    admin.includes(
-                      event.senderID
-                    );
-
-                  const threadAdmins =
-                    threadData &&
-                    Array.isArray(
-                      threadData[
-                        event.threadID
-                      ]
-                    )
-                      ? threadData[
-                          event.threadID
-                        ]
-                      : [];
-
-                  const isThreadAdmin =
-                    isAdmin ||
-                    threadAdmins.some(
-                      item =>
-                        item?.id ===
-                        event.senderID
-                    );
-
-                  if (
-                    role == 1 &&
-                    !isAdmin
-                  ) {
-
-                    await safeSend(
-                      api,
-                      "You don't have permission to use this command.",
-                      event.threadID,
-                      event.messageID
-                    );
-
-                    return;
-                  }
-
-                  if (
-                    role == 2 &&
-                    !isThreadAdmin
-                  ) {
-
-                    await safeSend(
-                      api,
-                      "You don't have permission to use this command.",
-                      event.threadID,
-                      event.messageID
-                    );
-
-                    return;
-                  }
-
-                  if (
-                    role == 3 &&
-                    !isMasterAdmin
-                  ) {
-
-                    await safeSend(
-                      api,
-                      "You don't have permission to use this command.",
-                      event.threadID,
-                      event.messageID
-                    );
-
-                    return;
-                  }
-                }
-
-                // ------------------------------------------------
-                // BLACKLIST
-                // ------------------------------------------------
-
-                if (
-                  commandData &&
-                  blacklist.includes(
-                    event.senderID
-                  )
-                ) {
-
-                  return;
-                }
-
-                // ------------------------------------------------
-                // COMMAND COOLDOWN
-                // ------------------------------------------------
-
-                if (
-                  commandData
-                ) {
-
-                  const now =
-                    Date.now();
-
-                  const commandName =
-                    commandData.name;
-
-                  const cooldownKey =
-                    `${event.senderID}_${commandName}_${userid}`;
-
-                  const previous =
-                    Utils.cooldowns.get(
-                      cooldownKey
-                    );
-
-                  const cooldown =
-                    Number(
-                      commandData.cooldown
-                    ) || 0;
-
-                  if (
-                    previous &&
-                    now -
-                    previous.timestamp <
-                    cooldown * 1000
-                  ) {
-
-                    const remaining =
-                      Math.ceil(
-                        (
-                          previous.timestamp +
-                          cooldown * 1000 -
-                          now
-                        ) / 1000
-                      );
-
-                    await safeSend(
-                      api,
-                      `Please wait ${remaining} seconds before using "${commandName}" again.`,
-                      event.threadID,
-                      event.messageID
-                    );
-
-                    return;
-                  }
-
-                  Utils.cooldowns.set(
-                    cooldownKey,
-                    {
-                      timestamp: now,
-                      command:
-                        commandName
-                    }
-                  );
-                }
-
-                // ------------------------------------------------
-                // HANDLE EVENTS
-                // ------------------------------------------------
-
-                for (
-                  const commandEvent
-                  of Utils.handleEvent.values()
-                ) {
-
-                  if (
-                    typeof commandEvent
-                      .handleEvent !==
-                    "function"
-                  ) {
-                    continue;
-                  }
-
-                  try {
-
-                    await commandEvent
-                      .handleEvent({
-                        api,
-                        event,
-                        enableCommands,
-                        admin,
-                        prefix,
-                        blacklist,
-                        Utils
-                      });
-
-                  } catch (error) {
-
-                    console.error(
-                      `[EVENT ERROR] ${commandEvent.name}`,
-                      error
-                    );
-                  }
-                }
-
-                // ------------------------------------------------
-                // COMMAND RUNNER
-                // ------------------------------------------------
-
-                if (
-                  !commandData ||
-                  typeof commandData.run !==
-                  "function"
-                ) {
-                  return;
-                }
-
-                const supportedTypes = [
-                  "message",
-                  "message_reply",
-                  "message_unsend",
-                  "message_reaction"
-                ];
-
-                if (
-                  !supportedTypes.includes(
-                    event.type
-                  )
-                ) {
-                  return;
-                }
-
                 try {
-
-                  await commandData.run({
+                  await handleIncomingEvent(
                     api,
+                    userid,
                     event,
-                    args,
+                    prefix,
                     enableCommands,
                     admin,
-                    prefix,
-                    blacklist,
-                    Utils
-                  });
-
-                } catch (error) {
-
+                    blacklist
+                  );
+                } catch (eventError) {
                   console.error(
-                    `[COMMAND ERROR] ${commandData.name}`,
-                    error
+                    chalk.red(
+                      "[EVENT PROCESS ERROR]"
+                    ),
+                    eventError
                   );
                 }
               }
             );
 
-            resolve();
+            if (!settled) {
+              settled = true;
 
-          } catch (error) {
+              resolve({
+                userid,
+                name: account.name
+              });
+            }
+          } catch (setupError) {
+            console.error(
+              chalk.red(
+                "[ACCOUNT SETUP ERROR]"
+              ),
+              setupError
+            );
 
-            reject(error);
+            if (!settled) {
+              settled = true;
+              reject(setupError);
+            }
           }
         }
       );
+    } catch (loginError) {
+      console.error(
+        chalk.red(
+          "[LOGIN CALL ERROR]"
+        ),
+        loginError
+      );
+
+      if (!settled) {
+        settled = true;
+        reject(loginError);
+      }
     }
-  );
+  });
 }
 
 // ============================================================
-// DELETE USER
+// EVENT HANDLER
 // ============================================================
 
-async function deleteThisUser(
-  userid
+async function handleIncomingEvent(
+  api,
+  userid,
+  event,
+  prefix,
+  enableCommands,
+  admin,
+  blacklist
 ) {
+  const threadID =
+    event.threadID
+      ? String(event.threadID)
+      : "";
 
-  const configFile =
-    "./data/history.json";
+  const senderID =
+    event.senderID
+      ? String(event.senderID)
+      : "";
 
-  let history =
-    JSON.parse(
-      fs.readFileSync(
-        configFile,
-        "utf8"
-      )
-    );
+  const body =
+    typeof event.body === "string"
+      ? event.body.trim()
+      : "";
 
-  const sessionFile =
-    path.join(
-      "./data/session",
-      `${userid}.json`
-    );
-
-  const index =
-    history.findIndex(
-      item =>
-        item.userid ===
-        userid
-    );
-
-  if (index !== -1) {
-
-    history.splice(
-      index,
-      1
-    );
-  }
-
-  fs.writeFileSync(
-    configFile,
-    JSON.stringify(
-      history,
-      null,
-      2
-    )
-  );
-
-  try {
-
+  /*
+   * Traffic protection only applies when
+   * we have a thread and sender.
+   */
+  if (threadID && senderID) {
     if (
-      fs.existsSync(
-        sessionFile
+      Traffic.isDuplicate(
+        threadID,
+        senderID,
+        body
       )
     ) {
-
-      fs.unlinkSync(
-        sessionFile
-      );
+      return;
     }
 
-  } catch (error) {
-
-    console.log(
-      error.message
-    );
-  }
-}
-
-// ============================================================
-// ADD USER
-// ============================================================
-
-async function addThisUser(
-  userid,
-  enableCommands,
-  state,
-  prefix,
-  admin,
-  blacklist = []
-) {
-
-  const configFile =
-    "./data/history.json";
-
-  const sessionFolder =
-    "./data/session";
-
-  const sessionFile =
-    path.join(
-      sessionFolder,
-      `${userid}.json`
-    );
-
-  let history =
-    JSON.parse(
-      fs.readFileSync(
-        configFile,
-        "utf8"
+    if (
+      Traffic.isBursting(
+        threadID,
+        senderID
       )
+    ) {
+      console.log(
+        chalk.yellow(
+          `[TRAFFIC] Suppressed burst in ${threadID}`
+        )
+      );
+
+      return;
+    }
+  }
+
+  // ==========================================================
+  // DATABASE
+  // ==========================================================
+
+  let database =
+    readJSON(
+      DATABASE_FILE,
+      {}
     );
-
-  const existingIndex =
-    history.findIndex(
-      item =>
-        item.userid ===
-        userid
-    );
-
-  const accountData = {
-
-    userid,
-
-    prefix:
-      prefix || "",
-
-    admin:
-      Array.isArray(admin)
-        ? admin
-        : [],
-
-    blacklist:
-      Array.isArray(blacklist)
-        ? blacklist
-        : [],
-
-    enableCommands,
-
-    time:
-      existingIndex !== -1
-        ? history[existingIndex].time || 0
-        : 0
-  };
 
   if (
-    existingIndex !== -1
+    !database ||
+    typeof database !== "object"
   ) {
+    database = {};
+  }
 
-    history[
-      existingIndex
-    ] = {
-      ...history[
-        existingIndex
-      ],
-      ...accountData
-    };
+  if (
+    threadID &&
+    !database[threadID]
+  ) {
+    await createThread(
+      threadID,
+      api
+    );
 
-  } else {
+    database =
+      readJSON(
+        DATABASE_FILE,
+        {}
+      );
+  }
 
-    history.push(
-      accountData
+  // ==========================================================
+  // HISTORY / ACCOUNT
+  // ==========================================================
+
+  const history =
+    readJSON(
+      HISTORY_FILE,
+      []
+    );
+
+  const currentAccount =
+    history.find(
+      item =>
+        String(item.userid) ===
+        String(userid)
+    );
+
+  const accountBlacklist =
+    new Set(
+      [
+        ...(Array.isArray(
+          blacklist
+        )
+          ? blacklist
+          : []),
+
+        ...(Array.isArray(
+          currentAccount?.blacklist
+        )
+          ? currentAccount.blacklist
+          : [])
+      ]
+        .map(String)
+    );
+
+  // ==========================================================
+  // BLACKLIST
+  // ==========================================================
+
+  if (
+    senderID &&
+    accountBlacklist.has(senderID)
+  ) {
+    return;
+  }
+
+  // ==========================================================
+  // EVENT TYPES
+  // ==========================================================
+
+  const eventType =
+    String(
+      event.type || ""
+    ).toLowerCase();
+
+  if (
+    eventType === "message" ||
+    eventType === "message_reply"
+  ) {
+    await processMessageCommand(
+      api,
+      userid,
+      event,
+      body,
+      threadID,
+      senderID,
+      prefix,
+      enableCommands,
+      admin
     );
   }
 
-  fs.writeFileSync(
-    configFile,
-    JSON.stringify(
-      history,
-      null,
-      2
-    )
-  );
+  // ==========================================================
+  // HANDLE EVENTS
+  // ==========================================================
 
-  fs.writeFileSync(
-    sessionFile,
-    JSON.stringify(
-      state
-    )
+  await processEvents(
+    api,
+    event,
+    enableCommands
   );
 }
 
 // ============================================================
-// ALIASES
+// MESSAGE COMMAND PROCESSOR
 // ============================================================
 
-function aliases(
-  command
+async function processMessageCommand(
+  api,
+  userid,
+  event,
+  body,
+  threadID,
+  senderID,
+  prefix,
+  enableCommands,
+  admin
 ) {
+  if (!body) {
+    return;
+  }
 
-  if (!command) {
+  const text =
+    body.trim();
+
+  if (!text) {
+    return;
+  }
+
+  // ==========================================================
+  // PARSE
+  // ==========================================================
+
+  const firstSpace =
+    text.indexOf(" ");
+
+  let firstWord =
+    firstSpace === -1
+      ? text
+      : text.slice(0, firstSpace);
+
+  let args =
+    firstSpace === -1
+      ? []
+      : text
+          .slice(firstSpace + 1)
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+
+  const lowerFirst =
+    firstWord.toLowerCase();
+
+  // ==========================================================
+  // PREFIX DETECTION
+  // ==========================================================
+
+  const configuredPrefix =
+    String(prefix || "");
+
+  let commandName = "";
+  let hasUsedPrefix = false;
+
+  const matchedCommand =
+    aliases(lowerFirst);
+
+  if (matchedCommand) {
+    commandName =
+      matchedCommand.config.name;
+  }
+
+  /*
+   * Prefix command:
+   * /help
+   *
+   * Prefixless command:
+   * help
+   */
+  if (
+    configuredPrefix &&
+    text.startsWith(configuredPrefix)
+  ) {
+    hasUsedPrefix = true;
+
+    const withoutPrefix =
+      text
+        .slice(
+          configuredPrefix.length
+        )
+        .trim();
+
+    if (!withoutPrefix) {
+      return;
+    }
+
+    const space =
+      withoutPrefix.indexOf(" ");
+
+    firstWord =
+      space === -1
+        ? withoutPrefix
+        : withoutPrefix.slice(0, space);
+
+    args =
+      space === -1
+        ? []
+        : withoutPrefix
+            .slice(space + 1)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+    commandName =
+      firstWord.toLowerCase();
+  } else {
+    /*
+     * Prefixless lookup.
+     */
+    const found =
+      aliases(
+        lowerFirst
+      );
+
+    if (found) {
+      commandName =
+        found.config.name;
+    }
+  }
+
+  if (!commandName) {
+    return;
+  }
+
+  const commandData =
+    aliases(commandName);
+
+  if (!commandData) {
+    return;
+  }
+
+  // ==========================================================
+  // PREFIX REQUIREMENT
+  // ==========================================================
+
+  if (
+    commandData.config.hasPrefix === false
+  ) {
+    if (hasUsedPrefix) {
+      await safeSend(
+        api,
+        "This command doesn't need a prefix.",
+        threadID,
+        event.messageID
+      );
+
+      return;
+    }
+  } else if (
+    configuredPrefix &&
+    !hasUsedPrefix
+  ) {
+    return;
+  }
+
+  // ==========================================================
+  // ENABLED COMMANDS
+  // ==========================================================
+
+  if (
+    Array.isArray(enableCommands) &&
+    enableCommands.length
+  ) {
+    const commandList =
+      enableCommands.find(
+        item =>
+          item &&
+          Array.isArray(
+            item.commands
+          )
+      );
+
+    if (
+      commandList &&
+      !commandList.commands
+        .map(String)
+        .map(x => x.toLowerCase())
+        .includes(
+          commandData.config.name
+            .toLowerCase()
+        )
+    ) {
+      return;
+    }
+  }
+
+  // ==========================================================
+  // DEV ONLY
+  // ==========================================================
+
+  if (commandData.config.dev) {
+    const isDev =
+      dev
+        .map(String)
+        .includes(
+          String(senderID)
+        );
+
+    if (!isDev) {
+      return;
+    }
+  }
+
+  // ==========================================================
+  // ROLE / PERMISSION
+  // ==========================================================
+
+  const role =
+    Number(
+      commandData.config.role || 0
+    );
+
+  if (role > 0) {
+    const isMaster =
+      Array.isArray(config.masterKey?.admin) &&
+      config.masterKey.admin
+        .map(String)
+        .includes(
+          String(senderID)
+        );
+
+    const isAdmin =
+      Array.isArray(admin) &&
+      admin
+        .map(String)
+        .includes(
+          String(senderID)
+        );
+
+    let isThreadAdmin = false;
+
+    if (role >= 2) {
+      try {
+        const info =
+          await api.getThreadInfo(
+            threadID
+          );
+
+        isThreadAdmin =
+          Array.isArray(
+            info?.adminIDs
+          ) &&
+          info.adminIDs
+            .some(
+              item =>
+                String(
+                  item.id ||
+                  item
+                ) ===
+                String(senderID)
+            );
+      } catch (_) {
+        isThreadAdmin = false;
+      }
+    }
+
+    if (
+      role >= 3 &&
+      !isMaster
+    ) {
+      return;
+    }
+
+    if (
+      role === 2 &&
+      !isAdmin &&
+      !isThreadAdmin &&
+      !isMaster
+    ) {
+      return;
+    }
+
+    if (
+      role === 1 &&
+      !isAdmin &&
+      !isMaster
+    ) {
+      return;
+    }
+  }
+
+  // ==========================================================
+  // COOLDOWN
+  // ==========================================================
+
+  const cooldown =
+    Number(
+      commandData.config.cooldown || 0
+    );
+
+  if (cooldown > 0) {
+    const key =
+      `${senderID}:${commandData.config.name}`;
+
+    const now =
+      Date.now();
+
+    const previous =
+      Utils.cooldowns.get(key) || 0;
+
+    if (
+      now - previous <
+      cooldown * 1000
+    ) {
+      return;
+    }
+
+    Utils.cooldowns.set(
+      key,
+      now
+    );
+  }
+
+  // ==========================================================
+  // COMMAND EXECUTION
+  // ==========================================================
+
+  if (
+    typeof commandData.run !==
+    "function"
+  ) {
+    return;
+  }
+
+  try {
+    await commandData.run({
+      api,
+
+      event,
+
+      args,
+
+      body,
+
+      threadID,
+
+      messageID:
+        event.messageID,
+
+      senderID,
+
+      prefix,
+
+      commands:
+        Utils.commands,
+
+      handleEvent:
+        Utils.handleEvent,
+
+      account:
+        Utils.account.get(userid),
+
+      config,
+
+      safeSend: (
+        message,
+        targetThreadID = threadID,
+        replyID = event.messageID
+      ) =>
+        safeSend(
+          api,
+          message,
+          targetThreadID,
+          replyID
+        )
+    });
+  } catch (commandError) {
+    console.error(
+      chalk.red(
+        `[COMMAND ERROR] ${commandData.config.name}`
+      ),
+      commandError
+    );
+  }
+}
+
+// ============================================================
+// EVENT PROCESSOR
+// ============================================================
+
+async function processEvents(
+  api,
+  event,
+  enableCommands
+) {
+  if (!event) {
+    return;
+  }
+
+  const enabledEvents =
+    Array.isArray(enableCommands)
+      ? enableCommands.find(
+          item =>
+            item &&
+            Array.isArray(
+              item.handleEvent
+            )
+        )
+      : null;
+
+  for (
+    const eventHandler
+    of Utils.handleEvent.values()
+  ) {
+    try {
+      const name =
+        eventHandler.config?.name;
+
+      if (
+        enabledEvents &&
+        !enabledEvents.handleEvent
+          .map(String)
+          .map(x => x.toLowerCase())
+          .includes(
+            String(name).toLowerCase()
+          )
+      ) {
+        continue;
+      }
+
+      if (
+        typeof eventHandler.handleEvent !==
+        "function"
+      ) {
+        continue;
+      }
+
+      await eventHandler.handleEvent({
+        api,
+        event,
+        safeSend: (
+          message,
+          threadID = event.threadID,
+          messageID = event.messageID
+        ) =>
+          safeSend(
+            api,
+            message,
+            threadID,
+            messageID
+          )
+      });
+    } catch (error) {
+      console.error(
+        chalk.red(
+          `[HANDLE EVENT ERROR]`
+        ),
+        error.message
+      );
+    }
+  }
+}
+
+// ============================================================
+// ALIAS LOOKUP
+// ============================================================
+
+function aliases(command) {
+  const target =
+    String(command || "")
+      .toLowerCase()
+      .trim();
+
+  if (!target) {
     return null;
   }
 
-  const normalized =
-    String(command)
-      .toLowerCase();
-
   for (
-    const [
-      names,
-      data
-    ] of Utils.commands
+    const commandData
+    of Utils.commands.values()
   ) {
+    const names = [
+      commandData.config.name,
+      ...(commandData.config.aliases || [])
+    ]
+      .map(
+        x =>
+          String(x).toLowerCase()
+      );
 
     if (
-      names.some(
-        name =>
-          String(name)
-            .toLowerCase() ===
-          normalized
-      )
+      names.includes(target)
     ) {
-
-      return data;
-    }
-  }
-
-  for (
-    const [
-      names,
-      data
-    ] of Utils.handleEvent
-  ) {
-
-    if (
-      names.some(
-        name =>
-          String(name)
-            .toLowerCase() ===
-          normalized
-      )
-    ) {
-
-      return data;
+      return commandData;
     }
   }
 
@@ -2026,76 +1851,191 @@ async function createThread(
   threadID,
   api
 ) {
+  if (!threadID) {
+    return null;
+  }
+
+  let database =
+    readJSON(
+      DATABASE_FILE,
+      {}
+    );
+
+  if (
+    database[threadID]
+  ) {
+    return database[threadID];
+  }
 
   try {
-
-    const database =
-      fs.existsSync(
-        "./data/database.json"
-      )
-        ? JSON.parse(
-            fs.readFileSync(
-              "./data/database.json",
-              "utf8"
-            )
-          )
-        : [];
-
-    const existing =
-      database.find(
-        item =>
-          Object.prototype.hasOwnProperty.call(
-            item,
-            threadID
-          )
-      );
-
-    if (existing) {
-      return database;
-    }
-
-    const threadInfo =
+    const info =
       await api.getThreadInfo(
         threadID
       );
 
     const adminIDs =
       Array.isArray(
-        threadInfo?.adminIDs
+        info?.adminIDs
       )
-        ? threadInfo.adminIDs
+        ? info.adminIDs.map(
+            item =>
+              String(
+                item.id ||
+                item
+              )
+          )
         : [];
 
-    const data = {};
+    database[threadID] = {
+      threadID,
+      adminIDs,
+      createdAt:
+        Date.now()
+    };
 
-    data[threadID] =
-      adminIDs;
-
-    database.push(
-      data
+    writeJSON(
+      DATABASE_FILE,
+      database
     );
 
-    fs.writeFileSync(
-      "./data/database.json",
-      JSON.stringify(
-        database,
-        null,
-        2
-      ),
-      "utf8"
-    );
-
-    return database;
-
+    return database[threadID];
   } catch (error) {
-
     console.error(
-      "[THREAD ERROR]",
+      `[THREAD ERROR] ${threadID}`,
       error.message
     );
 
-    return [];
+    return null;
   }
+}
+
+// ============================================================
+// ADD USER
+// ============================================================
+
+function addThisUser(
+  userid,
+  enableCommands,
+  state,
+  prefix,
+  admin,
+  blacklist = []
+) {
+  const history =
+    readJSON(
+      HISTORY_FILE,
+      []
+    );
+
+  const accountData = {
+    userid: String(userid),
+
+    prefix:
+      typeof prefix === "string"
+        ? prefix
+        : "",
+
+    admin:
+      Array.isArray(admin)
+        ? admin.map(String)
+        : [],
+
+    blacklist:
+      Array.isArray(blacklist)
+        ? blacklist.map(String)
+        : [],
+
+    enableCommands:
+      Array.isArray(enableCommands)
+        ? enableCommands
+        : [],
+
+    time: 0,
+
+    updatedAt:
+      Date.now()
+  };
+
+  const index =
+    history.findIndex(
+      item =>
+        String(item.userid) ===
+        String(userid)
+    );
+
+  if (index >= 0) {
+    history[index] = {
+      ...history[index],
+      ...accountData
+    };
+  } else {
+    history.push(accountData);
+  }
+
+  writeJSON(
+    HISTORY_FILE,
+    history
+  );
+
+  const sessionFile =
+    path.join(
+      SESSION_DIR,
+      `${userid}.json`
+    );
+
+  writeJSON(
+    sessionFile,
+    state
+  );
+}
+
+// ============================================================
+// DELETE USER
+// ============================================================
+
+function deleteThisUser(userid) {
+  const history =
+    readJSON(
+      HISTORY_FILE,
+      []
+    );
+
+  const filtered =
+    history.filter(
+      item =>
+        String(item.userid) !==
+        String(userid)
+    );
+
+  writeJSON(
+    HISTORY_FILE,
+    filtered
+  );
+
+  const sessionFile =
+    path.join(
+      SESSION_DIR,
+      `${userid}.json`
+    );
+
+  try {
+    if (
+      fs.existsSync(sessionFile)
+    ) {
+      fs.unlinkSync(
+        sessionFile
+      );
+    }
+  } catch (error) {
+    console.error(
+      "[SESSION DELETE ERROR]",
+      error.message
+    );
+  }
+
+  Utils.account.delete(
+    String(userid)
+  );
 }
 
 // ============================================================
@@ -2103,101 +2043,126 @@ async function createThread(
 // ============================================================
 
 async function main() {
+  console.log(
+    chalk.cyan(
+      "=========================================="
+    )
+  );
 
-  const cacheFolder =
-    path.join(
-      script,
-      "cache"
+  console.log(
+    chalk.cyan(
+      "       BOT STARTUP / STABILITY MODE"
+    )
+  );
+
+  console.log(
+    chalk.cyan(
+      "=========================================="
+    )
+  );
+
+  const history =
+    readJSON(
+      HISTORY_FILE,
+      []
     );
 
   if (
-    !fs.existsSync(
-      cacheFolder
-    )
+    !Array.isArray(history) ||
+    history.length === 0
   ) {
-
-    fs.mkdirSync(
-      cacheFolder,
-      {
-        recursive: true
-      }
-    );
-  }
-
-  const historyFile =
-    "./data/history.json";
-
-  const sessionFolder =
-    "./data/session";
-
-  const history =
-    JSON.parse(
-      fs.readFileSync(
-        historyFile,
-        "utf8"
+    console.log(
+      chalk.yellow(
+        "[STARTUP] No saved accounts found."
       )
     );
 
-  if (
-    !fs.existsSync(
-      sessionFolder
-    )
-  ) {
-
-    fs.mkdirSync(
-      sessionFolder,
-      {
-        recursive: true
-      }
-    );
+    return;
   }
 
+  const sessionFiles =
+    fs.readdirSync(
+      SESSION_DIR
+    )
+      .filter(
+        file =>
+          file.endsWith(".json")
+      );
+
+  if (
+    sessionFiles.length === 0
+  ) {
+    console.log(
+      chalk.yellow(
+        "[STARTUP] No session files found."
+      )
+    );
+
+    return;
+  }
+
+  /*
+   * Sequential account startup.
+   * This avoids logging in every account simultaneously.
+   */
   for (
     const file
-    of fs.readdirSync(
-      sessionFolder
-    )
+    of sessionFiles
   ) {
-
-    if (
-      !file.endsWith(".json")
-    ) {
-      continue;
-    }
-
     const userid =
-      path.parse(
-        file
-      ).name;
+      path.basename(
+        file,
+        ".json"
+      );
 
     const userData =
       history.find(
         item =>
-          item.userid ===
-          userid
+          String(item.userid) ===
+          String(userid)
       );
 
     if (!userData) {
-
       console.log(
-        `[SESSION] No history found for ${userid}.`
+        chalk.yellow(
+          `[STARTUP] No history for ${userid}; keeping session.`
+        )
+      );
+
+      continue;
+    }
+
+    const sessionPath =
+      path.join(
+        SESSION_DIR,
+        file
+      );
+
+    const state =
+      readJSON(
+        sessionPath,
+        null
+      );
+
+    if (
+      !Array.isArray(state) ||
+      state.length === 0
+    ) {
+      console.log(
+        chalk.yellow(
+          `[STARTUP] Invalid/empty session for ${userid}.`
+        )
       );
 
       continue;
     }
 
     try {
-
-      const state =
-        JSON.parse(
-          fs.readFileSync(
-            path.join(
-              sessionFolder,
-              file
-            ),
-            "utf8"
-          )
-        );
+      console.log(
+        chalk.blue(
+          `[STARTUP] Connecting ${userid}...`
+        )
+      );
 
       await accountLogin(
         state,
@@ -2208,35 +2173,180 @@ async function main() {
       );
 
       console.log(
-        `[SESSION] Loaded account ${userid}.`
+        chalk.green(
+          `[STARTUP] ${userid} is online.`
+        )
       );
 
+      /*
+       * Small gap before another account starts.
+       */
+      await sleep(2000);
     } catch (error) {
-
+      /*
+       * IMPORTANT:
+       * Do NOT delete the session here.
+       *
+       * A temporary network/FCA error should not
+       * destroy the saved login state.
+       */
       console.error(
-        `[SESSION] Failed to load ${userid}:`,
+        chalk.red(
+          `[STARTUP ERROR] ${userid}`
+        ),
         error.message
       );
 
-      // Keep session file.
-      // A temporary connection error should
-      // not automatically delete the session.
+      await sleep(5000);
     }
   }
+
+  console.log(
+    chalk.green(
+      "[STARTUP] Finished loading saved accounts."
+    )
+  );
 }
+
+// ============================================================
+// PROCESS SAFETY
+// ============================================================
+
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) {
+    return;
+  }
+
+  shuttingDown = true;
+
+  console.log(
+    chalk.yellow(
+      `[SHUTDOWN] ${signal}`
+    )
+  );
+
+  try {
+    if (Traffic.cleanupTimer) {
+      clearInterval(
+        Traffic.cleanupTimer
+      );
+    }
+
+    for (
+      const [
+        userid,
+        data
+      ]
+      of activeLogins.entries()
+    ) {
+      try {
+        if (data.timer) {
+          clearInterval(
+            data.timer
+          );
+        }
+
+        if (
+          data.api &&
+          typeof data.api.logout ===
+          "function"
+        ) {
+          /*
+           * Do not force logout.
+           *
+           * We only stop local timers.
+           */
+        }
+      } catch (_) {}
+
+      Utils.account.delete(
+        userid
+      );
+    }
+
+    activeLogins.clear();
+
+    if (server) {
+      await new Promise(resolve => {
+        server.close(() => {
+          resolve();
+        });
+
+        setTimeout(
+          resolve,
+          5000
+        );
+      });
+    }
+  } catch (error) {
+    console.error(
+      "[SHUTDOWN ERROR]",
+      error.message
+    );
+  }
+
+  process.exit(0);
+}
+
+process.on(
+  "SIGTERM",
+  () => shutdown("SIGTERM")
+);
+
+process.on(
+  "SIGINT",
+  () => shutdown("SIGINT")
+);
+
+process.on(
+  "uncaughtException",
+  error => {
+    console.error(
+      chalk.red(
+        "[UNCAUGHT EXCEPTION]"
+      ),
+      error
+    );
+
+    /*
+     * Do not immediately exit for a normal
+     * command/event exception.
+     *
+     * The supervisor (index.js) can handle
+     * a genuine process failure if necessary.
+     */
+  }
+);
+
+process.on(
+  "unhandledRejection",
+  error => {
+    console.error(
+      chalk.red(
+        "[UNHANDLED REJECTION]"
+      ),
+      error
+    );
+  }
+);
 
 // ============================================================
 // START
 // ============================================================
 
-main().catch(
-  error => {
+main().catch(error => {
+  console.error(
+    chalk.red(
+      "[MAIN ERROR]"
+    ),
+    error
+  );
 
-    console.error(
-      "[MAIN ERROR]",
-      error
-    );
-
-    process.exit(1);
-  }
-);
+  /*
+   * Let index.js supervisor handle a genuine
+   * startup failure instead of silently continuing.
+   */
+  process.exitCode = 1;
+});
