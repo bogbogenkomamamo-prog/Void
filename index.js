@@ -1,94 +1,216 @@
-const { spawn } = require("child_process");
+"use strict";
+
+const {
+  spawn
+} = require("child_process");
+
 const path = require("path");
+
+// ============================================================
+// CONFIGURATION
+// ============================================================
 
 const SCRIPT_FILE = "auto.js";
 const SCRIPT_PATH = path.join(__dirname, SCRIPT_FILE);
 
-// ==========================================
-// HUMAN MIMICKER + TRAFFIC PROTECTION
-// ==========================================
+const CONFIG = {
+  // ------------------------------------------
+  // TRAFFIC PROTECTION
+  // ------------------------------------------
+
+  maxMessages: 3,
+  windowMs: 10_000,
+  cooldownMs: 30_000,
+
+  // Same message suppression
+  dedupWindowMs: 5_000,
+
+  // ------------------------------------------
+  // RESPONSE TIMING
+  // ------------------------------------------
+
+  cpm: 260,
+  minDelay: 800,
+  maxExtraDelay: 1800,
+
+  // ------------------------------------------
+  // PROCESS RECOVERY
+  // ------------------------------------------
+
+  initialRestartDelay: 5_000,
+
+  maxRestartDelay: 60_000,
+
+  backoffMultiplier: 2,
+
+  // If process crashes repeatedly,
+  // don't restart hundreds of times per minute.
+  crashWindow: 60_000,
+
+  maxCrashesInWindow: 8,
+
+  // ------------------------------------------
+  // HEALTH CHECK
+  // ------------------------------------------
+
+  healthCheckInterval: 30_000,
+
+  // ------------------------------------------
+  // SHUTDOWN
+  // ------------------------------------------
+
+  shutdownTimeout: 10_000
+};
+
+// ============================================================
+// BOT PROTECTION ENGINE
+// ============================================================
+
 class BotProtectionEngine {
+
   constructor(options = {}) {
-    // Anti-spam limiter
-    this.maxMessagesPerWindow = options.maxMessages || 3;
-    this.windowMs = options.windowMs || 10000;
-    this.cooldownMs = options.cooldownMs || 30000;
+
+    this.maxMessagesPerWindow =
+      options.maxMessages ||
+      CONFIG.maxMessages;
+
+    this.windowMs =
+      options.windowMs ||
+      CONFIG.windowMs;
+
+    this.cooldownMs =
+      options.cooldownMs ||
+      CONFIG.cooldownMs;
 
     this.userHistory = new Map();
 
-    // Duplicate message suppression
-    this.dedupWindowMs = options.dedupWindowMs || 5000;
+    this.dedupWindowMs =
+      options.dedupWindowMs ||
+      CONFIG.dedupWindowMs;
+
     this.recentMessages = new Map();
 
-    // Human typing speed
-    this.cpm = options.cpm || 260;
+    this.cpm =
+      options.cpm ||
+      CONFIG.cpm;
 
-    // Minimum response delay
-    this.minDelay = options.minDelay || 800;
+    this.minDelay =
+      options.minDelay ||
+      CONFIG.minDelay;
 
-    // Random extra pause
-    this.maxExtraDelay = options.maxExtraDelay || 1800;
+    this.maxExtraDelay =
+      options.maxExtraDelay ||
+      CONFIG.maxExtraDelay;
 
-    // Cleanup every hour
-    setInterval(() => {
-      this.cleanupMemory();
-    }, 60 * 60 * 1000);
+    // Don't allow cleanup interval to keep
+    // a process alive unnecessarily.
+    this.cleanupTimer = setInterval(
+      () => this.cleanupMemory(),
+      60 * 60 * 1000
+    );
+
+    if (this.cleanupTimer.unref) {
+      this.cleanupTimer.unref();
+    }
   }
 
-  // ==========================================
+  // ==========================================================
   // MEMORY CLEANUP
-  // ==========================================
+  // ==========================================================
+
   cleanupMemory() {
+
     const now = Date.now();
 
-    // Clean user limiter history
-    for (const [userId, data] of this.userHistory.entries()) {
-      data.timestamps = data.timestamps.filter(
-        ts => now - ts < this.windowMs
-      );
+    // User limiter
+    for (
+      const [
+        userId,
+        data
+      ] of this.userHistory.entries()
+    ) {
+
+      data.timestamps =
+        data.timestamps.filter(
+          timestamp =>
+            now - timestamp <
+            this.windowMs
+        );
 
       if (
         data.timestamps.length === 0 &&
         now > data.blockedUntil
       ) {
-        this.userHistory.delete(userId);
+
+        this.userHistory.delete(
+          userId
+        );
       }
     }
 
-    // Clean duplicate cache
-    for (const [key, timestamp] of this.recentMessages.entries()) {
-      if (now - timestamp > this.dedupWindowMs) {
-        this.recentMessages.delete(key);
+    // Duplicate cache
+    for (
+      const [
+        key,
+        timestamp
+      ] of this.recentMessages.entries()
+    ) {
+
+      if (
+        now - timestamp >
+        this.dedupWindowMs
+      ) {
+
+        this.recentMessages.delete(
+          key
+        );
       }
     }
 
-    console.log("[SYSTEM] Protection memory cleanup completed.");
+    console.log(
+      "[PROTECTION] Memory cleanup completed."
+    );
   }
 
-  // ==========================================
+  // ==========================================================
   // SPAM LIMITER
-  // ==========================================
+  // ==========================================================
+
   isSpamming(userId) {
+
+    if (!userId) return false;
+
     const now = Date.now();
 
-    let userData = this.userHistory.get(userId);
+    let userData =
+      this.userHistory.get(
+        userId
+      );
 
     if (!userData) {
+
       userData = {
         timestamps: [],
         blockedUntil: 0
       };
     }
 
-    // Still under cooldown
-    if (now < userData.blockedUntil) {
+    // Still blocked
+    if (
+      now <
+      userData.blockedUntil
+    ) {
+
       return true;
     }
 
-    // Remove old timestamps
-    userData.timestamps = userData.timestamps.filter(
-      timestamp => now - timestamp < this.windowMs
-    );
+    // Remove expired timestamps
+    userData.timestamps =
+      userData.timestamps.filter(
+        timestamp =>
+          now - timestamp <
+          this.windowMs
+      );
 
     userData.timestamps.push(now);
 
@@ -97,126 +219,142 @@ class BotProtectionEngine {
       userData.timestamps.length >
       this.maxMessagesPerWindow
     ) {
-      userData.blockedUntil =
-        now + this.cooldownMs;
 
-      this.userHistory.set(userId, userData);
+      userData.blockedUntil =
+        now +
+        this.cooldownMs;
+
+      this.userHistory.set(
+        userId,
+        userData
+      );
 
       console.log(
-        `[LIMITER] ${userId} exceeded message limit.`
+        `[LIMITER] ${userId} temporarily throttled.`
       );
 
       return true;
     }
 
-    this.userHistory.set(userId, userData);
+    this.userHistory.set(
+      userId,
+      userData
+    );
 
     return false;
   }
 
-  // ==========================================
-  // DUPLICATE / TRAFFIC GOVERNOR
-  // ==========================================
-  isDuplicate(userId, messageText) {
-    if (!messageText) return false;
+  // ==========================================================
+  // DUPLICATE SUPPRESSION
+  // ==========================================================
+
+  isDuplicate(
+    userId,
+    messageText
+  ) {
+
+    if (
+      !userId ||
+      !messageText
+    ) {
+
+      return false;
+    }
 
     const now = Date.now();
 
-    // Normalize message
-    const cleanText = messageText
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, " ");
+    const cleanText =
+      String(messageText)
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
 
-    if (!cleanText) return false;
+    if (!cleanText)
+      return false;
 
-    const key = `${userId}:${cleanText}`;
+    const key =
+      `${userId}:${cleanText}`;
 
-    const lastSeen =
-      this.recentMessages.get(key);
+    const previous =
+      this.recentMessages.get(
+        key
+      );
 
-    // Duplicate detected
     if (
-      lastSeen &&
-      now - lastSeen < this.dedupWindowMs
+      previous &&
+      now - previous <
+      this.dedupWindowMs
     ) {
+
       console.log(
-        `[TRAFFIC GOVERNOR] Duplicate suppressed: ${userId}`
+        `[TRAFFIC] Duplicate suppressed for ${userId}.`
       );
 
       return true;
     }
 
-    this.recentMessages.set(key, now);
-
-    // Auto remove
-    setTimeout(() => {
-      const current =
-        this.recentMessages.get(key);
-
-      if (
-        current &&
-        Date.now() - current >=
-          this.dedupWindowMs
-      ) {
-        this.recentMessages.delete(key);
-      }
-    }, this.dedupWindowMs + 100);
+    this.recentMessages.set(
+      key,
+      now
+    );
 
     return false;
   }
 
-  // ==========================================
-  // HUMAN-LIKE TYPING DELAY
-  // ==========================================
-  getTypingDelay(text = "") {
-    const length = text.length;
+  // ==========================================================
+  // TYPING DELAY
+  // ==========================================================
 
-    /*
-     * Average typing speed:
-     * 260 CPM ~= 4.3 characters/sec
-     */
+  getTypingDelay(
+    text = ""
+  ) {
 
-    const charactersPerSecond =
+    const length =
+      String(text).length;
+
+    const cps =
       this.cpm / 60;
 
-    const baseTypingTime =
-      length / charactersPerSecond * 1000;
+    const base =
+      length / cps * 1000;
 
-    // Random human variation
     const variation =
-      0.75 + Math.random() * 0.65;
+      0.75 +
+      Math.random() * 0.65;
 
-    // Small random pause
-    const randomPause =
+    const extra =
       Math.floor(
         Math.random() *
         this.maxExtraDelay
       );
 
     let delay =
-      baseTypingTime * variation +
-      randomPause;
+      base * variation +
+      extra;
 
-    // Minimum delay
-    delay = Math.max(
-      this.minDelay,
+    delay =
+      Math.max(
+        this.minDelay,
+        delay
+      );
+
+    delay =
+      Math.min(
+        delay,
+        12_000
+      );
+
+    return Math.floor(
       delay
     );
-
-    // Prevent ridiculous delays
-    delay = Math.min(
-      delay,
-      12000
-    );
-
-    return Math.floor(delay);
   }
 
-  // ==========================================
-  // RANDOM HUMAN PAUSE
-  // ==========================================
+  // ==========================================================
+  // HUMAN PAUSE
+  // ==========================================================
+
   getHumanPause() {
+
     const pauses = [
       700,
       900,
@@ -229,17 +367,24 @@ class BotProtectionEngine {
 
     return pauses[
       Math.floor(
-        Math.random() * pauses.length
+        Math.random() *
+        pauses.length
       )
     ];
   }
 
-  // ==========================================
-  // FINAL RESPONSE DELAY
-  // ==========================================
-  getResponseDelay(text = "") {
+  // ==========================================================
+  // RESPONSE DELAY
+  // ==========================================================
+
+  getResponseDelay(
+    text = ""
+  ) {
+
     const typing =
-      this.getTypingDelay(text);
+      this.getTypingDelay(
+        text
+      );
 
     const pause =
       Math.random() < 0.25
@@ -250,173 +395,569 @@ class BotProtectionEngine {
   }
 }
 
-// ==========================================
-// CREATE PROTECTION ENGINE
-// ==========================================
+// ============================================================
+// PROTECTION INSTANCE
+// ============================================================
 
 const botProtection =
   new BotProtectionEngine({
-    maxMessages: 3,
-    windowMs: 10000,
-    cooldownMs: 30000,
+    maxMessages:
+      CONFIG.maxMessages,
 
-    dedupWindowMs: 5000,
+    windowMs:
+      CONFIG.windowMs,
 
-    // Human typing
-    cpm: 260,
+    cooldownMs:
+      CONFIG.cooldownMs,
 
-    // Minimum response delay
-    minDelay: 800,
+    dedupWindowMs:
+      CONFIG.dedupWindowMs,
 
-    // Random variation
-    maxExtraDelay: 1800
+    cpm:
+      CONFIG.cpm,
+
+    minDelay:
+      CONFIG.minDelay,
+
+    maxExtraDelay:
+      CONFIG.maxExtraDelay
   });
 
-// ==========================================
-// CHILD PROCESS
-// ==========================================
+// ============================================================
+// CHILD PROCESS STATE
+// ============================================================
 
 let childProcess = null;
-let restarting = false;
+
+let shuttingDown = false;
+
+let restartTimer = null;
+
+let restartDelay =
+  CONFIG.initialRestartDelay;
+
+let crashHistory = [];
+
+let processStartedAt = 0;
+
+// ============================================================
+// LOGGING
+// ============================================================
+
+function log(message) {
+
+  const timestamp =
+    new Date()
+      .toISOString();
+
+  console.log(
+    `[${timestamp}] ${message}`
+  );
+}
+
+// ============================================================
+// CLEAN CRASH HISTORY
+// ============================================================
+
+function cleanCrashHistory() {
+
+  const now = Date.now();
+
+  crashHistory =
+    crashHistory.filter(
+      timestamp =>
+        now - timestamp <
+        CONFIG.crashWindow
+    );
+}
+
+// ============================================================
+// SHOULD RESTART?
+// ============================================================
+
+function canRestart() {
+
+  cleanCrashHistory();
+
+  if (
+    crashHistory.length >=
+    CONFIG.maxCrashesInWindow
+  ) {
+
+    log(
+      "[RECOVERY] Too many crashes detected. Pausing automatic restart."
+    );
+
+    return false;
+  }
+
+  return true;
+}
+
+// ============================================================
+// START BOT
+// ============================================================
 
 function start() {
-  if (childProcess) {
-    console.log(
-      "[SYSTEM] Bot process already running."
+
+  if (shuttingDown) {
+
+    log(
+      "[SYSTEM] Shutdown in progress. Start cancelled."
     );
 
     return;
   }
 
-  console.log(
-    "[SYSTEM] Starting main bot process..."
+  if (childProcess) {
+
+    log(
+      "[SYSTEM] auto.js is already running."
+    );
+
+    return;
+  }
+
+  if (restartTimer) {
+
+    clearTimeout(
+      restartTimer
+    );
+
+    restartTimer = null;
+  }
+
+  log(
+    "[SYSTEM] Starting auto.js..."
   );
 
-  childProcess = spawn(
-    process.execPath,
-    [SCRIPT_PATH],
-    {
-      cwd: __dirname,
+  processStartedAt =
+    Date.now();
 
-      stdio: "inherit",
+  const childEnv = {
+    ...process.env,
 
-      // Mas stable kaysa shell:true
-      shell: false,
+    NODE_ENV:
+      process.env.NODE_ENV ||
+      "production",
 
-      env: {
-        ...process.env,
+    BOT_SUPERVISOR:
+      "true"
+  };
 
-        NODE_ENV: "production"
+  childProcess =
+    spawn(
+      process.execPath,
+      [
+        SCRIPT_PATH
+      ],
+      {
+        cwd: __dirname,
+
+        stdio: "inherit",
+
+        shell: false,
+
+        env: childEnv
       }
+    );
+
+  // ==========================================================
+  // CHILD ERROR
+  // ==========================================================
+
+  childProcess.on(
+    "error",
+    error => {
+
+      log(
+        `[CHILD ERROR] ${error.message}`
+      );
     }
   );
 
-  childProcess.on("error", error => {
-    console.error(
-      "[SYSTEM] Child process error:",
-      error.message
-    );
-  });
+  // ==========================================================
+  // CHILD EXIT
+  // ==========================================================
 
   childProcess.on(
     "close",
-    exitCode => {
+    (exitCode, signal) => {
+
+      const runtime =
+        Date.now() -
+        processStartedAt;
+
       childProcess = null;
 
-      if (restarting) {
-        restarting = false;
+      if (shuttingDown) {
+
+        log(
+          "[SYSTEM] auto.js stopped during shutdown."
+        );
+
         return;
       }
 
-      console.log(
-        `[SYSTEM] Main process exited with code ${exitCode}.`
+      // ------------------------------------------------------
+      // Process ran long enough:
+      // reset aggressive crash backoff.
+      // ------------------------------------------------------
+
+      if (
+        runtime >
+        CONFIG.crashWindow
+      ) {
+
+        restartDelay =
+          CONFIG.initialRestartDelay;
+
+        crashHistory = [];
+      }
+
+      crashHistory.push(
+        Date.now()
       );
 
-      console.log(
-        "[SYSTEM] Reconnecting in 5 seconds..."
+      cleanCrashHistory();
+
+      log(
+        `[SYSTEM] auto.js exited. code=${exitCode}, signal=${signal || "none"}, runtime=${Math.floor(runtime / 1000)}s`
       );
 
-      setTimeout(() => {
-        start();
-      }, 5000);
+      // ------------------------------------------------------
+      // Crash protection
+      // ------------------------------------------------------
+
+      if (!canRestart()) {
+
+        // Give the supervisor another chance
+        // later instead of dying permanently.
+        restartDelay =
+          Math.min(
+            restartDelay *
+              CONFIG.backoffMultiplier,
+            CONFIG.maxRestartDelay
+          );
+
+      }
+
+      const delay =
+        restartDelay;
+
+      restartDelay =
+        Math.min(
+          restartDelay *
+            CONFIG.backoffMultiplier,
+          CONFIG.maxRestartDelay
+        );
+
+      log(
+        `[RECOVERY] Restarting auto.js in ${Math.ceil(delay / 1000)} seconds...`
+      );
+
+      restartTimer =
+        setTimeout(
+          () => {
+
+            restartTimer = null;
+
+            if (
+              shuttingDown
+            ) {
+
+              return;
+            }
+
+            start();
+
+          },
+          delay
+        );
+
+      // Don't keep the supervisor alive
+      // solely because of this timer.
+      if (
+        restartTimer.unref
+      ) {
+
+        restartTimer.unref();
+      }
     }
+  );
+
+  log(
+    `[SYSTEM] auto.js PID: ${childProcess.pid}`
   );
 }
 
-// ==========================================
-// DAILY REFRESH
-// ==========================================
+// ============================================================
+// HEALTH MONITOR
+// ============================================================
 
-setInterval(() => {
-  console.log(
-    "[SYSTEM] Scheduled 24-hour refresh."
-  );
+const healthTimer =
+  setInterval(
+    () => {
 
-  if (childProcess) {
-    restarting = true;
+      if (shuttingDown)
+        return;
 
-    childProcess.kill("SIGTERM");
+      if (!childProcess) {
 
-    // Force kill if process refuses to exit
-    setTimeout(() => {
-      if (childProcess) {
-        console.log(
-          "[SYSTEM] Force stopping old process..."
+        log(
+          "[HEALTH] auto.js is not running."
         );
 
-        childProcess.kill("SIGKILL");
-        childProcess = null;
-
-        restarting = false;
-
-        start();
+        return;
       }
-    }, 10000);
-  } else {
+
+      log(
+        `[HEALTH] auto.js running normally. PID=${childProcess.pid}`
+      );
+
+    },
+    CONFIG.healthCheckInterval
+  );
+
+if (
+  healthTimer.unref
+) {
+
+  healthTimer.unref();
+}
+
+// ============================================================
+// MANUAL RESTART
+// ============================================================
+
+function restart() {
+
+  if (shuttingDown)
+    return;
+
+  if (!childProcess) {
+
     start();
+
+    return;
   }
 
-}, 24 * 60 * 60 * 1000);
+  log(
+    "[SYSTEM] Restart requested."
+  );
 
-// ==========================================
+  childProcess.kill(
+    "SIGTERM"
+  );
+}
+
+// ============================================================
 // GRACEFUL SHUTDOWN
-// ==========================================
+// ============================================================
 
-function shutdown(signal) {
-  console.log(
+function shutdown(
+  signal
+) {
+
+  if (shuttingDown)
+    return;
+
+  shuttingDown = true;
+
+  log(
     `[SYSTEM] Received ${signal}. Shutting down...`
   );
 
-  if (childProcess) {
-    childProcess.kill("SIGTERM");
+  if (restartTimer) {
+
+    clearTimeout(
+      restartTimer
+    );
+
+    restartTimer = null;
   }
 
-  setTimeout(() => {
-    process.exit(0);
-  }, 3000);
+  if (healthTimer) {
+
+    clearInterval(
+      healthTimer
+    );
+  }
+
+  if (
+    botProtection.cleanupTimer
+  ) {
+
+    clearInterval(
+      botProtection.cleanupTimer
+    );
+  }
+
+  if (childProcess) {
+
+    const processToStop =
+      childProcess;
+
+    childProcess = null;
+
+    try {
+
+      processToStop.kill(
+        "SIGTERM"
+      );
+
+    } catch (error) {
+
+      log(
+        `[SYSTEM] Failed to stop child: ${error.message}`
+      );
+    }
+
+    // Force stop fallback
+    setTimeout(
+      () => {
+
+        try {
+
+          if (
+            processToStop &&
+            !processToStop.killed
+          ) {
+
+            log(
+              "[SYSTEM] Force stopping auto.js..."
+            );
+
+            processToStop.kill(
+              "SIGKILL"
+            );
+          }
+
+        } catch (error) {
+
+          log(
+            `[SYSTEM] Force stop error: ${error.message}`
+          );
+        }
+
+      },
+      CONFIG.shutdownTimeout
+    );
+  }
+
+  setTimeout(
+    () => {
+
+      process.exit(0);
+
+    },
+    CONFIG.shutdownTimeout + 1000
+  );
 }
+
+// ============================================================
+// SIGNAL HANDLERS
+// ============================================================
 
 process.on(
   "SIGINT",
-  () => shutdown("SIGINT")
+  () =>
+    shutdown("SIGINT")
 );
 
 process.on(
   "SIGTERM",
-  () => shutdown("SIGTERM")
+  () =>
+    shutdown("SIGTERM")
 );
 
-// ==========================================
+// ============================================================
+// UNCAUGHT ERROR
+// ============================================================
+
+process.on(
+  "uncaughtException",
+  error => {
+
+    log(
+      `[FATAL] Uncaught exception: ${error.stack || error.message}`
+    );
+
+    /*
+     * Do not immediately spawn another auto.js here.
+     * Node may still be unstable. Exit the supervisor and
+     * let Render restart the service.
+     */
+
+    shutdown(
+      "uncaughtException"
+    );
+  }
+);
+
+// ============================================================
+// UNHANDLED PROMISE
+// ============================================================
+
+process.on(
+  "unhandledRejection",
+  reason => {
+
+    log(
+      `[WARNING] Unhandled rejection: ${reason?.stack || reason}`
+    );
+  }
+);
+
+// ============================================================
 // EXPORTS
-// ==========================================
+// ============================================================
 
 module.exports = {
   start,
+  restart,
+  shutdown,
   botProtection
 };
 
-// ==========================================
-// START
-// ==========================================
+// ============================================================
+// START SUPERVISOR
+// ============================================================
+
+log(
+  "============================================================"
+);
+
+log(
+  "BOT SUPERVISOR STARTING"
+);
+
+log(
+  `Node.js: ${process.version}`
+);
+
+log(
+  `Platform: ${process.platform}`
+);
+
+log(
+  `Script: ${SCRIPT_PATH}`
+);
+
+log(
+  "Automatic crash recovery: ENABLED"
+);
+
+log(
+  "Duplicate protection engine: ENABLED"
+);
+
+log(
+  "Health monitor: ENABLED"
+);
+
+log(
+  "============================================================"
+);
 
 start();
