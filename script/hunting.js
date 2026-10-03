@@ -1,1211 +1,707 @@
 "use strict";
 
-const fs = require("fs-extra");
-
 module.exports.config = {
     name: "hunting",
-    version: "7.1.0",
+    version: "8.1.0",
     hasPermission: 2,
     credits: "User",
-    description:
-        "Prefixless Hunting + Bot Self React + Count + GC Lock + Set Nickname + Status",
+    description: "Prefixless Hunting + Self Reaction + Mimicker + Count + GC Lock + Nickname",
     usePrefix: false,
     commandCategory: "system",
-    usages:
-        "start | stop | count | count off | lock [name] | unlock | set [name] | status",
+    usages: "hunting start | hunting stop | hunting count | hunting count off | hunting lock [name] | hunting unlock | hunting set [name] | hunting status",
     cooldowns: 0
 };
 
-// ============================================================
-// AUTHORIZED ADMIN
-// ============================================================
-
-const ADMIN_ID = "61594616562680";
-
-// ============================================================
-// GLOBAL STORAGE
-// ============================================================
-
-if (!global.huntingState)
-    global.huntingState = new Map();
-
-if (!global.countEngineState)
-    global.countEngineState = new Map();
-
-if (!global.huntingReplyState)
-    global.huntingReplyState = new Map();
-
-if (!global.activeSendingState)
-    global.activeSendingState = new Map();
-
-if (!global.gcNameLockState)
-    global.gcNameLockState = new Map();
-
-if (!global.nicknameState)
-    global.nicknameState = new Map();
-
-if (!global.huntingDuplicateState)
-    global.huntingDuplicateState = new Map();
-
-if (!global.huntingStats)
-    global.huntingStats = new Map();
-
-if (!global.countStartState)
-    global.countStartState = new Map();
-
-if (!global.countRunState)
-    global.countRunState = new Map();
-
-if (!global.huntingTimerState)
-    global.huntingTimerState = new Map();
-
-let usedTaunts = [];
-
-// ============================================================
-// SETTINGS
-// ============================================================
+const ADMIN_IDS = [
+    "61594616562680",
+    "61594981323552"
+];
 
 const REPLY_INTERVAL = 10000;
-
+const DUPLICATE_WINDOW = 4500;
 const MIN_TYPING_DELAY = 1500;
 const MAX_TYPING_DELAY = 3500;
-
-const DUPLICATE_WINDOW = 4500;
-
 const MAX_COUNT = 50;
-
-// ============================================================
-// SELF REACTIONS
-// ============================================================
+const COUNT_INTERVAL = 1000;
 
 const SELF_REACTIONS = [
-    "👍",
-    "❤️",
-    "😂",
-    "😆",
-    "😮",
-    "😎",
-    "😏",
-    "😅",
-    "🔥",
-    "💯",
-    "👀",
-    "🤝",
-    "👏",
-    "🥷",
-    "💀",
-    "🤣",
-    "🙃",
-    "😈"
+    "😂", "😭", "🤣", "😹", "😆",
+    "😎", "😏", "🤨", "🙄", "💀",
+    "🔥", "❤️", "👍", "👏", "😮"
 ];
-
-const lastReactionState = new Map();
-
-// ============================================================
-// RANDOM REACTION
-// ============================================================
-
-function getRandomReaction(threadID) {
-
-    let list = SELF_REACTIONS;
-
-    const previous =
-        lastReactionState.get(threadID);
-
-    if (
-        previous &&
-        list.length > 1
-    ) {
-
-        list = list.filter(
-            reaction =>
-                reaction !== previous
-        );
-    }
-
-    const reaction =
-        list[
-            Math.floor(
-                Math.random() * list.length
-            )
-        ];
-
-    lastReactionState.set(
-        threadID,
-        reaction
-    );
-
-    return reaction;
-}
-
-// ============================================================
-// BOT SELF REACT
-// ============================================================
-
-function selfReact(
-    api,
-    threadID,
-    messageID
-) {
-
-    try {
-
-        if (
-            !api ||
-            !messageID ||
-            typeof api.setMessageReaction !==
-                "function"
-        ) {
-            return;
-        }
-
-        const reaction =
-            getRandomReaction(threadID);
-
-        api.setMessageReaction(
-            reaction,
-            messageID,
-            function (err) {
-
-                if (err) {
-
-                    console.error(
-                        "[HUNTING SELF REACT]",
-                        err
-                    );
-                }
-
-            },
-            false
-        );
-
-    } catch (err) {
-
-        console.error(
-            "[HUNTING SELF REACT]",
-            err
-        );
-    }
-}
-
-// ============================================================
-// HUMANIZE
-// ============================================================
-
-function humanizeText(text) {
-
-    if (!text)
-        return text;
-
-    let result = text;
-
-    if (
-        Math.random() < 0.30
-    ) {
-
-        result =
-            result.toLowerCase();
-    }
-
-    if (
-        Math.random() < 0.35 &&
-        /[.!?]$/.test(result)
-    ) {
-
-        result =
-            result.slice(0, -1);
-    }
-
-    return result;
-}
-
-// ============================================================
-// TAUNTS
-// ============================================================
 
 const massiveTaunts = [
-
-    "ano ba yan pre",
-    "bat ganyan ka sumagot",
-    "puro ka dada eh",
-    "wala ka na bang ibang alam",
-    "ulit ulit ka na naman",
-    "anong pinagsasabi mo",
-    "lutang ka ba ngayon",
-    "saan napunta punto mo",
-    "wala namang connect",
-    "ang layo ng sagot mo",
-    "di mo rin alam sinasabi mo",
-    "seryoso ka dyan",
-    "yan lang naisip mo",
-    "ang pilit naman",
-    "wag mo nang ipilit yan",
-    "ang dami mong palusot",
-    "may dahilan ka pa",
-    "tahimik ka muna",
-    "nag loading ka ba",
-    "reboot ka muna pre",
-    "bakit ka napipikon",
-    "tinamaan ka ba",
-    "bakit defensive ka",
-    "wag mong ilihis usapan",
-    "balik ka sa punto",
-    "sagot naman di palusot",
-    "puro ka dahilan eh",
-    "hanggang salita ka lang",
-    "dami mong sinabi wala pa rin",
-    "diretsohin mo kasi",
-    "wag paikot ikot",
-    "takot ka ba sa tanong",
-    "may bago ka pa ba",
-    "copy paste ka ba",
-    "parang template eh",
-    "scripted masyado",
-    "ang tagal mo para dyan",
-    "yan lang inabot ng isip mo",
-    "pinilit mo pa talaga",
-    "tama na pre",
-    "di ka marunong tumigil",
-    "wala kang preno",
-    "paulit ulit na lang",
-    "nakakaumay na linya mo",
-    "ang hirap mong sundan",
-    "wala ka sa hulog",
-    "sablay na naman",
-    "suko ka na lang",
-    "ang haba para sa wala",
-    "daming salita wala pa rin",
-    "final answer mo na yan",
-    "isipin mo muna ulit",
-    "wag mo na",
-    "wag na lods",
-    "gusto mo talaga ng gulo ah",
-    "ikaw naghahanap eh",
-    "chat lang yan pre",
-    "bitawan mo muna keyboard",
-    "baka masira keyboard mo",
-    "gigil na gigil ka",
-    "pahinga ka muna",
-    "ano pa",
-    "may kasunod pa",
-    "eto nanaman tayo",
-    "di ka talaga natututo",
-    "nakalimutan mo na naman",
-    "lutang mo pre",
-    "sabog ka yata",
-    "wag kang tumakas sa topic",
-    "sumagot ka nang maayos",
-    "alam mo naman sagot eh",
-    "kunwari ka pa",
-    "halata naman",
-    "nahuli ka na",
-    "ano excuse ngayon",
-    "may bago ka bang dahilan",
-    "pareho pa rin excuse",
-    "pinapahaba mo lang",
-    "yan na talaga",
-    "sigurado ka dyan",
-    "bawi ka na lang",
-    "talagang pinipilit mo",
-    "wala ka nang masabi",
-    "ubos na ba",
-    "hanggang dyan ka lang",
-    "anong klaseng sagot yan",
-    "di mo maayos yung punto mo",
-    "wag ka muna mag ingay",
-    "ayusin mo muna sinasabi mo",
-    "parang naliligaw ka",
-    "saan ka ba papunta",
-    "iba naman sagot mo",
-    "di yan yung tanong",
-    "sumagot ka ulit",
-    "basahin mo muna",
-    "maling topic ka",
-    "di mo nasundan",
-    "ang gulo mo pre",
-    "wag kang magpaligoy ligoy",
-    "diretso lang",
-    "ano ba talaga",
-    "puro liko",
-    "wala kang direksyon",
-    "ang labo mo",
-    "nag iba nanaman kwento",
-    "iba iba sinasabi mo",
-    "di mo mapanindigan",
-    "kanina iba naman",
-    "nagbago nanaman",
-    "ano na naman yan",
-    "saan galing yan",
-    "bigla ka namang lumiko",
-    "di bagay sa usapan",
-    "walang connect talaga",
-    "ang layo na",
-    "napunta ka na kung saan saan",
-    "balik topic",
-    "wag kang lumusot",
-    "wag kang umiwas",
-    "sagot lang",
-    "wag palusot",
-    "alam mong mali eh",
-    "pilit mo pa rin",
-    "di na kailangan pahabain",
-    "tapos na sana eh",
-    "pinapahaba mo pa",
-    "ang dami mong ikot",
-    "ikot ka nang ikot",
-    "wala pa rin",
-    "wala talaga",
-    "ano pa sasabihin mo",
-    "may dagdag ka pa",
-    "eto nanaman dahilan",
-    "parehas lang",
-    "same energy nanaman",
-    "di ka pa tapos",
-    "hanggang ngayon yan pa rin",
-    "di ka nauubusan",
-    "ang kulit mo",
-    "kulit mo pre",
-    "wala ka bang ibang linya",
-    "iba naman next time",
-    "parang sirang plaka",
-    "paulit ulit ka",
-    "narinig na namin yan",
-    "alam na namin yan",
-    "di na bago yan",
-    "same script",
-    "parehong banat",
-    "wala nang bago",
-    "may bago ka bang ambag",
-    "asan yung punto",
-    "wala yung punto",
-    "nawala ka na",
-    "lutang nanaman",
-    "saan napunta utak mo",
-    "isip muna bago send",
-    "send ka nang send",
-    "di mo binabasa",
-    "basa muna pre",
-    "intindi muna",
-    "wag puro send",
-    "nagmamadali ka",
-    "chill ka lang",
-    "kalma muna",
-    "hinga muna",
-    "pahinga muna",
-    "keyboard break muna",
-    "tama na muna",
-    "wag ka gigil",
-    "di kailangan magalit",
-    "bakit galit na",
-    "kalmahan mo",
-    "napipikon ka na",
-    "halata yung gigil",
-    "wag masyadong seryoso",
-    "chat lang yan",
-    "nag iinit ka na",
-    "lumalabas na galit mo",
-    "bakit defensive",
-    "may tinatamaan ba",
-    "tinamaan yata",
-    "aray ba",
-    "bakit biglang tahimik",
-    "nawala ka",
-    "asan ka",
-    "nag isip ka pa ba",
-    "matagal na ah",
-    "loading nanaman",
-    "buffering ka ba",
-    "restart muna",
-    "update ka muna",
-    "check mo muna sagot mo",
-    "mali ata yan",
-    "sigurado ka talaga",
-    "pag isipan mo",
-    "balikan mo",
-    "read back muna",
-    "wag mo iedit yung kwento",
-    "consistent naman sana",
+    "ano na pre",
+    "ayan nanaman",
+    "eto na naman banat mo",
+    "wala ka bang ibang sagot",
+    "parang familiar yan ah",
+    "narinig ko na yan",
+    "may bago sana",
+    "di pa rin convincing",
+    "kulang pa",
+    "bitin yung punto",
+    "asan yung explanation",
+    "di mo nasagot",
+    "naiwan mo yung tanong",
+    "balik muna sa topic",
+    "focus sa sinabi mo",
+    "check mo ulit",
+    "basahin mo maigi",
+    "parang may mali",
+    "may na-miss ka",
+    "may kulang sa sagot",
+    "di tugma pre",
+    "hindi nagtutugma",
+    "contradicting naman",
     "kanina iba sinabi mo",
-    "nahuli sa sariling salita",
-    "ikaw din nagsabi nyan",
-    "balikan mo chat mo",
-    "nasa taas lang",
-    "basahin mo ulit",
-    "di mo nakita",
-    "missing point",
-    "wala sa context",
-    "di mo gets",
-    "gets mo ba",
-    "intindi ka muna",
-    "wag agad reply",
-    "isip dalawang beses",
-    "send isang beses",
-    "wag spam",
-    "kalma sa keyboard",
-    "ang bilis mo naman",
-    "pero wala pa rin",
-    "bilis walang laman",
-    "haba walang punto",
-    "short answer lang sana",
-    "dami mo sinabi",
-    "eto na naman yung palusot",
-    "excuse nanaman",
-    "may dahilan ulit",
-    "same excuse",
-    "bagong excuse naman",
-    "wag puro dahilan",
-    "wag takasan tanong",
-    "harap sa tanong",
-    "sagot sa tanong",
-    "hindi ibang kwento",
-    "wag mag change topic",
-    "balik tayo",
-    "focus muna",
-    "wag maligaw",
-    "san ka nanaman pumunta",
-    "ano yan",
-    "ano ba talaga",
-    "seryoso ka",
-    "yan na",
-    "ayan na naman",
-    "eto nanaman",
-    "wala na bang iba",
-    "paulit ulit talaga",
-    "nakakailang na",
-    "ilang beses na yan",
-    "narinig na yan",
-    "wag na pre",
-    "tama na",
-    "stop na",
-    "sobra na",
-    "pahinga ka",
-    "hinga ka",
-    "uminom ka muna",
-    "wag kang gigil",
-    "wag mong pilitin",
-    "di bagay sayo yan",
-    "ang pilit",
-    "halatang pilit",
-    "pinipilit talaga",
-    "di mo mapalabas",
-    "di mo maayos",
-    "ayos muna",
-    "compose ka muna",
-    "isip ka muna",
-    "balikan mo yung sinabi mo",
-    "di tugma",
-    "di pareho",
-    "may kulang",
-    "may sablay",
-    "sablay na naman",
-    "maling basa",
-    "maling intindi",
-    "maling punto",
-    "maling direction",
-    "wala sa usapan",
-    "out of topic",
-    "off topic ka",
-    "balik sa tanong",
-    "sagot lang pre",
-    "wag essay",
-    "wag paligoy",
-    "straight answer",
-    "ano sagot",
-    "nasaan sagot",
-    "wala pa rin sagot",
-    "hindi yan sagot",
-    "palusot yan",
-    "reason nanaman",
-    "excuse nanaman",
-    "di ka matapos",
-    "ang dami",
-    "sobra dami",
-    "konti lang sana",
-    "pinahaba mo pa",
-    "pinilit pahabain",
-    "tapos na sana",
-    "wala na pre",
-    "next na",
-    "sunod",
-    "ano pa",
-    "may iba pa",
-    "sige ano pa",
-    "labas mo pa",
-    "yan lang",
-    "yun na",
+    "alin ba talaga",
+    "decide ka muna",
+    "isang sagot lang",
+    "wag dalawang version",
+    "consistent sana",
+    "keep it simple",
+    "diretso na lang",
+    "wag na paikot",
+    "straight to the point",
+    "ano talaga punto mo",
+    "saan papunta yan",
+    "lost ka na naman",
+    "naligaw na yung sagot",
+    "napunta sa ibang topic",
+    "change topic nanaman",
+    "nice try pre",
+    "good attempt",
+    "close enough",
+    "try again",
+    "next attempt",
+    "pwede pa yan",
+    "ulitin mo",
+    "restart answer",
+    "back to zero",
+    "reset muna",
+    "loading pa rin",
+    "buffering nanaman",
+    "nag timeout ka ba",
+    "late reaction",
+    "finally",
+    "ayan lumabas din",
+    "yun lang pala",
+    "yun na yun",
     "ganun lang",
-    "okay na yan",
-    "tigil na",
-    "wag na dagdagan",
-    "puro ka salita",
-    "salita nang salita",
-    "chat nang chat",
-    "send nang send",
-    "walang preno",
-    "di ka humihinto",
-    "di ka natututo",
-    "same problem",
-    "same answer",
+    "simple lang sana",
+    "pinahirap mo pa",
+    "ang dali lang ng tanong",
+    "basic lang yan",
+    "wag complicate",
+    "wag overthink",
+    "isip muna",
+    "pause muna",
+    "read muna",
+    "understand muna",
+    "chill muna",
+    "relax ka lang",
+    "kalma keyboard",
+    "hinay hinay",
+    "wag gigil",
+    "easy lang",
+    "slow down",
+    "one step at a time",
+    "wag sabay sabay",
+    "isa isa lang",
+    "focus pre",
+    "stay on topic",
+    "topic muna",
+    "question muna",
+    "answer muna",
+    "explain mo",
+    "linawin mo",
+    "ayusin mo",
+    "buoin mo muna",
+    "complete mo",
+    "kulang yung thought",
+    "bitin yung sentence",
+    "bitin yung point",
+    "may continuation pa ba",
+    "tapos na ba yan",
+    "yun na ba",
+    "sure ka na",
+    "final na talaga",
+    "panindigan mo",
+    "wag magpalit",
+    "wag bawiin",
+    "kanina kasi",
+    "balikan natin",
+    "scroll up",
+    "nasa taas yung sagot",
+    "check history",
+    "chat history muna",
+    "proof muna",
+    "context muna",
+    "may context tayo",
+    "wag kalimutan",
+    "ikaw mismo nagsabi",
+    "galing sayo yan",
+    "sarili mong salita yan",
+    "balikan mo sarili mo",
+    "oops",
+    "ayan na",
+    "hala",
+    "oh no",
+    "nice one",
+    "good one",
+    "interesting",
+    "okay pre",
+    "sige pre",
+    "go lang",
+    "continue",
+    "next line",
+    "next excuse",
+    "next reason",
+    "next answer",
+    "ano pa",
+    "may bonus pa ba",
+    "dagdagan mo",
+    "labas pa",
+    "sige pa",
+    "continue mo",
+    "go again",
+    "another one",
+    "isa pa",
+    "ulit pa",
+    "again",
+    "round two",
+    "next round",
+    "eto na naman tayo",
+    "same cycle",
+    "same pattern",
+    "same routine",
+    "same response",
+    "same story",
     "same excuse",
-    "same line",
-    "same script",
-    "wala nang bago",
-    "nakakasawa na",
-    "nakakaumay",
-    "ang repetitive",
-    "paulit ulit",
-    "parang naka loop",
-    "naka loop ka ba",
-    "stuck ka ba",
-    "restart ka muna pre"
-
+    "same direction",
+    "walang bago",
+    "nothing new",
+    "nothing changed",
+    "still the same",
+    "same energy",
+    "same behavior",
+    "same answer",
+    "same point",
+    "same mistake",
+    "ulit ulit",
+    "replay nanaman",
+    "repeat nanaman",
+    "loop detected",
+    "stuck sa loop",
+    "naka repeat ka",
+    "repeating again",
+    "di matapos tapos",
+    "walang ending",
+    "endless excuse",
+    "endless story",
+    "mahaba pa ba",
+    "may katapusan ba",
+    "tapos na sana",
+    "close na sana",
+    "almost there",
+    "malapit na",
+    "konti na lang",
+    "last na sana",
+    "pero eto pa rin",
+    "andito pa rin tayo",
+    "back to same topic",
+    "round and round",
+    "ikot nanaman",
+    "ikot nang ikot",
+    "walang progress",
+    "no progress",
+    "stuck ka talaga",
+    "di umaandar",
+    "pause ka muna",
+    "resume later",
+    "take five",
+    "break muna",
+    "hinga muna pre",
+    "tubig muna",
+    "kape muna",
+    "rest muna",
+    "chill lang",
+    "wag seryosohin",
+    "chat lang naman",
+    "easy easy",
+    "kalma lang",
+    "okay lang yan",
+    "try ulit",
+    "maybe next time",
+    "bawi ka",
+    "practice pa",
+    "practice muna",
+    "needs revision",
+    "edit mo muna",
+    "draft muna",
+    "finalize mo",
+    "proofread muna",
+    "check grammar",
+    "check logic",
+    "check context",
+    "double check",
+    "think twice",
+    "read twice",
+    "send once",
+    "wag spam",
+    "one message at a time",
+    "dahan dahan lang",
+    "wag magmadali",
+    "take your time",
+    "answer the question",
+    "balik sa tanong",
+    "wag umiwas",
+    "wag lumiko",
+    "wag tumalon topic",
+    "stay focused",
+    "focus lang",
+    "concentrate muna",
+    "sagot lang kailangan",
+    "simple answer lang",
+    "short answer sana",
+    "less talk",
+    "more point",
+    "point muna",
+    "substance muna",
+    "may laman ba",
+    "asan yung laman",
+    "asan yung point",
+    "point missing",
+    "context missing",
+    "logic missing",
+    "answer missing",
+    "explanation missing",
+    "still waiting",
+    "waiting pa rin",
+    "hintay kami",
+    "sagot kapag ready",
+    "no pressure",
+    "pero wag kalimutan yung tanong",
+    "ayan na naman excuse",
+    "excuse detected",
+    "reason detected",
+    "topic change detected",
+    "repetition detected",
+    "same line detected",
+    "same script detected",
+    "pattern detected",
+    "interesting pattern",
+    "familiar pattern",
+    "we've seen this before",
+    "nothing new here",
+    "same thing again",
+    "again and again",
+    "ulit na naman",
+    "another repeat",
+    "paulit ulit talaga",
+    "di ka nagsasawa",
+    "di ka nauubusan",
+    "ang tiyaga mo",
+    "persistent ah",
+    "consistent talaga",
+    "at least consistent",
+    "okay next",
+    "moving on",
+    "next topic",
+    "next response",
+    "next move",
+    "your turn",
+    "sige ikaw naman",
+    "go ahead",
+    "keep going",
+    "show me",
+    "explain yourself",
+    "clarify muna",
+    "linaw muna",
+    "define mo muna",
+    "specific naman",
+    "be specific",
+    "details naman",
+    "asan details",
+    "wag vague",
+    "wag general",
+    "diretso lang pre",
+    "specific answer",
+    "clear answer",
+    "clear point",
+    "make sense muna",
+    "connect the dots",
+    "may connection ba",
+    "asan connection",
+    "parang wala",
+    "wala talaga",
+    "still no point",
+    "point still missing",
+    "answer still missing",
+    "same result",
+    "same outcome",
+    "same conclusion",
+    "back again",
+    "here we go again",
+    "eto na naman",
+    "again pre",
+    "ulit tayo",
+    "one more time",
+    "last try",
+    "final try",
+    "final na talaga?",
+    "sure ka na talaga?",
+    "yan na ba talaga?"
 ];
 
-// ============================================================
-// UNIQUE TAUNT
-// ============================================================
+const ABBREVIATIONS = {
+    "ano na pre": ["ano n pre", "ano nmn pre", "ano n p"],
+    "sige pre": ["sge pre", "sige p", "sge p", "g pre"],
+    "okay pre": ["ok pre", "oks pre", "okay p", "ok p"],
+    "balik sa topic": ["balik topic", "b2 topic", "back topic"],
+    "wag ka muna": ["wag k muna", "wag k mna", "wag muna"],
+    "hindi nagtutugma": ["di tugma", "d tugma", "hnd tugma"],
+    "wala namang bago": ["wla nmn bago", "wla bago", "same lng"],
+    "ulit ulit": ["ulit2", "u2", "repeat2"],
+    "isa pa": ["1 pa", "isa p", "1p"],
+    "tapos na ba": ["tpos n b", "tapos n?", "tnb"],
+    "sure ka": ["sure k", "sure ka?", "sk"],
+    "hintay lang": ["wait lng", "w8 lng", "hynty lng"]
+};
 
-function getUniqueTaunt() {
-
-    if (
-        usedTaunts.length >=
-        massiveTaunts.length
-    ) {
-
-        usedTaunts = [];
-    }
-
-    const available =
-        massiveTaunts.filter(
-            item =>
-                !usedTaunts.includes(item)
-        );
-
-    const chosen =
-        available[
-            Math.floor(
-                Math.random() *
-                available.length
-            )
-        ];
-
-    usedTaunts.push(chosen);
-
-    return chosen;
+function isAdmin(event) {
+    return !!(
+        event &&
+        event.senderID &&
+        ADMIN_IDS.includes(String(event.senderID))
+    );
 }
 
-// ============================================================
-// HUMAN MIMICKER
-// ============================================================
+function randomItem(array) {
+    return array[Math.floor(Math.random() * array.length)];
+}
 
-function humanMimicker(
-    targetBody,
-    text
-) {
+function randomNumber(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
-    if (!targetBody)
-        return text;
+function getUniqueTaunt() {
+    let available = massiveTaunts.filter(
+        reply => !global.huntingUsedReplies.includes(reply)
+    );
 
-    const length =
-        targetBody.trim().length;
-
-    if (length <= 4) {
-
-        const words =
-            text.split(/\s+/);
-
-        return words
-            .slice(
-                0,
-                Math.min(
-                    2,
-                    words.length
-                )
-            )
-            .join(" ");
+    if (!available.length) {
+        global.huntingUsedReplies = [];
+        available = massiveTaunts.slice();
     }
 
-    if (
-        length <= 10 &&
-        Math.random() < 0.45
-    ) {
+    const selected = randomItem(available);
 
-        const words =
-            text.split(/\s+/);
+    global.huntingUsedReplies.push(selected);
 
-        return words
-            .slice(
-                0,
-                Math.min(
-                    4,
-                    words.length
-                )
-            )
-            .join(" ");
+    if (global.huntingUsedReplies.length > 100) {
+        global.huntingUsedReplies.shift();
+    }
+
+    return selected;
+}
+
+function applyAbbreviation(text) {
+    if (!text) return text;
+
+    const key = text.toLowerCase().trim();
+
+    if (ABBREVIATIONS[key] && Math.random() < 0.45) {
+        return randomItem(ABBREVIATIONS[key]);
     }
 
     return text;
 }
 
-// ============================================================
-// SAFE SEND
-// ============================================================
+function mimicText(text) {
+    if (!text || typeof text !== "string") {
+        return text;
+    }
 
-function sendMessageSafe(
-    api,
-    message,
-    threadID
-) {
+    let result = text.trim();
 
+    if (result.length <= 3) {
+        return result;
+    }
+
+    if (Math.random() < 0.65) {
+        result = result.toLowerCase();
+    }
+
+    if (Math.random() < 0.35) {
+        result = result.replace(/[!?.,]+$/g, "");
+    }
+
+    if (Math.random() < 0.30) {
+        result = result
+            .replace(/\bhindi naman\b/gi, "di nmn")
+            .replace(/\bhindi\b/gi, "di")
+            .replace(/\bnamang\b/gi, "nmn")
+            .replace(/\bnaman\b/gi, "nmn")
+            .replace(/\bwala\b/gi, "wla")
+            .replace(/\btapos\b/gi, "tpos")
+            .replace(/\biyon\b/gi, "yon")
+            .replace(/\bito\b/gi, "to")
+            .replace(/\bmuna\b/gi, "mna");
+    }
+
+    if (Math.random() < 0.18) {
+        result += randomItem([
+            " pre",
+            " bro",
+            " ah",
+            " e",
+            " haha"
+        ]);
+    }
+
+    return result;
+}
+
+function humanizeHuntingReply(text) {
+    return mimicText(applyAbbreviation(text));
+}
+
+function selfReact(api, messageID) {
     return new Promise(resolve => {
+        if (
+            !api ||
+            !messageID ||
+            typeof api.setMessageReaction !== "function"
+        ) {
+            return resolve(false);
+        }
+
+        const reaction = randomItem(SELF_REACTIONS);
 
         try {
+            api.setMessageReaction(
+                reaction,
+                messageID,
+                err => {
+                    if (err) {
+                        return resolve(false);
+                    }
 
+                    global.huntingStats.reactions++;
+                    resolve(true);
+                }
+            );
+        } catch (error) {
+            resolve(false);
+        }
+    });
+}
+
+function sendMessageSafe(api, message, threadID) {
+    return new Promise(resolve => {
+        if (
+            !api ||
+            !threadID ||
+            typeof api.sendMessage !== "function"
+        ) {
+            return resolve(false);
+        }
+
+        try {
             api.sendMessage(
                 message,
                 threadID,
                 err => {
+                    if (err) {
+                        return resolve(false);
+                    }
 
-                    resolve(!err);
-
+                    global.huntingStats.replies++;
+                    resolve(true);
                 }
             );
-
-        } catch (err) {
-
+        } catch (error) {
             resolve(false);
-
         }
-
     });
 }
 
-// ============================================================
-// TYPING
-// ============================================================
-
-function sendTyping(
-    api,
-    threadID
-) {
-
+function sendTyping(api, threadID) {
     try {
-
         if (
-            typeof api.sendTypingIndicator ===
-            "function"
+            api &&
+            typeof api.sendTypingIndicator === "function"
         ) {
-
-            api.sendTypingIndicator(
-                threadID,
-                () => {}
-            );
+            api.sendTypingIndicator(threadID, () => {});
         }
-
-    } catch (err) {}
+    } catch (error) {}
 }
 
-// ============================================================
-// GET THREAD INFO
-// ============================================================
-
-function getThreadInfoSafe(
-    api,
-    threadID
-) {
-
+function getThreadInfoSafe(api, threadID) {
     return new Promise(resolve => {
+        if (
+            !api ||
+            typeof api.getThreadInfo !== "function"
+        ) {
+            return resolve(null);
+        }
 
         try {
-
             api.getThreadInfo(
                 threadID,
                 (err, info) => {
-
-                    if (
-                        err ||
-                        !info
-                    ) {
+                    if (err) {
                         return resolve(null);
                     }
 
                     resolve(info);
-
                 }
             );
-
-        } catch (err) {
-
+        } catch (error) {
             resolve(null);
-
         }
-
     });
 }
 
-// ============================================================
-// CHANGE NICKNAME
-// ============================================================
-
-function changeNicknameSafe(
+function setNicknameSafe(
     api,
-    nickname,
+    threadID,
     userID,
-    threadID
+    nickname
 ) {
-
     return new Promise(resolve => {
+        if (
+            !api ||
+            typeof api.changeNickname !== "function"
+        ) {
+            return resolve(false);
+        }
 
         try {
-
             api.changeNickname(
                 nickname,
-                userID,
                 threadID,
-                err => {
-
-                    resolve(!err);
-
-                }
+                userID,
+                err => resolve(!err)
             );
-
-        } catch (err) {
-
+        } catch (error) {
             resolve(false);
-
         }
-
     });
 }
 
-// ============================================================
-// SET ALL NICKNAMES
-// ============================================================
+async function applyThreadNameLock(api, threadID) {
+    const lock = global.gcNameLockState.get(threadID);
 
-async function setAllNicknames(
-    api,
-    threadID,
-    nickname
-) {
+    if (!lock) return;
 
-    const info =
-        await getThreadInfoSafe(
-            api,
-            threadID
-        );
+    try {
+        const info = await getThreadInfoSafe(api, threadID);
 
-    if (!info) {
-
-        return {
-            success: false,
-            total: 0,
-            changed: 0
-        };
-    }
-
-    let members =
-        info.participantIDs || [];
-
-    const botID =
-        api.getCurrentUserID();
-
-    members =
-        members.filter(
-            id => id !== botID
-        );
-
-    let success = 0;
-
-    for (
-        const userID of members
-    ) {
-
-        const result =
-            await changeNicknameSafe(
-                api,
-                nickname,
-                userID,
-                threadID
-            );
-
-        if (result)
-            success++;
-
-        await new Promise(
-            resolve =>
-                setTimeout(
-                    resolve,
-                    150
-                )
-        );
-    }
-
-    global.nicknameState.set(
-        threadID,
-        {
-            nickname,
-            total: members.length,
-            success,
-            updatedAt: Date.now()
-        }
-    );
-
-    return {
-        success: true,
-        total: members.length,
-        changed: success
-    };
-}
-
-// ============================================================
-// SET GC TITLE
-// ============================================================
-
-function setGCTitleSafe(
-    api,
-    title,
-    threadID
-) {
-
-    return new Promise(resolve => {
-
-        try {
-
-            api.setTitle(
-                title,
-                threadID,
-                err => {
-
-                    resolve(!err);
-
-                }
-            );
-
-        } catch (err) {
-
-            resolve(false);
-
-        }
-
-    });
-}
-
-// ============================================================
-// LOCK GC NAME
-// ============================================================
-
-async function lockGCName(
-    api,
-    threadID,
-    requestedName
-) {
-
-    const name =
-        String(requestedName || "")
-            .trim();
-
-    if (!name)
-        return false;
-
-    const success =
-        await setGCTitleSafe(
-            api,
-            name,
-            threadID
-        );
-
-    if (!success)
-        return false;
-
-    global.gcNameLockState.set(
-        threadID,
-        {
-            locked: true,
-            name,
-            updatedAt: Date.now()
-        }
-    );
-
-    return true;
-}
-
-// ============================================================
-// COUNT ENGINE
-// ============================================================
-
-async function startCounting(
-    api,
-    event
-) {
-
-    const threadID =
-        event.threadID;
-
-    if (
-        global.countEngineState.get(
-            threadID
-        ) === true
-    ) {
-        return;
-    }
-
-    global.countEngineState.set(
-        threadID,
-        true
-    );
-
-    const started =
-        Date.now();
-
-    global.countStartState.set(
-        threadID,
-        started
-    );
-
-    global.countRunState.set(
-        threadID,
-        0
-    );
-
-    let count = 1;
-
-    while (
-        global.countEngineState.get(
-            threadID
-        ) === true &&
-        count <= MAX_COUNT
-    ) {
-
-        const sent =
-            await sendMessageSafe(
-                api,
-                String(count),
-                threadID
-            );
-
-        if (!sent)
-            break;
-
-        global.countRunState.set(
-            threadID,
-            count
-        );
-
-        count++;
+        if (!info) return;
 
         if (
-            count <= MAX_COUNT
+            info.threadName !== lock.name &&
+            typeof api.setTitle === "function"
         ) {
-
-            await new Promise(
-                resolve =>
-                    setTimeout(
-                        resolve,
-                        500
-                    )
+            api.setTitle(
+                lock.name,
+                threadID,
+                () => {}
             );
         }
-    }
-
-    const finished =
-        Date.now();
-
-    const completed =
-        global.countRunState.get(
-            threadID
-        ) || 0;
-
-    const startTime =
-        new Date(
-            started
-        ).toLocaleTimeString(
-            "en-US",
-            {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit"
-            }
-        );
-
-    const finishTime =
-        new Date(
-            finished
-        ).toLocaleTimeString(
-            "en-US",
-            {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit"
-            }
-        );
-
-    const status =
-        completed >= MAX_COUNT
-            ? "COMPLETED"
-            : "STOPPED";
-
-    global.countEngineState.set(
-        threadID,
-        false
-    );
-
-    await new Promise(
-        resolve =>
-            setTimeout(
-                resolve,
-                500
-            )
-    );
-
-    await sendMessageSafe(
-        api,
-
-        `COUNT RESIBO
-━━━━━━━━━━━━━━━━━━
-TOTAL: ${completed} / ${MAX_COUNT}
-START: ${startTime}
-FINISH: ${finishTime}
-STATUS: ${status}
-━━━━━━━━━━━━━━━━━━
-COUNT ENGINE DONE`,
-
-        threadID
-    );
+    } catch (error) {}
 }
 
-// ============================================================
-// BOT STATUS
-// ============================================================
+function getStatus() {
+    const uptime =
+        Date.now() - global.huntingStats.started;
 
-async function getStatusText(
-    api,
-    threadID
-) {
+    const seconds =
+        Math.floor(uptime / 1000);
 
-    const hunting =
-        global.huntingState.get(
-            threadID
-        ) === true;
-
-    const counting =
-        global.countEngineState.get(
-            threadID
-        ) === true;
-
-    const lock =
-        global.gcNameLockState.get(
-            threadID
-        );
-
-    const nickname =
-        global.nicknameState.get(
-            threadID
-        );
-
-    const stats =
-        global.huntingStats.get(
-            threadID
-        ) || {
-            replies: 0,
-            blocked: 0
-        };
-
-    const info =
-        await getThreadInfoSafe(
-            api,
-            threadID
-        );
-
-    const currentName =
-        info && info.threadName
-            ? info.threadName
-            : "Unknown";
-
-    return (
-        `BOT STATUS
-━━━━━━━━━━━━━━━━━━
-HUNTING: ${
-    hunting
-        ? "ON"
-        : "OFF"
-}
-COUNT: ${
-    counting
-        ? "RUNNING"
-        : "OFF"
-}
-GC NAME LOCK: ${
-    lock && lock.locked
-        ? "ON"
-        : "OFF"
-}
-CURRENT GC NAME: ${currentName}
-LOCKED NAME: ${
-    lock && lock.locked
-        ? lock.name
-        : "NONE"
-}
-SET NICKNAME: ${
-    nickname
-        ? nickname.nickname
-        : "NONE"
-}
-HUNTING REPLIES: ${stats.replies}
-BLOCKED/SPAM: ${stats.blocked}
-UPTIME: ${Math.floor(process.uptime())}s
-━━━━━━━━━━━━━━━━━━`
-    );
+    return [
+        "╭─── HUNTING STATUS ───╮",
+        `│ Hunting: ${global.huntingState ? "ON" : "OFF"}`,
+        `│ Count: ${global.countEngineState ? "ON" : "OFF"}`,
+        `│ Replies: ${global.huntingStats.replies}`,
+        `│ Reactions: ${global.huntingStats.reactions}`,
+        `│ Suppressed: ${global.huntingStats.suppressed}`,
+        `│ Admins: ${ADMIN_IDS.length}`,
+        `│ Uptime: ${seconds}s`,
+        "╰──────────────────────╯"
+    ].join("\n");
 }
 
-// ============================================================
-// COMMAND HANDLER
-// ============================================================
-
-module.exports.run = async function ({
-    api,
-    event,
-    args
-}) {
-
-    const {
-        threadID,
-        senderID,
-        messageID
-    } = event;
-
-    if (
-        senderID !== ADMIN_ID
-    ) {
+async function startCountEngine(api, threadID) {
+    if (global.countRunState.get(threadID)) {
         return;
     }
 
-    const input =
-        Array.isArray(args)
-            ? args.join(" ").trim()
-            : "";
+    global.countRunState.set(threadID, true);
+    global.countStartState.set(threadID, Date.now());
 
-    const lower =
-        input.toLowerCase();
+    for (let count = 1; count <= MAX_COUNT; count++) {
+        if (
+            !global.countEngineState ||
+            !global.countRunState.get(threadID)
+        ) {
+            break;
+        }
 
-    // ========================================================
-    // START
-    // ========================================================
-
-    if (
-        lower === "start" ||
-        lower === "on"
-    ) {
-
-        global.huntingState.set(
-            threadID,
-            true
-        );
-
-        selfReact(
+        await sendMessageSafe(
             api,
-            threadID,
-            messageID
+            String(count),
+            threadID
         );
+
+        await new Promise(resolve =>
+            setTimeout(resolve, COUNT_INTERVAL)
+        );
+    }
+
+    global.countRunState.delete(threadID);
+}
+
+function isHuntingCommand(body) {
+    if (!body) return false;
+
+    const text = body.trim().toLowerCase();
+
+    return (
+        text === "hunting" ||
+        text === "hunting start" ||
+        text === "hunting on" ||
+        text === "hunting stop" ||
+        text === "hunting off" ||
+        text === "hunting count" ||
+        text === "hunting count off" ||
+        text === "hunting status" ||
+        text === "hunting unlock" ||
+        text.startsWith("hunting lock ") ||
+        text.startsWith("hunting set ")
+    );
+}
+
+async function handleAdminCommand(api, event, body) {
+    if (!isAdmin(event)) {
+        return false;
+    }
+
+    if (!isHuntingCommand(body)) {
+        return false;
+    }
+
+    const parts = body.trim().split(/\s+/);
+    parts.shift();
+
+    const command = parts.join(" ").trim().toLowerCase();
+    const threadID = event.threadID;
+
+    if (command === "start" || command === "on") {
+        global.huntingState = true;
 
         await sendMessageSafe(
             api,
@@ -1213,28 +709,11 @@ module.exports.run = async function ({
             threadID
         );
 
-        return;
+        return true;
     }
 
-    // ========================================================
-    // STOP
-    // ========================================================
-
-    if (
-        lower === "stop" ||
-        lower === "off"
-    ) {
-
-        global.huntingState.set(
-            threadID,
-            false
-        );
-
-        selfReact(
-            api,
-            threadID,
-            messageID
-        );
+    if (command === "stop" || command === "off") {
+        global.huntingState = false;
 
         await sendMessageSafe(
             api,
@@ -1242,649 +721,236 @@ module.exports.run = async function ({
             threadID
         );
 
-        return;
+        return true;
     }
 
-    // ========================================================
-    // COUNT
-    // ========================================================
+    if (command === "count") {
+        global.countEngineState = true;
 
-    if (
-        lower === "count"
-    ) {
-
-        selfReact(
+        await sendMessageSafe(
             api,
-            threadID,
-            messageID
+            "COUNT: ON",
+            threadID
         );
 
-        if (
-            global.countEngineState.get(
-                threadID
-            ) === true
-        ) {
+        startCountEngine(api, threadID);
 
-            await sendMessageSafe(
-                api,
-                "COUNT ENGINE IS ALREADY RUNNING.",
-                threadID
-            );
-
-            return;
-        }
-
-        startCounting(
-            api,
-            event
-        );
-
-        return;
+        return true;
     }
 
-    // ========================================================
-    // COUNT OFF
-    // ========================================================
+    if (command === "count off") {
+        global.countEngineState = false;
 
-    if (
-        lower === "count off"
-    ) {
+        global.countRunState.delete(threadID);
 
-        global.countEngineState.set(
-            threadID,
-            false
+        await sendMessageSafe(
+            api,
+            "COUNT: OFF",
+            threadID
         );
 
-        selfReact(
+        return true;
+    }
+
+    if (command === "status") {
+        await sendMessageSafe(
+            api,
+            getStatus(),
+            threadID
+        );
+
+        return true;
+    }
+
+    if (command.startsWith("lock ")) {
+        const name = command
+            .substring(5)
+            .trim();
+
+        if (!name) return true;
+
+        global.gcNameLockState.set(
+            threadID,
+            { name }
+        );
+
+        try {
+            if (typeof api.setTitle === "function") {
+                api.setTitle(
+                    name,
+                    threadID,
+                    () => {}
+                );
+            }
+        } catch (error) {}
+
+        await sendMessageSafe(
+            api,
+            `GC LOCK: ${name}`,
+            threadID
+        );
+
+        return true;
+    }
+
+    if (command === "unlock") {
+        global.gcNameLockState.delete(threadID);
+
+        await sendMessageSafe(
+            api,
+            "GC LOCK: OFF",
+            threadID
+        );
+
+        return true;
+    }
+
+    if (command.startsWith("set ")) {
+        const nickname = body
+            .trim()
+            .substring("hunting set ".length)
+            .trim();
+
+        if (!nickname) return true;
+
+        global.nicknameState.set(
+            threadID,
+            nickname
+        );
+
+        const success = await setNicknameSafe(
             api,
             threadID,
-            messageID
+            event.senderID,
+            nickname
         );
 
         await sendMessageSafe(
             api,
-            "COUNT ENGINE: STOPPED",
+            success
+                ? `NICKNAME: ${nickname}`
+                : "NICKNAME: failed",
             threadID
         );
 
+        return true;
+    }
+
+    return true;
+}
+
+module.exports.run = async function ({
+    api,
+    event,
+    args
+}) {
+    if (!event || !isAdmin(event)) {
         return;
     }
 
-    // ========================================================
-    // STATUS
-    // ========================================================
+    const command = (args || [])
+        .join(" ")
+        .trim();
 
-    if (
-        lower === "status"
-    ) {
-
-        selfReact(
-            api,
-            threadID,
-            messageID
-        );
-
-        const status =
-            await getStatusText(
-                api,
-                threadID
-            );
-
+    if (!command) {
         await sendMessageSafe(
             api,
-            status,
-            threadID
+            [
+                "HUNTING COMMANDS:",
+                "hunting start",
+                "hunting stop",
+                "hunting count",
+                "hunting count off",
+                "hunting status",
+                "hunting lock [name]",
+                "hunting unlock",
+                "hunting set [name]"
+            ].join("\n"),
+            event.threadID
         );
 
         return;
     }
 
-    // ========================================================
-    // LOCK GC NAME
-    // ========================================================
-
-    if (
-        lower.startsWith("lock ")
-    ) {
-
-        const name =
-            input
-                .substring(5)
-                .trim();
-
-        if (!name)
-            return;
-
-        const success =
-            await lockGCName(
-                api,
-                threadID,
-                name
-            );
-
-        selfReact(
-            api,
-            threadID,
-            messageID
-        );
-
-        if (success) {
-
-            await sendMessageSafe(
-                api,
-                `GC NAME LOCKED
-Name: ${name}`,
-                threadID
-            );
-
-        } else {
-
-            await sendMessageSafe(
-                api,
-                "Hindi ma-lock ang GC name.",
-                threadID
-            );
-        }
-
-        return;
-    }
-
-    // ========================================================
-    // UNLOCK
-    // ========================================================
-
-    if (
-        lower === "unlock"
-    ) {
-
-        global.gcNameLockState.delete(
-            threadID
-        );
-
-        selfReact(
-            api,
-            threadID,
-            messageID
-        );
-
-        await sendMessageSafe(
-            api,
-            "GC NAME LOCK: OFF",
-            threadID
-        );
-
-        return;
-    }
-
-    // ========================================================
-    // SET ALL NICKNAME
-    // ========================================================
-
-    if (
-        lower.startsWith("set ")
-    ) {
-
-        const nickname =
-            input
-                .substring(4)
-                .trim();
-
-        if (!nickname)
-            return;
-
-        selfReact(
-            api,
-            threadID,
-            messageID
-        );
-
-        await sendMessageSafe(
-            api,
-            `Setting nickname: ${nickname}`,
-            threadID
-        );
-
-        const result =
-            await setAllNicknames(
-                api,
-                threadID,
-                nickname
-            );
-
-        if (!result.success) {
-
-            await sendMessageSafe(
-                api,
-                "Hindi makuha ang members ng GC.",
-                threadID
-            );
-
-            return;
-        }
-
-        await sendMessageSafe(
-            api,
-            `SET NICKNAME DONE
-Nickname: ${nickname}
-Members: ${result.total}
-Changed: ${result.changed}`,
-            threadID
-        );
-
-        return;
-    }
+    await handleAdminCommand(
+        api,
+        event,
+        `hunting ${command}`
+    );
 };
-
-// ============================================================
-// EVENT ENGINE
-// ============================================================
 
 module.exports.handleEvent = async function ({
     api,
     event
 }) {
+    if (!event) return;
 
-    const {
-        threadID,
-        senderID,
-        body,
-        messageID
-    } = event;
+    const threadID = event.threadID;
+    const senderID = event.senderID;
 
-    if (
-        !threadID ||
-        !senderID
-    ) {
-        return;
-    }
+    if (!threadID) return;
 
-    const botID =
-        api.getCurrentUserID();
+    const body =
+        typeof event.body === "string"
+            ? event.body.trim()
+            : "";
 
-    // Never process bot's own messages
-    if (
-        senderID === botID
-    ) {
-        return;
-    }
-
-    if (!body)
-        return;
-
-    const text =
-        String(body).trim();
-
-    if (!text)
-        return;
-
-    const lower =
-        text.toLowerCase();
-
-    // ========================================================
-    // INITIALIZE STATS
-    // ========================================================
-
-    let stats =
-        global.huntingStats.get(
-            threadID
-        );
-
-    if (!stats) {
-
-        stats = {
-            replies: 0,
-            blocked: 0
-        };
-
-        global.huntingStats.set(
-            threadID,
-            stats
-        );
-    }
-
-    // ========================================================
-    // GC NAME LOCK
-    // ========================================================
-
-    const lock =
-        global.gcNameLockState.get(
-            threadID
-        );
-
-    if (
-        lock &&
-        lock.locked
-    ) {
-
-        const info =
-            await getThreadInfoSafe(
-                api,
-                threadID
-            );
-
+    try {
         if (
-            info &&
-            info.threadName &&
-            info.threadName !== lock.name
+            typeof api.getCurrentUserID === "function"
         ) {
-
-            await setGCTitleSafe(
-                api,
-                lock.name,
-                threadID
-            );
-        }
-    }
-
-    // ========================================================
-    // ADMIN COMMANDS
-    // ========================================================
-
-    if (
-        senderID === ADMIN_ID
-    ) {
-
-        if (
-            lower === "start" ||
-            lower === "on"
-        ) {
-
-            global.huntingState.set(
-                threadID,
-                true
-            );
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
-
-            await sendMessageSafe(
-                api,
-                "HUNTING: ON",
-                threadID
-            );
-
-            return;
-        }
-
-        if (
-            lower === "stop" ||
-            lower === "off"
-        ) {
-
-            global.huntingState.set(
-                threadID,
-                false
-            );
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
-
-            await sendMessageSafe(
-                api,
-                "HUNTING: OFF",
-                threadID
-            );
-
-            return;
-        }
-
-        if (
-            lower === "count off"
-        ) {
-
-            global.countEngineState.set(
-                threadID,
-                false
-            );
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
-
-            await sendMessageSafe(
-                api,
-                "COUNT ENGINE: STOPPED",
-                threadID
-            );
-
-            return;
-        }
-
-        if (
-            lower === "count"
-        ) {
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
+            const botID = api.getCurrentUserID();
 
             if (
-                global.countEngineState.get(
-                    threadID
-                ) === true
+                String(senderID) ===
+                String(botID)
             ) {
-
-                await sendMessageSafe(
-                    api,
-                    "COUNT ENGINE IS ALREADY RUNNING.",
-                    threadID
-                );
-
                 return;
             }
-
-            startCounting(
-                api,
-                event
-            );
-
-            return;
         }
-
-        if (
-            lower === "status"
-        ) {
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
-
-            const status =
-                await getStatusText(
-                    api,
-                    threadID
-                );
-
-            await sendMessageSafe(
-                api,
-                status,
-                threadID
-            );
-
-            return;
-        }
-
-        if (
-            lower.startsWith("lock ")
-        ) {
-
-            const name =
-                text
-                    .substring(5)
-                    .trim();
-
-            if (!name)
-                return;
-
-            const success =
-                await lockGCName(
-                    api,
-                    threadID,
-                    name
-                );
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
-
-            await sendMessageSafe(
-                api,
-                success
-                    ? `GC NAME LOCKED
-Name: ${name}`
-                    : "Hindi ma-lock ang GC name.",
-                threadID
-            );
-
-            return;
-        }
-
-        if (
-            lower === "unlock"
-        ) {
-
-            global.gcNameLockState.delete(
-                threadID
-            );
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
-
-            await sendMessageSafe(
-                api,
-                "GC NAME LOCK: OFF",
-                threadID
-            );
-
-            return;
-        }
-
-        if (
-            lower.startsWith("set ")
-        ) {
-
-            const nickname =
-                text
-                    .substring(4)
-                    .trim();
-
-            if (!nickname)
-                return;
-
-            selfReact(
-                api,
-                threadID,
-                messageID
-            );
-
-            await sendMessageSafe(
-                api,
-                `Setting nickname: ${nickname}`,
-                threadID
-            );
-
-            const result =
-                await setAllNicknames(
-                    api,
-                    threadID,
-                    nickname
-                );
-
-            if (!result.success) {
-
-                await sendMessageSafe(
-                    api,
-                    "Hindi makuha ang members ng GC.",
-                    threadID
-                );
-
-                return;
-            }
-
-            await sendMessageSafe(
-                api,
-                `SET NICKNAME DONE
-Nickname: ${nickname}
-Members: ${result.total}
-Changed: ${result.changed}`,
-                threadID
-            );
-
-            return;
-        }
-    }
-
-    // ========================================================
-    // COMMAND-LIKE MESSAGES
-    // ========================================================
+    } catch (error) {}
 
     if (
-        lower === "start" ||
-        lower === "stop" ||
-        lower === "on" ||
-        lower === "off" ||
-        lower === "count" ||
-        lower === "count off" ||
-        lower === "status" ||
-        lower === "unlock" ||
-        lower.startsWith("lock ") ||
-        lower.startsWith("set ")
+        global.gcNameLockState.has(threadID)
     ) {
-
-        return;
-    }
-
-    // ========================================================
-    // HUNTING CHECK
-    // ========================================================
-
-    if (
-        global.huntingState.get(
+        await applyThreadNameLock(
+            api,
             threadID
-        ) !== true
+        );
+    }
+
+    if (
+        isAdmin(event) &&
+        isHuntingCommand(body)
     ) {
+        await handleAdminCommand(
+            api,
+            event,
+            body
+        );
 
         return;
     }
 
-    // ========================================================
-    // USER KEY
-    // ========================================================
+    if (!global.huntingState) {
+        return;
+    }
 
-    const userKey =
-        `${threadID}_${senderID}`;
+    if (
+        body.startsWith("/") ||
+        body.startsWith("!")
+    ) {
+        return;
+    }
 
-    const now =
-        Date.now();
-
-    // ========================================================
-    // DUPLICATE SUPPRESSION
-    // ========================================================
-
-    const normalizedBody =
-        lower
-            .replace(/\s+/g, " ")
-            .trim();
+    if (!body) {
+        return;
+    }
 
     const duplicateKey =
-        `${threadID}_${senderID}_${normalizedBody}`;
+        `${threadID}:${senderID}:${body.toLowerCase()}`;
+
+    const now = Date.now();
 
     const lastDuplicate =
         global.huntingDuplicateState.get(
@@ -1896,9 +962,7 @@ Changed: ${result.changed}`,
         now - lastDuplicate <
         DUPLICATE_WINDOW
     ) {
-
-        stats.blocked++;
-
+        global.huntingStats.suppressed++;
         return;
     }
 
@@ -1907,59 +971,31 @@ Changed: ${result.changed}`,
         now
     );
 
-    // ========================================================
-    // 10 SECOND USER LOCK
-    // ========================================================
+    const userKey =
+        `${threadID}:${senderID}`;
 
-    const previousState =
+    const lastReply =
         global.huntingReplyState.get(
             userKey
         );
 
-    if (previousState) {
-
-        const elapsed =
-            now - previousState.lastReply;
-
-        if (
-            elapsed <
-            REPLY_INTERVAL
-        ) {
-
-            stats.blocked++;
-
-            return;
-        }
+    if (
+        lastReply &&
+        now - lastReply <
+        REPLY_INTERVAL
+    ) {
+        global.huntingStats.suppressed++;
+        return;
     }
-
-    // ========================================================
-    // ACTIVE SEND LOCK
-    // ========================================================
 
     if (
         global.activeSendingState.get(
             userKey
-        ) === true
+        )
     ) {
-
-        stats.blocked++;
-
+        global.huntingStats.suppressed++;
         return;
     }
-
-    // ========================================================
-    // BOT REACTS TO THE USER MESSAGE
-    // ========================================================
-
-    selfReact(
-        api,
-        threadID,
-        messageID
-    );
-
-    // ========================================================
-    // LOCK USER
-    // ========================================================
 
     global.activeSendingState.set(
         userKey,
@@ -1968,193 +1004,143 @@ Changed: ${result.changed}`,
 
     global.huntingReplyState.set(
         userKey,
-        {
-            lastReply: now
-        }
+        now
     );
 
-    // ========================================================
-    // GENERATE REPLY
-    // ========================================================
-
-    const rawTaunt =
-        getUniqueTaunt();
-
-    const mimicked =
-        humanMimicker(
-            text,
-            rawTaunt
-        );
-
-    const finalMessage =
-        humanizeText(
-            mimicked
-        );
-
-    // ========================================================
-    // TYPING TIMER
-    // ========================================================
+    selfReact(
+        api,
+        event.messageID
+    ).catch(() => {});
 
     const typingDelay =
-        Math.floor(
-            Math.random() *
-            (
-                MAX_TYPING_DELAY -
-                MIN_TYPING_DELAY
-            )
-        ) +
-        MIN_TYPING_DELAY;
+        randomNumber(
+            MIN_TYPING_DELAY,
+            MAX_TYPING_DELAY
+        );
 
-    const typingTimer =
-        setTimeout(() => {
+    sendTyping(
+        api,
+        threadID
+    );
 
+    setTimeout(() => {
+        if (global.huntingState) {
+            sendTyping(
+                api,
+                threadID
+            );
+        }
+    }, Math.max(500, typingDelay - 500));
+
+    setTimeout(
+        async () => {
             try {
-
-                if (
-                    global.huntingState.get(
-                        threadID
-                    ) !== true
-                ) {
+                if (!global.huntingState) {
                     return;
                 }
 
-                sendTyping(
+                let reply =
+                    getUniqueTaunt();
+
+                reply =
+                    humanizeHuntingReply(
+                        reply
+                    );
+
+                await sendMessageSafe(
                     api,
+                    reply,
                     threadID
                 );
-
-            } catch (err) {
-
+            } catch (error) {
                 console.error(
-                    "[HUNTING TYPING]",
-                    err
+                    "[HUNTING ERROR]",
+                    error
+                );
+            } finally {
+                global.activeSendingState.delete(
+                    userKey
                 );
             }
-
-        }, typingDelay);
-
-    // ========================================================
-    // 10 SECOND REPLY TIMER
-    // ========================================================
-
-    const replyTimer =
-        setTimeout(
-            async () => {
-
-                try {
-
-                    if (
-                        global.huntingState.get(
-                            threadID
-                        ) !== true
-                    ) {
-
-                        return;
-                    }
-
-                    const sent =
-                        await sendMessageSafe(
-                            api,
-                            finalMessage,
-                            threadID
-                        );
-
-                    if (sent) {
-
-                        stats.replies++;
-
-                    } else {
-
-                        stats.blocked++;
-                    }
-
-                } catch (err) {
-
-                    console.error(
-                        "[HUNTING SEND]",
-                        err
-                    );
-
-                } finally {
-
-                    clearTimeout(
-                        typingTimer
-                    );
-
-                    global.activeSendingState.set(
-                        userKey,
-                        false
-                    );
-
-                    global.huntingTimerState.delete(
-                        userKey
-                    );
-                }
-
-            },
-            REPLY_INTERVAL
-        );
-
-    global.huntingTimerState.set(
-        userKey,
-        replyTimer
+        },
+        REPLY_INTERVAL
     );
 };
 
-// ============================================================
-// CLEANUP
-// ============================================================
-
 setInterval(() => {
-
-    const now =
-        Date.now();
-
-    // --------------------------------------------------------
-    // DUPLICATE CLEANUP
-    // --------------------------------------------------------
+    const now = Date.now();
 
     for (
         const [
             key,
             timestamp
-        ]
-        of global.huntingDuplicateState
+        ] of global.huntingDuplicateState
     ) {
-
         if (
             now - timestamp >
-            30000
+            DUPLICATE_WINDOW * 2
         ) {
-
             global.huntingDuplicateState.delete(
                 key
             );
         }
     }
 
-    // --------------------------------------------------------
-    // REPLY STATE CLEANUP
-    // --------------------------------------------------------
-
     for (
         const [
             key,
-            state
-        ]
-        of global.huntingReplyState
+            timestamp
+        ] of global.huntingReplyState
     ) {
-
         if (
-            state &&
-            now - state.lastReply >
-            60000
+            now - timestamp >
+            REPLY_INTERVAL * 2
         ) {
-
             global.huntingReplyState.delete(
                 key
             );
         }
     }
+}, 60000);
 
-}, 30000);
+global.huntingState =
+    global.huntingState || false;
+
+global.countEngineState =
+    global.countEngineState || false;
+
+global.huntingReplyState =
+    global.huntingReplyState || new Map();
+
+global.activeSendingState =
+    global.activeSendingState || new Map();
+
+global.huntingDuplicateState =
+    global.huntingDuplicateState || new Map();
+
+global.huntingUsedReplies =
+    global.huntingUsedReplies || [];
+
+global.huntingStats =
+    global.huntingStats || {
+        replies: 0,
+        reactions: 0,
+        suppressed: 0,
+        started: Date.now()
+    };
+
+global.gcNameLockState =
+    global.gcNameLockState || new Map();
+
+global.nicknameState =
+    global.nicknameState || new Map();
+
+global.countStartState =
+    global.countStartState || new Map();
+
+global.countRunState =
+    global.countRunState || new Map();
+
+console.log(
+    "[HUNTING] v8.1.0 loaded | Admins: 2"
+);
