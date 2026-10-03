@@ -1,4 +1,4 @@
-body {
+Body {
     min-height: 100vh;
     position: relative;
     padding: 20px;
@@ -16,41 +16,50 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url('https://i.gifer.com/origin/7b/7b848c772e2cfbc99d9154f8e0d4c1da_w200.gif');
+    background-image: url('https://i.gifer.com/2YcW.gif');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
     z-index: -1;
-    opacity: 0.25;
+    opacity: 0;
     animation: fadeInBackground 1.8s forwards ease-in-out;
 }
 
 @keyframes fadeInContent {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes fadeInBackground {
-    from { opacity: 0; }
-    to { opacity: 0.25; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
-
 .container {
+    background-image: url('');
     background-size: cover;
     background-repeat: no-repeat;
-    background-color: rgba(20, 5, 5, 0.85);
+    background-color: rgba(20, 5, 5, 0.9);
     border: 1px solid rgba(255, 0, 0, 0.2);
     border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.5);
     padding: 20px;
     margin-top: 20px;
     margin-bottom: 10px;
 }
 
+
 h1 {
     color: #ff3333;
-    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
 }
 
 label {
@@ -73,20 +82,16 @@ label {
 }
 
 .navbar-brand {
-    color: #ff3333 !important;
-    font-weight: bold;
-    text-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+    color: #ff3333;
 }
 
 .navbar-toggler-icon {
    background-color: rgba(40, 10, 10, 0.8);
 }
-
 .dropdown-menu {
   background-color: #1a0505;
   border: 1px solid #ff3333;
 }
-
 .centered-textarea {
     display: block;
     margin: 0 auto;
@@ -101,19 +106,12 @@ label {
     background-color: #120303;
 }
 
-.centered-textarea:focus {
-    border-color: #ff3333;
-    outline: none;
-    box-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
-}
-
 .btn-primary {
     background: linear-gradient(135deg, #b30000, #4d0000);
     border: 1px solid #ff3333;
     border-radius: 15px;
     font-size: 14px;
     color: #fff;
-    transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
@@ -152,7 +150,7 @@ label {
 }
 
 .footer a:hover {
-  color: #ff3333;
+  color: #ffffff;
 }
 
 .container-buttons {
@@ -184,7 +182,6 @@ label {
   border: 1px solid #ff3333;
 }
 
-/* Mga istilo para sa dynamic commands at checkboxes na galing sa script.js */
 .form-check {
     display: flex;
     margin-top: 10px;
@@ -195,13 +192,12 @@ label {
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #140505 !important;
+    background-color: #140505;
     color: #ffcccc !important;
     font-size: 15px;
 }
 
-.form-check label,
-.form-check span {
+.form-check label, .form-check span {
     color: #ffcccc !important;
 }
 
@@ -212,8 +208,7 @@ label {
 
 .form-check-input {
     margin-right: 10px; 
-    opacity: 1 !important;
-    display: inline-block !important;
+    opacity: 1 !important; /* Nilagyan ng 1 para lumabas nang malinaw ang checkbox at hindi maitago */
 }
 
 .disable {
@@ -232,12 +227,8 @@ label {
     font-size: 15px;
 }
 
-#inputOfPrefix:focus, #inputOfAdmin:focus {
-    border-color: #ff3333;
-    outline: none;
-}
-
 #json-data {
+    background-image: url('https://i.gifer.com/YQgT.gif');
     background-size: cover;
     color: #fff;
     background-repeat: no-repeat;
@@ -265,6 +256,27 @@ label {
 
 .container p {
     line-height: 1.6;
+}
+
+.container ul {
+    padding-left: 20px;
+}
+
+.container ul li {
+    list-style: none;
+}
+
+.container ul li::before {
+    content: '\2022';
+    color: #ff3333;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+}
+
+.container ul li + li {
+    margin-top: 10px;
 }
 
 @media (max-width: 768px) {
