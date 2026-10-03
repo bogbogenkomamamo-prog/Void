@@ -1,462 +1,770 @@
-const fs = require('fs');
-const path = require('path');
-const login = require('ws3-fca');
-const express = require('express');
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const login = require("ws3-fca");
+const express = require("express");
+const chalk = require("chalk");
+const bodyParser = require("body-parser");
+
 const app = express();
-const chalk = require('chalk');
-const bodyParser = require('body-parser');
-const script = path.join(__dirname, 'script');
-const cron = require('node-cron');
+
+const script = path.join(
+  __dirname,
+  "script"
+);
+
+// ============================================================
+// CONFIG
+// ============================================================
+
+function createConfig() {
+
+  const config = [
+    {
+      masterKey: {
+        admin: [],
+        devMode: false,
+        database: false,
+        restartTime: 15
+      },
+
+      fcaOption: {
+        forceLogin: true,
+        listenEvents: true,
+        logLevel: "silent",
+        updatePresence: true,
+        selfListen: true,
+
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+
+        online: true,
+        autoMarkDelivery: false,
+        autoMarkRead: false
+      }
+    }
+  ];
+
+  if (!fs.existsSync("./data")) {
+    fs.mkdirSync(
+      "./data",
+      { recursive: true }
+    );
+  }
+
+  fs.writeFileSync(
+    "./data/config.json",
+    JSON.stringify(
+      config,
+      null,
+      2
+    )
+  );
+
+  return config;
+}
+
+// ============================================================
+// DATA FOLDERS
+// ============================================================
+
+if (!fs.existsSync("./data")) {
+
+  fs.mkdirSync(
+    "./data",
+    { recursive: true }
+  );
+}
+
+if (!fs.existsSync("./data/history.json")) {
+
+  fs.writeFileSync(
+    "./data/history.json",
+    "[]",
+    "utf8"
+  );
+}
+
+if (!fs.existsSync("./data/session")) {
+
+  fs.mkdirSync(
+    "./data/session",
+    { recursive: true }
+  );
+}
+
+if (!fs.existsSync("./data/database.json")) {
+
+  fs.writeFileSync(
+    "./data/database.json",
+    "[]",
+    "utf8"
+  );
+}
+
+// ============================================================
+// LOAD CONFIG
+// ============================================================
 
 const config =
-  fs.existsSync('./data') &&
-  fs.existsSync('./data/config.json')
-    ? JSON.parse(fs.readFileSync('./data/config.json', 'utf8'))
+  fs.existsSync("./data/config.json")
+    ? JSON.parse(
+        fs.readFileSync(
+          "./data/config.json",
+          "utf8"
+        )
+      )
     : createConfig();
 
-const dev = JSON.parse(fs.readFileSync('./dev.json'));
+const dev =
+  fs.existsSync("./dev.json")
+    ? JSON.parse(
+        fs.readFileSync(
+          "./dev.json",
+          "utf8"
+        )
+      )
+    : [];
 
-const Utils = new Object({
+// ============================================================
+// UTILS
+// ============================================================
+
+const Utils = {
   commands: new Map(),
   handleEvent: new Map(),
   account: new Map(),
-  cooldowns: new Map(),
-});
-
+  cooldowns: new Map()
+};
 
 // ============================================================
-// HUMAN-LIKE TRAFFIC CONTROL
-// Add-on only
+// TRAFFIC CONTROL
 // ============================================================
 
 const HumanTraffic = {
 
   users: new Map(),
+
   duplicates: new Map(),
-  threadBusy: new Map(),
 
-  // Maximum messages from one sender inside the window
+  threadQueue: new Map(),
+
+  lastReply: new Map(),
+
   maxBurst: 3,
-  burstWindow: 10000,
 
-  // Same message suppression
-  duplicateWindow: 3500,
+  burstWindow: 10_000,
 
-  // Reply delay range
-  minDelay: 1200,
-  maxDelay: 3200,
+  cooldown: 30_000,
+
+  duplicateWindow: 5_000,
+
+  replyInterval: 10_000,
+
+  typingMin: 700,
+
+  typingMax: 1600,
 
   cleanup() {
 
-    const now = Date.now();
+    const now =
+      Date.now();
 
-    for (const [key, data] of this.users) {
+    // Burst data
+    for (
+      const [
+        key,
+        data
+      ] of this.users
+    ) {
 
       if (
         !data ||
-        now - data.started > this.burstWindow * 2
+        now - data.started >
+        this.burstWindow * 2
       ) {
+
         this.users.delete(key);
       }
-
     }
 
-    for (const [key, time] of this.duplicates) {
+    // Duplicate data
+    for (
+      const [
+        key,
+        timestamp
+      ] of this.duplicates
+    ) {
 
       if (
-        now - time > this.duplicateWindow
+        now - timestamp >
+        this.duplicateWindow
       ) {
+
         this.duplicates.delete(key);
       }
-
     }
 
+    // Reply timestamps
+    for (
+      const [
+        threadID,
+        timestamp
+      ] of this.lastReply
+    ) {
+
+      if (
+        now - timestamp >
+        this.replyInterval * 3
+      ) {
+
+        this.lastReply.delete(
+          threadID
+        );
+      }
+    }
   },
 
-  randomDelay() {
+  isBursting(
+    threadID,
+    senderID
+  ) {
 
-    return Math.floor(
-      Math.random() *
-      (this.maxDelay - this.minDelay + 1)
-    ) + this.minDelay;
+    if (
+      !threadID ||
+      !senderID
+    ) {
 
-  },
+      return false;
+    }
 
-  isBursting(threadID, senderID) {
+    const key =
+      `${threadID}:${senderID}`;
 
-    const key = `${threadID}:${senderID}`;
-    const now = Date.now();
+    const now =
+      Date.now();
 
-    let data = this.users.get(key);
+    let data =
+      this.users.get(key);
 
     if (
       !data ||
-      now - data.started >= this.burstWindow
+      now - data.started >=
+      this.burstWindow
     ) {
 
       data = {
         started: now,
-        count: 0
+        count: 0,
+        blockedUntil: 0
       };
+    }
 
+    if (
+      now <
+      data.blockedUntil
+    ) {
+
+      return true;
     }
 
     data.count++;
 
-    this.users.set(key, data);
+    if (
+      data.count >
+      this.maxBurst
+    ) {
 
-    return data.count > this.maxBurst;
+      data.blockedUntil =
+        now + this.cooldown;
 
+      this.users.set(
+        key,
+        data
+      );
+
+      console.log(
+        `[LIMITER] Burst suppressed: ${senderID}`
+      );
+
+      return true;
+    }
+
+    this.users.set(
+      key,
+      data
+    );
+
+    return false;
   },
 
-  isDuplicate(threadID, senderID, body) {
+  isDuplicate(
+    threadID,
+    senderID,
+    body
+  ) {
 
-    if (!body) {
+    if (
+      !threadID ||
+      !senderID ||
+      !body
+    ) {
+
       return false;
     }
 
-    const normalized = String(body)
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
+    const normalized =
+      String(body)
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+
+    if (!normalized) {
+      return false;
+    }
 
     const key =
       `${threadID}:${senderID}:${normalized}`;
 
-    const now = Date.now();
+    const now =
+      Date.now();
 
     const previous =
       this.duplicates.get(key);
 
     if (
       previous &&
-      now - previous < this.duplicateWindow
+      now - previous <
+      this.duplicateWindow
     ) {
 
-      return true;
+      console.log(
+        `[TRAFFIC] Duplicate suppressed: ${senderID}`
+      );
 
+      return true;
     }
 
-    this.duplicates.set(key, now);
-
-    return false;
-
-  },
-
-  async wait(threadID) {
-
-    const previous =
-      this.threadBusy.get(threadID) ||
-      Promise.resolve();
-
-    const current = previous
-      .catch(() => {})
-      .then(() => {
-
-        return new Promise(resolve => {
-
-          setTimeout(
-            resolve,
-            this.randomDelay()
-          );
-
-        });
-
-      });
-
-    this.threadBusy.set(
-      threadID,
-      current
+    this.duplicates.set(
+      key,
+      now
     );
 
-    try {
-
-      await current;
-
-    } finally {
-
-      if (
-        this.threadBusy.get(threadID) === current
-      ) {
-
-        this.threadBusy.delete(threadID);
-
-      }
-
-    }
-
+    return false;
   },
 
-  async typing(api, threadID, duration) {
+  typingDuration() {
+
+    return Math.floor(
+      Math.random() *
+      (
+        this.typingMax -
+        this.typingMin +
+        1
+      )
+    ) +
+    this.typingMin;
+  },
+
+  responseDelay(text = "") {
+
+    const length =
+      String(text).length;
+
+    const charsPerSecond =
+      260 / 60;
+
+    const typingTime =
+      (
+        length /
+        charsPerSecond
+      ) * 1000;
+
+    const variation =
+      0.75 +
+      Math.random() * 0.65;
+
+    const extra =
+      Math.floor(
+        Math.random() * 1800
+      );
+
+    const delay =
+      typingTime *
+      variation +
+      extra;
+
+    return Math.min(
+      Math.max(
+        800,
+        delay
+      ),
+      12_000
+    );
+  },
+
+  async typing(
+    api,
+    threadID
+  ) {
 
     try {
 
       if (
         typeof api.sendTypingIndicator ===
-        'function'
+        "function"
       ) {
 
         await api.sendTypingIndicator(
           threadID
         );
 
-        await new Promise(resolve =>
-          setTimeout(
-            resolve,
-            duration
-          )
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              this.typingDuration()
+            )
         );
-
       }
 
-    } catch (_) {
+    } catch (_) {}
+  },
 
-      // Typing indicator failure
-      // must never stop the bot.
+  async enqueueSend(
+    api,
+    message,
+    threadID,
+    messageID
+  ) {
 
+    if (!threadID) {
+
+      return api.sendMessage(
+        message,
+        threadID,
+        messageID
+      );
     }
 
-  }
+    const previous =
+      this.threadQueue.get(
+        threadID
+      ) ||
+      Promise.resolve();
 
+    const current =
+      previous
+        .catch(() => {})
+        .then(async () => {
+
+          // --------------------------------------------------
+          // 10 SECOND SPACING
+          // --------------------------------------------------
+
+          const now =
+            Date.now();
+
+          const last =
+            this.lastReply.get(
+              threadID
+            ) || 0;
+
+          const elapsed =
+            now - last;
+
+          if (
+            elapsed <
+            this.replyInterval
+          ) {
+
+            await new Promise(
+              resolve =>
+                setTimeout(
+                  resolve,
+                  this.replyInterval -
+                  elapsed
+                )
+            );
+          }
+
+          // --------------------------------------------------
+          // RESPONSE DELAY
+          // --------------------------------------------------
+
+          const responseDelay =
+            this.responseDelay(
+              message
+            );
+
+          await new Promise(
+            resolve =>
+              setTimeout(
+                resolve,
+                responseDelay
+              )
+          );
+
+          // --------------------------------------------------
+          // TYPING
+          // --------------------------------------------------
+
+          await this.typing(
+            api,
+            threadID
+          );
+
+          // --------------------------------------------------
+          // SEND
+          // --------------------------------------------------
+
+          const result =
+            await api.sendMessage(
+              message,
+              threadID,
+              messageID
+            );
+
+          this.lastReply.set(
+            threadID,
+            Date.now()
+          );
+
+          return result;
+        });
+
+    this.threadQueue.set(
+      threadID,
+      current
+    );
+
+    try {
+
+      return await current;
+
+    } finally {
+
+      if (
+        this.threadQueue.get(
+          threadID
+        ) === current
+      ) {
+
+        this.threadQueue.delete(
+          threadID
+        );
+      }
+    }
+  }
 };
 
-
-// Cleanup traffic data
-setInterval(() => {
-
-  HumanTraffic.cleanup();
-
-}, 30000);
-
+setInterval(
+  () => HumanTraffic.cleanup(),
+  30_000
+);
 
 // ============================================================
-// DATA FOLDERS
+// SAFE SEND
 // ============================================================
 
-if (!fs.existsSync('./data'))
-  fs.mkdirSync('./data', {
-    recursive: true
-  });
+function safeSend(
+  api,
+  message,
+  threadID,
+  messageID
+) {
 
-if (!fs.existsSync('./data/history.json'))
-  fs.writeFileSync(
-    './data/history.json',
-    '[]',
-    'utf-8'
+  return HumanTraffic.enqueueSend(
+    api,
+    message,
+    threadID,
+    messageID
+  ).catch(
+    error => {
+
+      console.error(
+        "[SEND ERROR]",
+        error?.message ||
+        error
+      );
+    }
   );
-
-if (!fs.existsSync('./data/session'))
-  fs.mkdirSync('./data/session', {
-    recursive: true
-  });
-
-if (!fs.existsSync('./data/database.json'))
-  fs.writeFileSync(
-    './data/database.json',
-    '[]',
-    'utf-8'
-  );
-
+}
 
 // ============================================================
 // LOAD COMMANDS
 // ============================================================
 
-fs.readdirSync(script).forEach((file) => {
+function loadCommand(
+  filePath
+) {
 
-  const scripts = path.join(
-    script,
-    file
-  );
+  try {
 
-  const stats = fs.statSync(
-    scripts
-  );
+    const module =
+      require(filePath);
 
-  if (stats.isDirectory()) {
+    if (!module) {
+      return;
+    }
 
-    fs.readdirSync(scripts).forEach((file) => {
+    const commandConfig =
+      module.config || {};
 
-      try {
+    const run =
+      module.run;
 
-        const {
-          config,
-          run,
-          handleEvent
-        } = require(
-          path.join(scripts, file)
-        );
+    const handleEvent =
+      module.handleEvent;
 
-        if (config) {
-
-          const {
-            name = [],
-            role = '0',
-            version = '1.0.0',
-            hasPrefix = true,
-            aliases = [],
-            description = '',
-            usage = '',
-            credits = '',
-            cooldown = '5',
-            dev = false
-          } = Object.fromEntries(
-            Object.entries(config).map(
-              ([key, value]) => [
-                key.toLowerCase(),
-                value
-              ]
-            )
-          );
-
-          aliases.push(name);
-
-          if (run) {
-
-            Utils.commands.set(
-              aliases,
-              {
-                name,
-                role,
-                run,
-                aliases,
-                description,
-                usage,
-                version,
-                hasPrefix: config.hasPrefix,
-                credits,
-                cooldown,
-                dev
-              }
-            );
-
-          }
-
-          if (handleEvent) {
-
-            Utils.handleEvent.set(
-              aliases,
-              {
-                name,
-                handleEvent,
-                role,
-                description,
-                usage,
-                version,
-                hasPrefix: config.hasPrefix,
-                credits,
-                cooldown,
-                dev
-              }
-            );
-
-          }
-
-        }
-
-      } catch (error) {
-
-        console.error(
-          chalk.red(
-            `Error installing command from file ${file}: ${error.message}`
-          )
-        );
-
-      }
-
-    });
-
-  } else {
-
-    try {
-
-      const {
-        config,
-        run,
-        handleEvent
-      } = require(scripts);
-
-      if (config) {
-
-        const {
-          name = [],
-          role = '0',
-          version = '1.0.0',
-          hasPrefix = true,
-          aliases = [],
-          description = '',
-          usage = '',
-          credits = '',
-          cooldown = '5',
-          dev = false
-        } = Object.fromEntries(
-          Object.entries(config).map(
-            ([key, value]) => [
+    const normalized =
+      Object.fromEntries(
+        Object.entries(
+          commandConfig
+        ).map(
+          ([key, value]) =>
+            [
               key.toLowerCase(),
               value
             ]
-          )
-        );
-
-        aliases.push(name);
-
-        if (run) {
-
-          Utils.commands.set(
-            aliases,
-            {
-              name,
-              role,
-              run,
-              aliases,
-              description,
-              usage,
-              version,
-              hasPrefix: config.hasPrefix,
-              credits,
-              cooldown,
-              dev
-            }
-          );
-
-        }
-
-        if (handleEvent) {
-
-          Utils.handleEvent.set(
-            aliases,
-            {
-              name,
-              handleEvent,
-              role,
-              description,
-              usage,
-              version,
-              hasPrefix: config.hasPrefix,
-              credits,
-              cooldown,
-              dev
-            }
-          );
-
-        }
-
-      }
-
-    } catch (error) {
-
-      console.error(
-        chalk.red(
-          `Error installing command from file ${file}: ${error.message}`
         )
       );
 
+    let {
+      name = [],
+      role = "0",
+      version = "1.0.0",
+      hasPrefix = true,
+      aliases = [],
+      description = "",
+      usage = "",
+      credits = "",
+      cooldown = "5",
+      dev = false
+    } = normalized;
+
+    if (!Array.isArray(name)) {
+      name = [name];
     }
 
+    if (!Array.isArray(aliases)) {
+      aliases = [aliases];
+    }
+
+    const allAliases = [
+      ...new Set([
+        ...name,
+        ...aliases
+      ])
+    ]
+      .filter(Boolean)
+      .map(
+        item =>
+          String(item)
+            .toLowerCase()
+      );
+
+    if (run) {
+
+      Utils.commands.set(
+        allAliases,
+        {
+          name:
+            name[0] ||
+            allAliases[0],
+
+          role,
+          run,
+          aliases:
+            allAliases,
+
+          description,
+          usage,
+          version,
+          hasPrefix,
+          credits,
+          cooldown,
+          dev
+        }
+      );
+    }
+
+    if (handleEvent) {
+
+      Utils.handleEvent.set(
+        allAliases,
+        {
+          name:
+            name[0] ||
+            allAliases[0],
+
+          handleEvent,
+          role,
+          description,
+          usage,
+          version,
+          hasPrefix,
+          credits,
+          cooldown,
+          dev
+        }
+      );
+    }
+
+  } catch (error) {
+
+    console.error(
+      chalk.red(
+        `[COMMAND ERROR] ${filePath}: ${error.message}`
+      )
+    );
   }
+}
 
-});
+if (
+  fs.existsSync(script)
+) {
 
+  fs.readdirSync(script)
+    .forEach(file => {
+
+      const filePath =
+        path.join(
+          script,
+          file
+        );
+
+      const stats =
+        fs.statSync(
+          filePath
+        );
+
+      if (
+        stats.isDirectory()
+      ) {
+
+        fs.readdirSync(
+          filePath
+        )
+        .forEach(subFile => {
+
+          loadCommand(
+            path.join(
+              filePath,
+              subFile
+            )
+          );
+        });
+
+      } else {
+
+        loadCommand(
+          filePath
+        );
+      }
+    });
+}
 
 // ============================================================
 // EXPRESS
@@ -464,7 +772,10 @@ fs.readdirSync(script).forEach((file) => {
 
 app.use(
   express.static(
-    path.join(__dirname, 'public')
+    path.join(
+      __dirname,
+      "public"
+    )
   )
 );
 
@@ -476,160 +787,160 @@ app.use(
   express.json()
 );
 
+// ============================================================
+// ROUTES
+// ============================================================
 
 const routes = [
-
   {
-    path: '/',
-    file: 'index.html'
+    path: "/",
+    file: "index.html"
   },
-
   {
-    path: '/step_by_step_guide',
-    file: 'guide.html'
+    path: "/step_by_step_guide",
+    file: "guide.html"
   },
-
   {
-    path: '/online_user',
-    file: 'online.html'
-  },
-
+    path: "/online_user",
+    file: "online.html"
+  }
 ];
 
+routes.forEach(
+  route => {
 
-routes.forEach(route => {
+    app.get(
+      route.path,
+      (req, res) => {
 
-  app.get(
-    route.path,
-    (req, res) => {
+        const filePath =
+          path.join(
+            __dirname,
+            "public",
+            route.file
+          );
 
-      res.sendFile(
-        path.join(
-          __dirname,
-          'public',
-          route.file
-        )
+        if (
+          fs.existsSync(filePath)
+        ) {
+
+          res.sendFile(
+            filePath
+          );
+
+        } else {
+
+          res.status(404)
+            .send(
+              "Page not found."
+            );
+        }
+      }
+    );
+  }
+);
+
+// ============================================================
+// INFO
+// ============================================================
+
+app.get(
+  "/info",
+  (req, res) => {
+
+    const data =
+      Array.from(
+        Utils.account.values()
+      ).map(
+        account => ({
+          name: account.name,
+          profileUrl:
+            account.profileUrl,
+          thumbSrc:
+            account.thumbSrc,
+          time: account.time
+        })
       );
 
-    }
-  );
+    res.json(data);
+  }
+);
 
-});
+// ============================================================
+// COMMANDS
+// ============================================================
 
+app.get(
+  "/commands",
+  (req, res) => {
 
-app.get('/info', (req, res) => {
-
-  const data =
-    Array.from(
-      Utils.account.values()
-    ).map(account => ({
-
-      name: account.name,
-      profileUrl: account.profileUrl,
-      thumbSrc: account.thumbSrc,
-      time: account.time
-
-    }));
-
-  res.json(
-    JSON.parse(
-      JSON.stringify(
-        data,
-        null,
-        2
-      )
-    )
-  );
-
-});
-
-
-app.get('/commands', (req, res) => {
-
-  const command = new Set();
-
-  const commands =
-    [...Utils.commands.values()]
-      .map(({ name }) =>
-        (
-          command.add(name),
-          name
-        )
+    const commands =
+      Array.from(
+        Utils.commands.values()
+      ).map(
+        command => command.name
       );
 
-  const handleEvent =
-    [...Utils.handleEvent.values()]
-      .map(({ name }) =>
-        command.has(name)
-          ? null
-          : (
-              command.add(name),
-              name
-            )
-      )
-      .filter(Boolean);
-
-  const role =
-    [...Utils.commands.values()]
-      .map(({ role }) =>
-        (
-          command.add(role),
-          role
-        )
+    const handleEvent =
+      Array.from(
+        Utils.handleEvent.values()
+      ).map(
+        command => command.name
       );
 
-  const aliases =
-    [...Utils.commands.values()]
-      .map(({ aliases }) =>
-        (
-          command.add(aliases),
-          aliases
-        )
-      );
+    res.json({
+      commands,
+      handleEvent,
+      count:
+        commands.length +
+        handleEvent.length
+    });
+  }
+);
 
-  res.json(
-    JSON.parse(
-      JSON.stringify(
-        {
-          commands,
-          handleEvent,
-          role,
-          aliases
-        },
-        null,
-        2
-      )
-    )
-  );
+// ============================================================
+// LOGIN
+// ============================================================
 
-});
+app.post(
+  "/login",
+  async (req, res) => {
 
+    const {
+      state,
+      commands,
+      prefix,
+      admin
+    } = req.body;
 
-app.post('/login', async (req, res) => {
+    try {
 
-  const {
-    state,
-    commands,
-    prefix,
-    admin
-  } = req.body;
+      if (
+        !Array.isArray(state) ||
+        state.length === 0
+      ) {
 
-  try {
+        throw new Error(
+          "Missing app state data."
+        );
+      }
 
-    if (!state) {
+      const cUser =
+        state.find(
+          item =>
+            item.key ===
+            "c_user"
+        );
 
-      throw new Error(
-        'Missing app state data'
-      );
+      if (!cUser) {
 
-    }
-
-    const cUser =
-      state.find(
-        item => item.key === 'c_user'
-      );
-
-    if (cUser) {
+        return res.status(400)
+          .json({
+            error: true,
+            message:
+              "Invalid appstate data."
+          });
+      }
 
       const existingUser =
         Utils.account.get(
@@ -638,106 +949,84 @@ app.post('/login', async (req, res) => {
 
       if (existingUser) {
 
-        console.log(
-          `User ${cUser.value} is already logged in`
-        );
-
-        return res.status(400).json({
-
-          error: false,
-
-          message:
-            "Active user session detected; already logged in",
-
-          user: existingUser
-
-        });
-
-      } else {
-
-        try {
-
-          await accountLogin(
-            state,
-            commands,
-            prefix,
-            [admin]
-          );
-
-          res.status(200).json({
-
-            success: true,
-
+        return res.status(400)
+          .json({
+            error: false,
             message:
-              'Authentication process completed successfully; login achieved.'
-
+              "Active user session detected.",
+            user:
+              existingUser
           });
-
-        } catch (error) {
-
-          console.error(error);
-
-          res.status(400).json({
-
-            error: true,
-            message: error.message
-
-          });
-
-        }
-
       }
 
-    } else {
+      await accountLogin(
+        state,
+        commands,
+        prefix,
+        Array.isArray(admin)
+          ? admin
+          : admin
+            ? [admin]
+            : []
+      );
 
-      return res.status(400).json({
+      res.status(200)
+        .json({
+          success: true,
+          message:
+            "Authentication process completed."
+        });
 
-        error: true,
+    } catch (error) {
 
-        message:
-          "There's an issue with the appstate data; it's invalid."
+      console.error(
+        "[LOGIN ERROR]",
+        error
+      );
 
-      });
-
+      res.status(400)
+        .json({
+          error: true,
+          message:
+            error.message ||
+            "Authentication failed."
+        });
     }
-
-  } catch (error) {
-
-    return res.status(400).json({
-
-      error: true,
-
-      message:
-        "There's an issue with the appstate data; it's invalid."
-
-    });
-
-  }
-
-});
-
-
-app.listen(3000, () => {
-
-  console.log(
-    `Server is running at http://localhost:5000`
-  );
-
-});
-
-
-process.on(
-  'unhandledRejection',
-  (reason) => {
-
-    console.error(
-      'Unhandled Promise Rejection:',
-      reason
-    );
-
   }
 );
 
+// ============================================================
+// SERVER
+// ============================================================
+
+const PORT =
+  process.env.PORT ||
+  3000;
+
+app.listen(
+  PORT,
+  () => {
+
+    console.log(
+      `Server is running on port ${PORT}`
+    );
+  }
+);
+
+// ============================================================
+// UNHANDLED REJECTION
+// ============================================================
+
+process.on(
+  "unhandledRejection",
+  reason => {
+
+    console.error(
+      "[UNHANDLED REJECTION]",
+      reason
+    );
+  }
+);
 
 // ============================================================
 // ACCOUNT LOGIN
@@ -746,26 +1035,30 @@ process.on(
 async function accountLogin(
   state,
   enableCommands = [],
-  prefix,
+  prefix = "",
   admin = []
 ) {
 
   enableCommands = [
-
     {
       commands:
         Array.from(
           Utils.commands.values()
-        ).map(c => c.name)
+        ).map(
+          command =>
+            command.name
+        )
     },
 
     {
       handleEvent:
         Array.from(
           Utils.handleEvent.values()
-        ).map(c => c.name)
+        ).map(
+          command =>
+            command.name
+        )
     }
-
   ];
 
   return new Promise(
@@ -776,83 +1069,38 @@ async function accountLogin(
           appState: state
         },
 
-        async (error, api) => {
+        async (
+          error,
+          api
+        ) => {
 
           if (error) {
 
             reject(error);
-            return;
 
+            return;
           }
 
-          const userid =
-            await api.getCurrentUserID();
+          try {
 
-          addThisUser(
-            userid,
-            enableCommands,
-            state,
-            prefix,
-            admin
-          );
+            const userid =
+              await api.getCurrentUserID();
 
+            // ------------------------------------------------
+            // ACCOUNT
+            // ------------------------------------------------
 
-          // ==================================================
-          // TRAFFIC CONTROL SEND WRAPPER
-          // ==================================================
-
-          const originalSendMessage =
-            api.sendMessage.bind(api);
-
-          api.sendMessage = async function(
-            message,
-            threadID,
-            messageID,
-            ...rest
-          ) {
-
-            if (!threadID) {
-
-              return originalSendMessage(
-                message,
-                threadID,
-                messageID,
-                ...rest
-              );
-
-            }
-
-            try {
-
-              await HumanTraffic.wait(
-                threadID
-              );
-
-              await HumanTraffic.typing(
-                api,
-                threadID,
-                Math.floor(
-                  Math.random() * 900
-                ) + 600
-              );
-
-            } catch (_) {}
-
-            return originalSendMessage(
-              message,
-              threadID,
-              messageID,
-              ...rest
+            await addThisUser(
+              userid,
+              enableCommands,
+              state,
+              prefix,
+              admin
             );
 
-          };
-
-
-          // ==================================================
-          // ACCOUNT INFORMATION
-          // ==================================================
-
-          try {
+            // ------------------------------------------------
+            // ACCOUNT INFORMATION
+            // ------------------------------------------------
 
             const userInfo =
               await api.getUserInfo(
@@ -861,37 +1109,35 @@ async function accountLogin(
 
             if (
               !userInfo ||
-              !userInfo[userid]?.name ||
-              !userInfo[userid]?.profileUrl ||
-              !userInfo[userid]?.thumbSrc
+              !userInfo[userid]
             ) {
 
               throw new Error(
-                'Unable to locate the account; it appears to be in a suspended or locked state.'
+                "Unable to retrieve account information."
               );
-
             }
 
             const {
-              name,
-              profileUrl,
-              thumbSrc
-            } = userInfo[userid];
+              name = "Unknown",
+              profileUrl = "",
+              thumbSrc = ""
+            } =
+              userInfo[userid];
 
-            let time =
-              (
-                JSON.parse(
-                  fs.readFileSync(
-                    './data/history.json',
-                    'utf-8'
-                  )
+            let history =
+              JSON.parse(
+                fs.readFileSync(
+                  "./data/history.json",
+                  "utf8"
                 )
-                .find(
-                  user =>
-                    user.userid === userid
-                ) || {}
-              ).time || 0;
+              );
 
+            const oldAccount =
+              history.find(
+                user =>
+                  user.userid ===
+                  userid
+              ) || {};
 
             Utils.account.set(
               userid,
@@ -899,15 +1145,15 @@ async function accountLogin(
                 name,
                 profileUrl,
                 thumbSrc,
-                time
+                time:
+                  oldAccount.time ||
+                  0
               }
             );
 
-
             const intervalId =
-              setInterval(() => {
-
-                try {
+              setInterval(
+                () => {
 
                   const account =
                     Utils.account.get(
@@ -916,707 +1162,700 @@ async function accountLogin(
 
                   if (!account) {
 
-                    throw new Error(
-                      'Account not found'
+                    clearInterval(
+                      intervalId
                     );
 
+                    return;
                   }
+
+                  account.time++;
 
                   Utils.account.set(
                     userid,
-                    {
-                      ...account,
-                      time:
-                        account.time + 1
-                    }
+                    account
                   );
 
-                } catch (error) {
+                },
+                1000
+              );
 
-                  clearInterval(
-                    intervalId
+            // ------------------------------------------------
+            // FCA OPTIONS
+            // ------------------------------------------------
+
+            api.setOptions({
+
+              listenEvents:
+                config?.[0]?.fcaOption
+                  ?.listenEvents,
+
+              logLevel:
+                config?.[0]?.fcaOption
+                  ?.logLevel,
+
+              updatePresence:
+                config?.[0]?.fcaOption
+                  ?.updatePresence,
+
+              selfListen:
+                config?.[0]?.fcaOption
+                  ?.selfListen,
+
+              forceLogin:
+                config?.[0]?.fcaOption
+                  ?.forceLogin,
+
+              online:
+                config?.[0]?.fcaOption
+                  ?.online,
+
+              autoMarkDelivery:
+                config?.[0]?.fcaOption
+                  ?.autoMarkDelivery,
+
+              autoMarkRead:
+                config?.[0]?.fcaOption
+                  ?.autoMarkRead
+            });
+
+            // ------------------------------------------------
+            // LISTEN MQTT
+            // ------------------------------------------------
+
+            api.listenMqtt(
+              async (
+                listenError,
+                event
+              ) => {
+
+                if (listenError) {
+
+                  console.error(
+                    "[MQTT]",
+                    listenError
                   );
 
                   return;
-
                 }
 
-              }, 1000);
+                if (!event) {
+                  return;
+                }
 
+                // ------------------------------------------------
+                // TRAFFIC GOVERNOR
+                // ------------------------------------------------
 
-          } catch (error) {
+                if (
+                  event.threadID &&
+                  event.senderID
+                ) {
 
-            reject(error);
-            return;
+                  const body =
+                    typeof event.body ===
+                    "string"
+                      ? event.body.trim()
+                      : "";
 
-          }
-
-
-          // ==================================================
-          // FCA OPTIONS
-          // ==================================================
-
-          api.setOptions({
-
-            listenEvents:
-              config[0].fcaOption.listenEvents,
-
-            logLevel:
-              config[0].fcaOption.logLevel,
-
-            updatePresence:
-              config[0].fcaOption.updatePresence,
-
-            selfListen:
-              config[0].fcaOption.selfListen,
-
-            forceLogin:
-              config[0].fcaOption.forceLogin,
-
-            online:
-              config[0].fcaOption.online,
-
-            autoMarkDelivery:
-              config[0].fcaOption.autoMarkDelivery,
-
-            autoMarkRead:
-              config[0].fcaOption.autoMarkRead,
-
-          });
-
-
-          // ==================================================
-          // LISTEN MQTT
-          // ==================================================
-
-          try {
-
-            var listenEmitter =
-              api.listenMqtt(
-                async (error, event) => {
-
-                  if (error) {
-
-                    if (
-                      error ===
-                      'Connection closed.'
-                    ) {
-
-                      console.error(
-                        `Error during API listen: ${error}`,
-                        userid
-                      );
-
-                    }
-
-                    console.log(error);
-
-                  }
-
-
-                  // ==========================================
-                  // TRAFFIC GOVERNOR
-                  // ==========================================
-
+                  // Duplicate
                   if (
-                    event &&
-                    event.threadID &&
-                    event.senderID
+                    body &&
+                    HumanTraffic.isDuplicate(
+                      event.threadID,
+                      event.senderID,
+                      body
+                    )
                   ) {
 
-                    const body =
-                      typeof event.body ===
-                      'string'
-                        ? event.body.trim()
-                        : '';
-
-
-                    // Duplicate message suppression
-                    if (
-                      body &&
-                      HumanTraffic.isDuplicate(
-                        event.threadID,
-                        event.senderID,
-                        body
-                      )
-                    ) {
-
-                      return;
-
-                    }
-
-
-                    // Burst traffic suppression
-                    if (
-                      HumanTraffic.isBursting(
-                        event.threadID,
-                        event.senderID
-                      )
-                    ) {
-
-                      return;
-
-                    }
-
+                    return;
                   }
 
-
-                  // ==========================================
-                  // ORIGINAL DATABASE LOGIC
-                  // ==========================================
-
-                  let database =
-                    fs.existsSync(
-                      './data/database.json'
+                  // Burst
+                  if (
+                    HumanTraffic.isBursting(
+                      event.threadID,
+                      event.senderID
                     )
-                      ? JSON.parse(
-                          fs.readFileSync(
-                            './data/database.json',
-                            'utf8'
-                          )
-                        )
-                      : createDatabase();
+                  ) {
 
+                    return;
+                  }
+                }
 
-                  let data =
-                    Array.isArray(database)
-                      ? database.find(
-                          item =>
-                            Object.keys(item)[0] ===
-                            event?.threadID
-                        )
-                      : {};
+                // ------------------------------------------------
+                // DATABASE
+                // ------------------------------------------------
 
-
-                  let adminIDS =
-                    data
-                      ? database
-                      : createThread(
-                          event.threadID,
-                          api
-                        );
-
-
-                  let blacklist =
-                    (
-                      JSON.parse(
+                let database =
+                  fs.existsSync(
+                    "./data/database.json"
+                  )
+                    ? JSON.parse(
                         fs.readFileSync(
-                          './data/history.json',
-                          'utf-8'
+                          "./data/database.json",
+                          "utf8"
                         )
                       )
-                      .find(
-                        blacklist =>
-                          blacklist.userid ===
-                          userid
-                      ) || {}
-                    ).blacklist || [];
+                    : [];
 
+                let threadData =
+                  Array.isArray(database)
+                    ? database.find(
+                        item =>
+                          Object.prototype.hasOwnProperty.call(
+                            item,
+                            event.threadID
+                          )
+                      )
+                    : null;
 
-                  let hasPrefix =
-                    (
-                      event.body &&
-                      aliases(
-                        (
-                          event.body || ''
+                if (
+                  !threadData &&
+                  event.threadID
+                ) {
+
+                  database =
+                    await createThread(
+                      event.threadID,
+                      api
+                    );
+
+                  threadData =
+                    database.find(
+                      item =>
+                        Object.prototype.hasOwnProperty.call(
+                          item,
+                          event.threadID
                         )
-                        ?.trim()
-                        .toLowerCase()
-                        .split(/ +/)
-                        .shift()
-                      )?.hasPrefix == false
+                    );
+                }
+
+                // ------------------------------------------------
+                // BLACKLIST
+                // ------------------------------------------------
+
+                const history =
+                  JSON.parse(
+                    fs.readFileSync(
+                      "./data/history.json",
+                      "utf8"
                     )
-                      ? ''
-                      : prefix;
+                  );
 
+                const accountHistory =
+                  history.find(
+                    user =>
+                      user.userid ===
+                      userid
+                  ) || {};
 
-                  let [
-                    command,
-                    ...args
-                  ] =
-                    (
-                      (event.body || '')
-                        .trim()
-                        .toLowerCase()
-                        .startsWith(
-                          hasPrefix?.toLowerCase()
-                        )
+                const blacklist =
+                  Array.isArray(
+                    accountHistory.blacklist
+                  )
+                    ? accountHistory.blacklist
+                    : [];
+
+                // ------------------------------------------------
+                // PARSE COMMAND
+                // ------------------------------------------------
+
+                const body =
+                  typeof event.body ===
+                  "string"
+                    ? event.body.trim()
+                    : "";
+
+                const firstWord =
+                  body
+                    .toLowerCase()
+                    .split(/\s+/)
+                    .shift();
+
+                const commandInfo =
+                  aliases(firstWord);
+
+                let hasPrefix =
+                  commandInfo?.hasPrefix === false
+                    ? ""
+                    : prefix;
+
+                let command = "";
+                let args = [];
+
+                if (
+                  hasPrefix &&
+                  body
+                    .toLowerCase()
+                    .startsWith(
+                      String(
+                        hasPrefix
+                      ).toLowerCase()
                     )
-                      ? (
-                          (event.body || '')
-                            .trim()
-                            .substring(
-                              hasPrefix?.length
-                            )
-                            .trim()
-                            .split(/\s+/)
-                            .map(
-                              arg => arg.trim()
-                            )
-                        )
+                ) {
+
+                  const parsed =
+                    body
+                      .substring(
+                        String(
+                          hasPrefix
+                        ).length
+                      )
+                      .trim()
+                      .split(/\s+/)
+                      .filter(Boolean);
+
+                  command =
+                    (
+                      parsed.shift() ||
+                      ""
+                    ).toLowerCase();
+
+                  args = parsed;
+                }
+
+                if (
+                  !hasPrefix &&
+                  commandInfo
+                ) {
+
+                  const parsed =
+                    body
+                      .trim()
+                      .split(/\s+/)
+                      .filter(Boolean);
+
+                  command =
+                    (
+                      parsed.shift() ||
+                      ""
+                    ).toLowerCase();
+
+                  args = parsed;
+                }
+
+                // ------------------------------------------------
+                // PREFIX VALIDATION
+                // ------------------------------------------------
+
+                if (
+                  commandInfo &&
+                  commandInfo.hasPrefix === false &&
+                  body
+                    .toLowerCase()
+                    .startsWith(
+                      String(prefix)
+                        .toLowerCase()
+                    )
+                ) {
+
+                  await safeSend(
+                    api,
+                    "This command doesn't need a prefix.",
+                    event.threadID,
+                    event.messageID
+                  );
+
+                  return;
+                }
+
+                // ------------------------------------------------
+                // COMMAND
+                // ------------------------------------------------
+
+                const commandData =
+                  aliases(command);
+
+                if (
+                  body &&
+                  body
+                    .toLowerCase()
+                    .startsWith(
+                      String(prefix)
+                        .toLowerCase()
+                    ) &&
+                  command &&
+                  !commandData
+                ) {
+
+                  await safeSend(
+                    api,
+                    `Invalid command '${command}'. Please use ${prefix}help to see the available commands.`,
+                    event.threadID,
+                    event.messageID
+                  );
+
+                  return;
+                }
+
+                // ------------------------------------------------
+                // DEV
+                // ------------------------------------------------
+
+                if (
+                  commandData?.dev
+                ) {
+
+                  if (
+                    !dev.includes(
+                      event.senderID
+                    )
+                  ) {
+
+                    await safeSend(
+                      api,
+                      "You don't have access to this command.",
+                      event.threadID,
+                      event.messageID
+                    );
+
+                    return;
+                  }
+                }
+
+                // ------------------------------------------------
+                // ROLE
+                // ------------------------------------------------
+
+                if (commandData) {
+
+                  const role =
+                    commandData.role ??
+                    0;
+
+                  const isMasterAdmin =
+                    Array.isArray(
+                      config?.[0]
+                        ?.masterKey
+                        ?.admin
+                    ) &&
+                    config[0]
+                      .masterKey
+                      .admin
+                      .includes(
+                        event.senderID
+                      );
+
+                  const isAdmin =
+                    isMasterAdmin ||
+                    admin.includes(
+                      event.senderID
+                    );
+
+                  const threadAdmins =
+                    threadData &&
+                    Array.isArray(
+                      threadData[
+                        event.threadID
+                      ]
+                    )
+                      ? threadData[
+                          event.threadID
+                        ]
                       : [];
 
-
-                  if (
-                    hasPrefix &&
-                    aliases(command)
-                      ?.hasPrefix === false
-                  ) {
-
-                    api.sendMessage(
-                      `Invalid usage this command doesn't need a prefix`,
-                      event.threadID,
-                      event.messageID
-                    );
-
-                    return;
-
-                  }
-
-
-                  // ==========================================
-                  // DEV ONLY
-                  // ==========================================
-
-                  if (
-                    event.body &&
-                    aliases(command)?.name
-                  ) {
-
-                    const isDevOnly =
-                      aliases(command)?.dev;
-
-                    if (isDevOnly) {
-
-                      if (
-                        !dev.includes(
-                          event.senderID
-                        )
-                      ) {
-
-                        return api.sendMessage(
-                          "You dont have access to this command, you need to be a developer.",
-                          event.threadID,
-                          event.messageID
-                        );
-
-                      }
-
-                    }
-
-
-                    // ========================================
-                    // ROLE
-                    // ========================================
-
-                    const role =
-                      aliases(command)?.role ??
-                      0;
-
-
-                    const isAdmin =
-                      config?.[0]?.masterKey?.admin
-                        ?.includes(
-                          event.senderID
-                        ) ||
-                      admin.includes(
+                  const isThreadAdmin =
+                    isAdmin ||
+                    threadAdmins.some(
+                      item =>
+                        item?.id ===
                         event.senderID
-                      );
-
-
-                    const isThreadAdmin =
-                      isAdmin ||
-                      (
-                        (
-                          Array.isArray(adminIDS)
-                            ? adminIDS.find(
-                                admin =>
-                                  Object.keys(admin)[0] ===
-                                  event.threadID
-                              )
-                            : {}
-                        )
-                        ?.[event.threadID] ||
-                        []
-                      )
-                      .some(
-                        admin =>
-                          admin.id ===
-                          event.senderID
-                      );
-
-
-                    if (
-                      (
-                        role == 1 &&
-                        !isAdmin
-                      ) ||
-                      (
-                        role == 2 &&
-                        !isThreadAdmin
-                      ) ||
-                      (
-                        role == 3 &&
-                        !config?.[0]?.masterKey?.admin
-                          ?.includes(
-                            event.senderID
-                          )
-                      )
-                    ) {
-
-                      api.sendMessage(
-                        `You don't have permission to use this command.`,
-                        event.threadID,
-                        event.messageID
-                      );
-
-                      return;
-
-                    }
-
-                  }
-
-
-                  // ==========================================
-                  // BLACKLIST
-                  // ==========================================
+                    );
 
                   if (
-                    event.body &&
-                    event.body
-                      ?.toLowerCase()
-                      .startsWith(
-                        prefix.toLowerCase()
-                      ) &&
-                    aliases(command)?.name
+                    role == 1 &&
+                    !isAdmin
                   ) {
 
-                    if (
-                      blacklist.includes(
-                        event.senderID
-                      )
-                    ) {
-
-                      api.sendMessage(
-                        "We're sorry, but you've been banned from using bot. If you believe this is a mistake or would like to appeal, please contact one of the bot admins from further assistance.",
-                        event.threadID,
-                        event.messageID
-                      );
-
-                      return;
-
-                    }
-
-                  }
-
-
-                  // ==========================================
-                  // COMMAND COOLDOWN
-                  // ==========================================
-
-                  if (
-                    event.body &&
-                    aliases(command)?.name
-                  ) {
-
-                    const now =
-                      Date.now();
-
-                    const name =
-                      aliases(command)?.name;
-
-                    const sender =
-                      Utils.cooldowns.get(
-                        `${event.senderID}_${name}_${userid}`
-                      );
-
-                    const delay =
-                      aliases(command)?.cooldown ??
-                      0;
-
-
-                    if (
-                      !sender ||
-                      (
-                        now -
-                        sender.timestamp
-                      ) >=
-                      delay * 1000
-                    ) {
-
-                      Utils.cooldowns.set(
-                        `${event.senderID}_${name}_${userid}`,
-                        {
-                          timestamp: now,
-                          command: name
-                        }
-                      );
-
-                    } else {
-
-                      const active =
-                        Math.ceil(
-                          (
-                            sender.timestamp +
-                            delay * 1000 -
-                            now
-                          ) / 1000
-                        );
-
-
-                      api.sendMessage(
-                        `Please wait ${active} seconds before using the "${name}" command again.`,
-                        event.threadID,
-                        event.messageID
-                      );
-
-                      return;
-
-                    }
-
-                  }
-
-
-                  // ==========================================
-                  // INVALID COMMAND
-                  // ==========================================
-
-                  if (
-                    event.body &&
-                    !command &&
-                    event.body
-                      ?.toLowerCase()
-                      .startsWith(
-                        prefix.toLowerCase()
-                      )
-                  ) {
-
-                    api.sendMessage(
-                      `Invalid command please use ${prefix}help to see the list of available commands.`,
+                    await safeSend(
+                      api,
+                      "You don't have permission to use this command.",
                       event.threadID,
                       event.messageID
                     );
 
                     return;
-
                   }
 
-
                   if (
-                    event.body &&
-                    command &&
-                    prefix &&
-                    event.body
-                      ?.toLowerCase()
-                      .startsWith(
-                        prefix.toLowerCase()
-                      ) &&
-                    !aliases(command)?.name
+                    role == 2 &&
+                    !isThreadAdmin
                   ) {
 
-                    api.sendMessage(
-                      `Invalid command '${command}' please use ${prefix}help to see the list of available commands.`,
+                    await safeSend(
+                      api,
+                      "You don't have permission to use this command.",
                       event.threadID,
                       event.messageID
                     );
 
                     return;
-
                   }
 
-
-                  // ==========================================
-                  // HANDLE EVENTS
-                  // ==========================================
-
-                  for (
-                    const {
-                      handleEvent,
-                      name
-                    }
-                    of Utils.handleEvent.values()
+                  if (
+                    role == 3 &&
+                    !isMasterAdmin
                   ) {
 
-                    if (
-                      handleEvent &&
-                      name &&
-                      (
-                        (
-                          enableCommands[1]
-                            .handleEvent || []
-                        )
-                        .includes(name) ||
-                        (
-                          enableCommands[0]
-                            .commands || []
-                        )
-                        .includes(name)
-                      )
-                    ) {
+                    await safeSend(
+                      api,
+                      "You don't have permission to use this command.",
+                      event.threadID,
+                      event.messageID
+                    );
 
-                      handleEvent({
+                    return;
+                  }
+                }
 
+                // ------------------------------------------------
+                // BLACKLIST
+                // ------------------------------------------------
+
+                if (
+                  commandData &&
+                  blacklist.includes(
+                    event.senderID
+                  )
+                ) {
+
+                  return;
+                }
+
+                // ------------------------------------------------
+                // COMMAND COOLDOWN
+                // ------------------------------------------------
+
+                if (
+                  commandData
+                ) {
+
+                  const now =
+                    Date.now();
+
+                  const commandName =
+                    commandData.name;
+
+                  const cooldownKey =
+                    `${event.senderID}_${commandName}_${userid}`;
+
+                  const previous =
+                    Utils.cooldowns.get(
+                      cooldownKey
+                    );
+
+                  const cooldown =
+                    Number(
+                      commandData.cooldown
+                    ) || 0;
+
+                  if (
+                    previous &&
+                    now -
+                    previous.timestamp <
+                    cooldown * 1000
+                  ) {
+
+                    const remaining =
+                      Math.ceil(
+                        (
+                          previous.timestamp +
+                          cooldown * 1000 -
+                          now
+                        ) / 1000
+                      );
+
+                    await safeSend(
+                      api,
+                      `Please wait ${remaining} seconds before using "${commandName}" again.`,
+                      event.threadID,
+                      event.messageID
+                    );
+
+                    return;
+                  }
+
+                  Utils.cooldowns.set(
+                    cooldownKey,
+                    {
+                      timestamp: now,
+                      command:
+                        commandName
+                    }
+                  );
+                }
+
+                // ------------------------------------------------
+                // HANDLE EVENTS
+                // ------------------------------------------------
+
+                for (
+                  const commandEvent
+                  of Utils.handleEvent.values()
+                ) {
+
+                  if (
+                    typeof commandEvent
+                      .handleEvent !==
+                    "function"
+                  ) {
+                    continue;
+                  }
+
+                  try {
+
+                    await commandEvent
+                      .handleEvent({
                         api,
                         event,
                         enableCommands,
                         admin,
                         prefix,
-                        blacklist
-
+                        blacklist,
+                        Utils
                       });
 
-                    }
+                  } catch (error) {
 
+                    console.error(
+                      `[EVENT ERROR] ${commandEvent.name}`,
+                      error
+                    );
                   }
-
-
-                  // ==========================================
-                  // COMMAND RUNNER
-                  // ==========================================
-
-                  switch (
-                    event.type
-                  ) {
-
-                    case 'message':
-
-                    case 'message_reply':
-
-                    case 'message_unsend':
-
-                    case 'message_reaction':
-
-                      if (
-                        enableCommands[0]
-                          .commands
-                          .includes(
-                            aliases(
-                              command?.toLowerCase()
-                            )?.name
-                          )
-                      ) {
-
-                        await (
-                          (
-                            aliases(
-                              command?.toLowerCase()
-                            )?.run ||
-                            (() => {})
-                          )
-                          ({
-                            api,
-                            event,
-                            args,
-                            enableCommands,
-                            admin,
-                            prefix,
-                            blacklist,
-                            Utils,
-                          })
-                        );
-
-                      }
-
-                      break;
-
-                  }
-
                 }
-              );
+
+                // ------------------------------------------------
+                // COMMAND RUNNER
+                // ------------------------------------------------
+
+                if (
+                  !commandData ||
+                  typeof commandData.run !==
+                  "function"
+                ) {
+                  return;
+                }
+
+                const supportedTypes = [
+                  "message",
+                  "message_reply",
+                  "message_unsend",
+                  "message_reaction"
+                ];
+
+                if (
+                  !supportedTypes.includes(
+                    event.type
+                  )
+                ) {
+                  return;
+                }
+
+                try {
+
+                  await commandData.run({
+                    api,
+                    event,
+                    args,
+                    enableCommands,
+                    admin,
+                    prefix,
+                    blacklist,
+                    Utils
+                  });
+
+                } catch (error) {
+
+                  console.error(
+                    `[COMMAND ERROR] ${commandData.name}`,
+                    error
+                  );
+                }
+              }
+            );
+
+            resolve();
 
           } catch (error) {
 
-            console.error(
-              'Error during API listen, outside of listen',
-              userid
-            );
-
-            Utils.account.delete(
-              userid
-            );
-
-            deleteThisUser(
-              userid
-            );
-
-            return;
-
+            reject(error);
           }
-
-
-          resolve();
-
         }
       );
-
     }
   );
-
 }
-
 
 // ============================================================
 // DELETE USER
 // ============================================================
 
-async function deleteThisUser(userid) {
+async function deleteThisUser(
+  userid
+) {
 
   const configFile =
-    './data/history.json';
+    "./data/history.json";
 
-  let config =
+  let history =
     JSON.parse(
       fs.readFileSync(
         configFile,
-        'utf-8'
+        "utf8"
       )
     );
 
   const sessionFile =
     path.join(
-      './data/session',
+      "./data/session",
       `${userid}.json`
     );
 
-
   const index =
-    config.findIndex(
+    history.findIndex(
       item =>
-        item.userid === userid
+        item.userid ===
+        userid
     );
 
+  if (index !== -1) {
 
-  if (index !== -1)
-    config.splice(
+    history.splice(
       index,
       1
     );
-
+  }
 
   fs.writeFileSync(
     configFile,
     JSON.stringify(
-      config,
+      history,
       null,
       2
     )
   );
 
-
   try {
 
-    fs.unlinkSync(
-      sessionFile
-    );
+    if (
+      fs.existsSync(
+        sessionFile
+      )
+    ) {
+
+      fs.unlinkSync(
+        sessionFile
+      );
+    }
 
   } catch (error) {
 
-    console.log(error);
-
+    console.log(
+      error.message
+    );
   }
-
 }
-
 
 // ============================================================
 // ADD USER
@@ -1628,14 +1867,14 @@ async function addThisUser(
   state,
   prefix,
   admin,
-  blacklist
+  blacklist = []
 ) {
 
   const configFile =
-    './data/history.json';
+    "./data/history.json";
 
   const sessionFolder =
-    './data/session';
+    "./data/session";
 
   const sessionFile =
     path.join(
@@ -1643,23 +1882,22 @@ async function addThisUser(
       `${userid}.json`
     );
 
-
-  if (
-    fs.existsSync(sessionFile)
-  )
-    return;
-
-
-  const config =
+  let history =
     JSON.parse(
       fs.readFileSync(
         configFile,
-        'utf-8'
+        "utf8"
       )
     );
 
+  const existingIndex =
+    history.findIndex(
+      item =>
+        item.userid ===
+        userid
+    );
 
-  config.push({
+  const accountData = {
 
     userid,
 
@@ -1667,352 +1905,118 @@ async function addThisUser(
       prefix || "",
 
     admin:
-      admin || [],
+      Array.isArray(admin)
+        ? admin
+        : [],
 
     blacklist:
-      blacklist || [],
+      Array.isArray(blacklist)
+        ? blacklist
+        : [],
 
     enableCommands,
 
-    time: 0,
+    time:
+      existingIndex !== -1
+        ? history[existingIndex].time || 0
+        : 0
+  };
 
-  });
+  if (
+    existingIndex !== -1
+  ) {
 
+    history[
+      existingIndex
+    ] = {
+      ...history[
+        existingIndex
+      ],
+      ...accountData
+    };
+
+  } else {
+
+    history.push(
+      accountData
+    );
+  }
 
   fs.writeFileSync(
     configFile,
     JSON.stringify(
-      config,
+      history,
       null,
       2
     )
   );
 
-
   fs.writeFileSync(
     sessionFile,
-    JSON.stringify(state)
+    JSON.stringify(
+      state
+    )
   );
-
 }
-
 
 // ============================================================
 // ALIASES
 // ============================================================
 
-function aliases(command) {
+function aliases(
+  command
+) {
 
-  const aliases =
-    Array.from(
-      Utils.commands.entries()
-    )
-    .find(
-      ([commands]) =>
-        commands.includes(
-          command?.toLowerCase()
-        )
-    );
-
-
-  if (aliases) {
-
-    return aliases[1];
-
+  if (!command) {
+    return null;
   }
 
-  return null;
+  const normalized =
+    String(command)
+      .toLowerCase();
 
-}
-
-
-// ============================================================
-// MAIN
-// ============================================================
-
-async function main() {
-
-  const empty =
-    require('fs-extra');
-
-  const cacheFile =
-    './script/cache';
-
-
-  if (
-    !fs.existsSync(cacheFile)
+  for (
+    const [
+      names,
+      data
+    ] of Utils.commands
   ) {
 
-    fs.mkdirSync(cacheFile);
-
-  }
-
-
-  const configFile =
-    './data/history.json';
-
-
-  if (
-    !fs.existsSync(configFile)
-  ) {
-
-    fs.writeFileSync(
-      configFile,
-      '[]',
-      'utf-8'
-    );
-
-  }
-
-
-  const config =
-    JSON.parse(
-      fs.readFileSync(
-        configFile,
-        'utf-8'
-      )
-    );
-
-
-  const sessionFolder =
-    path.join(
-      './data/session'
-    );
-
-
-  if (
-    !fs.existsSync(sessionFolder)
-  ) {
-
-    fs.mkdirSync(
-      sessionFolder
-    );
-
-  }
-
-
-  const adminOfConfig =
-    fs.existsSync('./data') &&
-    fs.existsSync('./data/config.json')
-      ? JSON.parse(
-          fs.readFileSync(
-            './data/config.json',
-            'utf8'
-          )
-        )
-      : createConfig();
-
-
-  cron.schedule(
-    `*/${adminOfConfig[0].masterKey.restartTime} * * * *`,
-    async () => {
-
-      const history =
-        JSON.parse(
-          fs.readFileSync(
-            './data/history.json',
-            'utf-8'
-          )
-        );
-
-
-      history.forEach(
-        user => {
-
-          (
-            !user ||
-            typeof user !== 'object'
-          )
-            ? process.exit(1)
-            : null;
-
-
-          (
-            user.time === undefined ||
-            user.time === null ||
-            isNaN(user.time)
-          )
-            ? process.exit(1)
-            : null;
-
-
-          const update =
-            Utils.account.get(
-              user.userid
-            );
-
-
-          update
-            ? user.time = update.time
-            : null;
-
-        }
-      );
-
-
-      await empty.emptyDir(
-        cacheFile
-      );
-
-
-      await fs.writeFileSync(
-        './data/history.json',
-        JSON.stringify(
-          history,
-          null,
-          2
-        )
-      );
-
-
-      process.exit(1);
-
-    }
-  );
-
-
-  try {
-
-    for (
-      const file of
-      fs.readdirSync(
-        sessionFolder
+    if (
+      names.some(
+        name =>
+          String(name)
+            .toLowerCase() ===
+          normalized
       )
     ) {
 
-      const filePath =
-        path.join(
-          sessionFolder,
-          file
-        );
-
-
-      try {
-
-        const {
-          enableCommands,
-          prefix,
-          admin,
-          blacklist
-        } =
-          config.find(
-            item =>
-              item.userid ===
-              path.parse(file).name
-          ) || {};
-
-
-        const state =
-          JSON.parse(
-            fs.readFileSync(
-              filePath,
-              'utf-8'
-            )
-          );
-
-
-        if (enableCommands)
-          await accountLogin(
-            state,
-            enableCommands,
-            prefix,
-            admin,
-            blacklist
-          );
-
-
-      } catch (error) {
-
-        deleteThisUser(
-          path.parse(file).name
-        );
-
-      }
-
+      return data;
     }
-
-  } catch (error) {}
-
-}
-
-
-// ============================================================
-// CREATE CONFIG
-// ============================================================
-
-function createConfig() {
-
-  const config = [
-
-    {
-
-      masterKey: {
-
-        admin: [],
-
-        devMode: false,
-
-        database: false,
-
-        restartTime: 15,
-
-      },
-
-      fcaOption: {
-
-        forceLogin: true,
-
-        listenEvents: true,
-
-        logLevel: "silent",
-
-        updatePresence: true,
-
-        selfListen: true,
-
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64",
-
-        online: true,
-
-        autoMarkDelivery: false,
-
-        autoMarkRead: false
-
-      }
-
-    }
-
-  ];
-
-
-  const dataFolder =
-    './data';
-
-
-  if (
-    !fs.existsSync(dataFolder)
-  ) {
-
-    fs.mkdirSync(dataFolder);
-
   }
 
+  for (
+    const [
+      names,
+      data
+    ] of Utils.handleEvent
+  ) {
 
-  fs.writeFileSync(
-    './data/config.json',
-    JSON.stringify(
-      config,
-      null,
-      2
-    )
-  );
+    if (
+      names.some(
+        name =>
+          String(name)
+            .toLowerCase() ===
+          normalized
+      )
+    ) {
 
+      return data;
+    }
+  }
 
-  return config;
-
+  return null;
 }
-
 
 // ============================================================
 // CREATE THREAD
@@ -2026,105 +2030,213 @@ async function createThread(
   try {
 
     const database =
-      JSON.parse(
-        fs.readFileSync(
-          './data/database.json',
-          'utf8'
-        )
+      fs.existsSync(
+        "./data/database.json"
+      )
+        ? JSON.parse(
+            fs.readFileSync(
+              "./data/database.json",
+              "utf8"
+            )
+          )
+        : [];
+
+    const existing =
+      database.find(
+        item =>
+          Object.prototype.hasOwnProperty.call(
+            item,
+            threadID
+          )
       );
 
+    if (existing) {
+      return database;
+    }
 
-    let threadInfo =
+    const threadInfo =
       await api.getThreadInfo(
         threadID
       );
 
-
-    let adminIDs =
-      threadInfo
+    const adminIDs =
+      Array.isArray(
+        threadInfo?.adminIDs
+      )
         ? threadInfo.adminIDs
         : [];
-
 
     const data = {};
 
     data[threadID] =
       adminIDs;
 
-
     database.push(
       data
     );
 
-
-    await fs.writeFileSync(
-      './data/database.json',
+    fs.writeFileSync(
+      "./data/database.json",
       JSON.stringify(
         database,
         null,
         2
       ),
-      'utf-8'
+      "utf8"
     );
-
 
     return database;
 
   } catch (error) {
 
-    console.log(error);
+    console.error(
+      "[THREAD ERROR]",
+      error.message
+    );
 
+    return [];
   }
-
 }
 
-
 // ============================================================
-// CREATE DATABASE
+// MAIN
 // ============================================================
 
-async function createDatabase() {
+async function main() {
 
-  const data =
-    './data';
-
-  const database =
-    './data/database.json';
-
+  const cacheFolder =
+    path.join(
+      script,
+      "cache"
+    );
 
   if (
-    !fs.existsSync(data)
+    !fs.existsSync(
+      cacheFolder
+    )
   ) {
 
     fs.mkdirSync(
-      data,
+      cacheFolder,
       {
         recursive: true
       }
     );
-
   }
 
+  const historyFile =
+    "./data/history.json";
 
-  if (
-    !fs.existsSync(database)
-  ) {
+  const sessionFolder =
+    "./data/session";
 
-    fs.writeFileSync(
-      database,
-      JSON.stringify([])
+  const history =
+    JSON.parse(
+      fs.readFileSync(
+        historyFile,
+        "utf8"
+      )
     );
 
+  if (
+    !fs.existsSync(
+      sessionFolder
+    )
+  ) {
+
+    fs.mkdirSync(
+      sessionFolder,
+      {
+        recursive: true
+      }
+    );
   }
 
+  for (
+    const file
+    of fs.readdirSync(
+      sessionFolder
+    )
+  ) {
 
-  return database;
+    if (
+      !file.endsWith(".json")
+    ) {
+      continue;
+    }
 
+    const userid =
+      path.parse(
+        file
+      ).name;
+
+    const userData =
+      history.find(
+        item =>
+          item.userid ===
+          userid
+      );
+
+    if (!userData) {
+
+      console.log(
+        `[SESSION] No history found for ${userid}.`
+      );
+
+      continue;
+    }
+
+    try {
+
+      const state =
+        JSON.parse(
+          fs.readFileSync(
+            path.join(
+              sessionFolder,
+              file
+            ),
+            "utf8"
+          )
+        );
+
+      await accountLogin(
+        state,
+        userData.enableCommands,
+        userData.prefix,
+        userData.admin,
+        userData.blacklist
+      );
+
+      console.log(
+        `[SESSION] Loaded account ${userid}.`
+      );
+
+    } catch (error) {
+
+      console.error(
+        `[SESSION] Failed to load ${userid}:`,
+        error.message
+      );
+
+      // Keep session file.
+      // A temporary connection error should
+      // not automatically delete the session.
+    }
+  }
 }
-
 
 // ============================================================
 // START
 // ============================================================
 
-main();
+main().catch(
+  error => {
+
+    console.error(
+      "[MAIN ERROR]",
+      error
+    );
+
+    process.exit(1);
+  }
+);
