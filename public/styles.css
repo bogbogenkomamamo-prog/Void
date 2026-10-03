@@ -2,14 +2,14 @@ Body {
     min-height: 100vh;
     position: relative;
     padding: 20px;
-    background-color: #050101;
+    background-color: #080202;
     font-family: 'Courier Prime', sans-serif;
     color: #fff;
     opacity: 0;
     animation: fadeInContent 1.2s forwards ease-in-out;
 }
 
-/* Astig na Void/Dark Red Animated Background */
+/* Base animated background */
 body::before {
     content: '';
     position: absolute;
@@ -17,8 +17,7 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    /* Pinalitan ng mas angkop na madilim at pulang plasma/void animation background */
-    background-image: url('https://i.gifer.com/7VE.gif');
+    background-image: url('https://i.gifer.com/2YcW.gif');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -28,53 +27,62 @@ body::before {
     animation: fadeInBackground 1.8s forwards ease-in-out;
 }
 
-/* Umiikot na Red Dragon / Void Effect sa Background */
+/* Red Dragon Background Effect na umiikot/lumulutang sa likod */
 body::after {
     content: '';
     position: fixed;
     top: 50%;
     left: 50%;
-    width: 130vw;
-    height: 130vh;
+    width: 120vw;
+    height: 120vh;
     transform: translate(-50%, -50%);
+    /* Gumamit ako ng pulang dragon/fire theme GIF bilang overlay sa background */
     background-image: url('https://i.gifer.com/origin/7b/7b7d8bfa7962c68e146a4805bb5f769d_w200.gif');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     z-index: -1;
-    opacity: 0.2; 
+    opacity: 0.25; /* Banayad lang para hindi matakpan ang mga teksto */
     mix-blend-mode: screen;
-    animation: rotateDragon 40s linear infinite;
+    animation: rotateDragon 30s linear infinite;
     pointer-events: none;
 }
 
 @keyframes rotateDragon {
     from {
-        transform: translate(-50%, -50%) rotate(0deg) scale(1.2);
+        transform: translate(-50%, -50%) rotate(0deg) scale(1.1);
     }
     to {
-        transform: translate(-50%, -50%) rotate(360deg) scale(1.2);
+        transform: translate(-50%, -50%) rotate(360deg) scale(1.1);
     }
 }
 
 @keyframes fadeInContent {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes fadeInBackground {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 .container {
     background-image: url('');
     background-size: cover;
     background-repeat: no-repeat;
-    background-color: rgba(15, 3, 3, 0.9);
-    border: 1px solid #4a0e0e;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(255, 0, 0, 0.15), 0 6px 10px rgba(0, 0, 0, 0.6);
+    background-color: rgba(20, 5, 5, 0.85);
+    border: 1px solid #331111;
+    border-radius: 10px;
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.1), 0 6px 6px rgba(0, 0, 0, 0.5);
     padding: 20px;
     margin-top: 20px;
     margin-bottom: 10px;
@@ -85,12 +93,12 @@ h1 {
 }
 
 label {
-    color: #d1d1d1;
+    color: #ccc;
 }
 
 .navbar {
-  background-color: rgba(15, 3, 3, 0.95);
-  border: 1px solid #4a0e0e;
+  background-color: rgba(20, 5, 5, 0.9);
+  border: 1px solid #331111;
   color: #fff;
   border-radius: 10px;
 }
@@ -100,7 +108,7 @@ label {
 }
 
 .navbar a:hover {
-  color: #ff5555;
+  color: #ff4444;
 }
 
 .navbar-brand {
@@ -108,70 +116,44 @@ label {
 }
 
 .navbar-toggler-icon {
-   background-color: rgba(40, 10, 10, 0.9);
+   background-color: rgba(30, 10, 10, 0.8);
 }
-
 .dropdown-menu {
-  background-color: #120303;
-  border: 1px solid #551111;
+  background-color: #1a0505;
+  border: 1px solid #441111;
 }
-
 .dropdown-item {
   color: #fff;
 }
-
 .dropdown-item:hover {
-  background-color: #330a0a;
-  color: #ff5555;
-}
-
-/* NA-AYOS NA LAGAYAN NG COOKIE (TEXTAREA) */
-#json-data {
-    display: block;
-    margin: 0 auto;
-    width: 100%;
-    min-height: 160px;
-    padding: 12px;
-    box-sizing: border-box;
-    border: 1px solid #ff1a1a;
-    border-radius: 10px;
-    resize: none;
-    color: #ffffff;
-    background-color: rgba(10, 2, 2, 0.85);
-    background-image: url('https://i.gifer.com/YQgT.gif');
-    background-size: cover;
-    background-blend-mode: overlay;
-    box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.2);
-    transition: all 0.3s ease;
-}
-
-#json-data:focus {
-    border-color: #ff4d4d;
-    box-shadow: 0 0 12px rgba(255, 0, 0, 0.4), inset 0 0 10px rgba(255, 0, 0, 0.3);
-    outline: none;
+  background-color: #331111;
+  color: #ff4444;
 }
 
 .centered-textarea {
     display: block;
     margin: 0 auto;
     width: 100%;
+    min-height: 150px;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #551111;
+    border-radius: 10px;
+    resize: none;
+    color: #fff;
 }
 
-/* Mga Button na may Pulang Void Gradient */
 .btn-primary {
-    background: linear-gradient(135deg, #8b0000, #ff1a1a);
+    background: linear-gradient(135deg, #8b0000, #ff0000);
     border: none;
     border-radius: 15px;
     font-size: 14px;
     color: #fff;
-    box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3);
-    transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #ff1a1a, #ff4d4d);
+    background: linear-gradient(135deg, #ff0000, #ff4444);
     border: 1px solid #ff8800;
-    box-shadow: 0 6px 20px rgba(255, 0, 0, 0.5);
 }
 
 .success-message {
@@ -186,11 +168,11 @@ label {
     font-size: 12px;
     color: #b5b5b5;
     position: relative;
-    background-color: rgba(15, 3, 3, 0.95);
+    background-color: rgba(20, 5, 5, 0.9);
     width: 115%;
     margin-left: -30px;
     margin-bottom: -20px;
-    border-top: 1px solid #4a0e0e;
+    border-top: 1px solid #331111;
 }
 
 .footer p {
@@ -226,14 +208,14 @@ label {
 
 .center-placeholder::placeholder {
     text-align: center;
-    color: #e0e0e0;
+    color: #aaa;
 }
 
 .custom-swal {
-  background-color: #120303;
+  background-color: #1a0505;
   color: #fff;
   font-size: 14px;
-  border: 1px solid #551111;
+  border: 1px solid #441111;
 }
 
 .form-check {
@@ -246,13 +228,13 @@ label {
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #100202;
+    background-color: #140505;
     font-size: 15px;
 }
 
 .form-check:hover {
-    background-color: #200505; 
-    border-color: #ff3333; 
+    background-color: #220808; 
+    border-color: #aa1111; 
 }
 
 .form-check-input {
@@ -271,9 +253,16 @@ label {
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #100202;
+    background-color: #140505;
     color: #fff;
     font-size: 15px;
+}
+
+#json-data {
+    background-image: url('https://i.gifer.com/YQgT.gif');
+    background-size: cover;
+    color: #fff;
+    background-repeat: no-repeat;
 }
 
 #listOfCommands, #listOfCommandsEvent, #prefixOfCommands, #adminOfCommands {
@@ -281,7 +270,7 @@ label {
 }
 
 #listOfCommands:not(.modal), #listOfCommandsEvent:not(.modal), #prefixOfCommands:not(.modal), #adminOfCommands:not(.modal) {
-    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.1), 0 6px 6px rgba(0, 0, 0, 0.5);
 }
 
 .container h1 {
@@ -289,8 +278,8 @@ label {
     display: inline-block;
     padding: 10px 20px;
     margin-bottom: 20px;
-    background-color: #1a0404;
-    border: 1px solid #551111;
+    background-color: #1c0707;
+    border: 1px solid #441111;
     border-radius: 8px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
 }
