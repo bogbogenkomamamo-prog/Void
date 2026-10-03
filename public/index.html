@@ -1,1271 +1,1185 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
 
-    <title>NULLFIED</title>
+<head>
+
+    <meta charset="UTF-8">
 
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
 
-    <meta
-        name="theme-color"
-        content="#050505"
-    >
+    <title>NULLFIED</title>
 
     <meta
         name="description"
         content="NULLFIED Messenger Automation Control Center"
     >
 
-    <meta
-        property="og:image"
-        content="https://i.imgur.com/Zvo9Wc0.jpeg"
-    >
-
-    <!-- Bootstrap -->
-    <link
-        rel="stylesheet"
-        href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
-    >
-
-    <!-- Font Awesome -->
     <link
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     >
 
-    <!-- Font -->
-    <link
-        href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
-        rel="stylesheet"
-    >
-
-    <!-- Main CSS -->
     <link
         rel="stylesheet"
         href="styles.css"
     >
 
-    <link
-        rel="icon"
-        href="/image/home.png"
-    >
 </head>
+
 
 <body>
 
-<!-- =========================================================
-     BACKGROUND
-========================================================= -->
 
-<div class="noise"></div>
+<div class="background"></div>
 
 
-<!-- =========================================================
-     NAVBAR
-========================================================= -->
+<header class="navbar">
 
-<nav class="navbar navbar-expand-lg navbar-dark null-navbar">
-
-    <a
-        class="navbar-brand null-brand"
-        href="/"
-    >
+    <div class="brand">
 
         <img
             src="/image/home.png"
-            alt="NULLFIED"
-            class="brand-icon"
+            onerror="this.style.display='none'"
+            alt=""
         >
 
         <span>NULLFIED</span>
 
-    </a>
+    </div>
+
+
+    <div class="nav-status">
+
+        <span
+            class="dot"
+            id="topDot"
+        ></span>
+
+        <span id="topStatus">
+            CONNECTING
+        </span>
+
+    </div>
+
+</header>
+
+
+
+<main>
+
+
+<section class="hero">
+
+    <div class="online-badge">
+
+        <span class="dot"></span>
+
+        CONTROL CENTER ONLINE
+
+    </div>
+
+
+    <h1>
+        NULL<span>FIED</span>
+    </h1>
+
+
+    <p>
+        MESSENGER AUTOMATION CONTROL CENTER
+    </p>
+
+
+    <div class="version">
+        VERSION 1.0.1
+    </div>
+
+</section>
+
+
+
+<section class="card">
+
+    <div class="card-title">
+
+        <i class="fa-solid fa-key"></i>
+
+        <div>
+
+            <h2>
+                Authentication
+            </h2>
+
+            <small>
+                Messenger session
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <label>
+        C3C / APPSTATE
+    </label>
+
+
+    <textarea
+        id="json-data"
+        placeholder="Paste your AppState / session JSON here..."
+        spellcheck="false"
+    ></textarea>
+
+
+    <small class="hint">
+
+        Session data is saved locally in
+        <code>data/config.json</code>.
+
+    </small>
+
+</section>
+
+
+
+<section class="card">
+
+    <div class="card-title">
+
+        <i class="fa-solid fa-terminal"></i>
+
+        <div>
+
+            <h2>
+                Commands
+            </h2>
+
+            <small>
+                Available command modules
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <div
+        id="commandsContainer"
+        class="command-list"
+    >
+
+        <div class="loading">
+            Loading commands...
+        </div>
+
+    </div>
 
 
     <button
-        class="navbar-toggler"
-        type="button"
-        data-toggle="collapse"
-        data-target="#navbarNav"
-        aria-controls="navbarNav"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
+        class="secondary-btn"
+        id="selectCommands"
     >
 
-        <span class="navbar-toggler-icon"></span>
+        <i class="fa-solid fa-check-double"></i>
+
+        SELECT ALL
+
+    </button>
+
+</section>
+
+
+
+<section class="card">
+
+    <div class="card-title">
+
+        <i class="fa-solid fa-bolt"></i>
+
+        <div>
+
+            <h2>
+                Event Handlers
+            </h2>
+
+            <small>
+                Automatic event modules
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <div
+        id="eventsContainer"
+        class="command-list"
+    >
+
+        <div class="empty">
+            No event handlers detected.
+        </div>
+
+    </div>
+
+
+    <button
+        class="secondary-btn"
+        id="selectEvents"
+    >
+
+        <i class="fa-solid fa-check-double"></i>
+
+        SELECT ALL
+
+    </button>
+
+</section>
+
+
+
+<section class="card">
+
+    <div class="card-title">
+
+        <i class="fa-solid fa-hashtag"></i>
+
+        <div>
+
+            <h2>
+                Prefix
+            </h2>
+
+            <small>
+                Command prefix configuration
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <input
+        id="inputOfPrefix"
+        placeholder="@, #, /, *, ."
+        value="."
+    >
+
+
+    <small class="hint">
+        Use <b>non-prefix</b> if you want prefixless commands.
+    </small>
+
+</section>
+
+
+
+<section class="card">
+
+    <div class="card-title">
+
+        <i class="fa-solid fa-user-shield"></i>
+
+        <div>
+
+            <h2>
+                Administrator
+            </h2>
+
+            <small>
+                Owner / admin UID
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <input
+        id="inputOfAdmin"
+        placeholder="Admin user ID"
+    >
+
+</section>
+
+
+
+<section class="card">
+
+    <label class="agreement">
+
+        <input
+            type="checkbox"
+            id="agreeCheckbox"
+        >
+
+        <span>
+
+            I have read and agree to the
+            <a href="/tos-privacy-policy">
+                Terms and Conditions
+            </a>.
+
+        </span>
+
+    </label>
+
+</section>
+
+
+
+<section class="action">
+
+    <button
+        id="submitButton"
+        disabled
+    >
+
+        <i class="fa-solid fa-power-off"></i>
+
+        INITIALIZE BOT
 
     </button>
 
 
     <div
-        class="collapse navbar-collapse justify-content-end"
-        id="navbarNav"
-    >
+        id="result"
+        class="result"
+    ></div>
 
-        <ul class="navbar-nav">
-
-            <li class="nav-item active">
-
-                <a
-                    class="nav-link"
-                    href="/"
-                >
-
-                    <i class="fa-solid fa-house"></i>
-                    Home
-
-                </a>
-
-            </li>
+</section>
 
 
-            <li class="nav-item dropdown">
 
-                <a
-                    class="nav-link dropdown-toggle"
-                    href="#"
-                    id="navbarDropdown"
-                    role="button"
-                    data-toggle="dropdown"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                >
+<section class="card status-card">
 
-                    <i class="fa-solid fa-layer-group"></i>
-                    Features
+    <div class="card-title">
 
-                </a>
+        <i class="fa-solid fa-microchip"></i>
 
+        <div>
 
-                <div
-                    class="dropdown-menu dropdown-menu-right null-dropdown"
-                    aria-labelledby="navbarDropdown"
-                >
+            <h2>
+                Runtime
+            </h2>
 
-                    <a
-                        class="dropdown-item"
-                        href="/step_by_step_guide"
-                    >
+            <small>
+                Worker status
+            </small>
 
-                        <i class="fa-solid fa-book"></i>
-                        Step-by-Step Guide
-
-                    </a>
-
-
-                    <div class="dropdown-divider"></div>
-
-
-                    <a
-                        class="dropdown-item"
-                        href="https://zark-spam-share.onrender.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-
-                        <i class="fa-solid fa-toolbox"></i>
-                        SpamShare Tools
-
-                    </a>
-
-
-                    <div class="dropdown-divider"></div>
-
-
-                    <a
-                        class="dropdown-item"
-                        href="https://my-portfolio-f9lz.onrender.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-
-                        <i class="fa-solid fa-code"></i>
-                        Developer
-
-                    </a>
-
-                </div>
-
-            </li>
-
-
-            <li class="nav-item">
-
-                <a
-                    class="nav-link"
-                    href="/online_user"
-                >
-
-                    <i class="fa-solid fa-signal"></i>
-                    Active
-
-                </a>
-
-            </li>
-
-
-            <li class="nav-item">
-
-                <a
-                    class="nav-link"
-                    href="/tos-privacy-policy"
-                >
-
-                    <i class="fa-solid fa-file-shield"></i>
-                    Terms
-
-                </a>
-
-            </li>
-
-        </ul>
+        </div>
 
     </div>
 
-</nav>
 
+    <div class="stats">
 
-<!-- =========================================================
-     MAIN
-========================================================= -->
 
-<main class="null-main">
-
-
-    <!-- =====================================================
-         HERO
-    ====================================================== -->
-
-    <section class="null-hero">
-
-        <div class="status-line">
-
-            <span class="status-dot"></span>
-
-            SYSTEM ONLINE
-
-        </div>
-
-
-        <h1 class="null-title">
-
-            NULL<span>FIED</span>
-
-        </h1>
-
-
-        <p class="null-subtitle">
-
-            MESSENGER AUTOMATION CONTROL CENTER
-
-        </p>
-
-
-        <div class="version">
-
-            VERSION 1.0.1
-
-        </div>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         AUTHENTICATION
-    ====================================================== -->
-
-    <section class="null-card">
-
-        <div class="card-header-null">
-
-            <div class="header-icon">
-
-                <i class="fa-solid fa-key"></i>
-
-            </div>
-
-
-            <div>
-
-                <h2>
-                    Authentication
-                </h2>
-
-                <p>
-                    Enter your Messenger session data
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div class="field-group">
-
-            <label for="json-data">
-
-                <i class="fa-solid fa-terminal"></i>
-
-                C3C / COOKIE / APPSTATE
-
-            </label>
-
-
-            <textarea
-                id="json-data"
-                class="form-control centered-textarea center-placeholder"
-                placeholder="Paste your session data here..."
-                autocomplete="off"
-                spellcheck="false"
-            ></textarea>
-
-
-            <div class="field-hint">
-
-                <i class="fa-solid fa-circle-info"></i>
-
-                Keep your session data private.
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         COMMANDS
-    ====================================================== -->
-
-    <section
-        class="null-card"
-        id="listOfCommands"
-    >
-
-        <div class="card-header-null">
-
-            <div class="header-icon">
-
-                <i class="fa-solid fa-terminal"></i>
-
-            </div>
-
-
-            <div>
-
-                <h2>
-                    Commands
-                </h2>
-
-                <p>
-                    Select the commands available to the bot
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <!--
-            IMPORTANT:
-            Hunting is already included here.
-            Existing script.js can still populate
-            additional commands into this container.
-        -->
-
-        <div
-            id="commandsContainer"
-            class="commands-container"
-        >
-
-
-            <!-- =================================================
-                 HUNTING
-            ================================================== -->
-
-            <label
-                class="command-item"
-                for="command-hunting"
-            >
-
-                <input
-                    type="checkbox"
-                    name="commands"
-                    value="hunting"
-                    id="command-hunting"
-                    data-command="hunting"
-                >
-
-
-                <span class="command-check"></span>
-
-
-                <span class="command-info">
-
-                    <strong>
-                        hunting
-                    </strong>
-
-                    <small>
-                        Hunting / Count / GC interaction
-                    </small>
-
-                </span>
-
-
-                <span class="command-status">
-                    READY
-                </span>
-
-            </label>
-
-
-        </div>
-
-
-        <button
-            type="button"
-            class="null-btn"
-            onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');"
-        >
-
-            <i class="fa-solid fa-check-double"></i>
-
-            SELECT ALL COMMANDS
-
-        </button>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         EVENT COMMANDS
-    ====================================================== -->
-
-    <section
-        class="null-card"
-        id="listOfCommandsEvent"
-    >
-
-        <div class="card-header-null">
-
-            <div class="header-icon">
-
-                <i class="fa-solid fa-bolt"></i>
-
-            </div>
-
-
-            <div>
-
-                <h2>
-                    Event Handlers
-                </h2>
-
-                <p>
-                    Select automatic event commands
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div
-            id="eventsContainer"
-            class="commands-container"
-        ></div>
-
-
-        <button
-            type="button"
-            class="null-btn"
-            onclick="selectAllEvents(); scrollToSection('prefixOfCommands');"
-        >
-
-            <i class="fa-solid fa-check-double"></i>
-
-            SELECT ALL EVENTS
-
-        </button>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         PREFIX
-    ====================================================== -->
-
-    <section
-        class="null-card"
-        id="prefixOfCommands"
-    >
-
-        <div class="card-header-null">
-
-            <div class="header-icon">
-
-                <i class="fa-solid fa-hashtag"></i>
-
-            </div>
-
-
-            <div>
-
-                <h2>
-                    Command Prefix
-                </h2>
-
-                <p>
-                    Optional command prefix
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div class="field-group">
-
-            <label for="inputOfPrefix">
-
-                PREFIX
-
-            </label>
-
-
-            <input
-                type="text"
-                id="inputOfPrefix"
-                class="null-input"
-                placeholder="@, #, /, *, ."
-                autocomplete="off"
-            >
-
-
-            <div class="field-hint">
-
-                Enter
-                <b>non-prefix</b>
-                if commands should work without a prefix.
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         ADMIN
-    ====================================================== -->
-
-    <section
-        class="null-card"
-        id="adminOfCommands"
-    >
-
-        <div class="card-header-null">
-
-            <div class="header-icon">
-
-                <i class="fa-solid fa-user-shield"></i>
-
-            </div>
-
-
-            <div>
-
-                <h2>
-                    Administrator
-                </h2>
-
-                <p>
-                    Configure the bot administrator UID
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div class="field-group">
-
-            <label for="inputOfAdmin">
-
-                ADMIN USER ID
-
-            </label>
-
-
-            <input
-                type="text"
-                id="inputOfAdmin"
-                class="null-input"
-                placeholder="Admin userID"
-                autocomplete="off"
-            >
-
-
-            <div class="field-hint">
-
-                Enter
-                <b>default</b>
-                to use the configured administrator.
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         TERMS
-    ====================================================== -->
-
-    <section class="null-card terms-card">
-
-        <label
-            class="null-check"
-            for="agreeCheckbox"
-        >
-
-            <input
-                type="checkbox"
-                id="agreeCheckbox"
-            >
-
-
-            <span class="checkmark"></span>
-
-
-            <span class="check-text">
-
-                I have read, understood, and agree to the
-
-                <a href="/tos-privacy-policy">
-                    Terms and Conditions
-                </a>.
-
-            </span>
-
-        </label>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         SUBMIT
-    ====================================================== -->
-
-    <section class="submit-section">
-
-        <button
-            type="button"
-            id="submitButton"
-            class="submit-btn"
-            onclick="State()"
-            disabled
-        >
-
-            <span class="submit-icon">
-
-                <i class="fa-solid fa-power-off"></i>
-
-            </span>
-
+        <div class="stat">
 
             <span>
-                INITIALIZE BOT
+                STATUS
             </span>
 
-        </button>
-
-    </section>
-
-
-
-    <!-- =====================================================
-         RESULT
-    ====================================================== -->
-
-    <div
-        id="result"
-        class="container text-center result-box"
-        style="display:none;"
-    ></div>
-
-
-
-    <!-- =====================================================
-         SYSTEM STATUS
-    ====================================================== -->
-
-    <section class="system-panel">
-
-        <div class="system-title">
-
-            <i class="fa-solid fa-microchip"></i>
-
-            SYSTEM STATUS
+            <strong id="runtimeStatus">
+                --
+            </strong>
 
         </div>
 
 
-        <div class="system-grid">
+        <div class="stat">
 
+            <span>
+                PID
+            </span>
 
-            <div class="system-item">
-
-                <span class="system-label">
-                    STATUS
-                </span>
-
-
-                <span class="system-value">
-
-                    <span class="status-dot"></span>
-
-                    READY
-
-                </span>
-
-            </div>
-
-
-            <div class="system-item">
-
-                <span class="system-label">
-                    CONNECTION
-                </span>
-
-
-                <span
-                    class="system-value"
-                    id="connectionStatus"
-                >
-                    ONLINE
-                </span>
-
-            </div>
-
-
-            <div class="system-item">
-
-                <span class="system-label">
-                    TIME
-                </span>
-
-
-                <span
-                    class="system-value"
-                    id="time"
-                >
-                    --
-                </span>
-
-            </div>
-
-
-            <div class="system-item">
-
-                <span class="system-label">
-                    PING
-                </span>
-
-
-                <span
-                    class="system-value"
-                    id="ping"
-                >
-                    --
-                </span>
-
-            </div>
+            <strong id="runtimePid">
+                --
+            </strong>
 
         </div>
 
-    </section>
+
+        <div class="stat">
+
+            <span>
+                UPTIME
+            </span>
+
+            <strong id="runtimeUptime">
+                --
+            </strong>
+
+        </div>
+
+
+        <div class="stat">
+
+            <span>
+                RESTARTS
+            </span>
+
+            <strong id="runtimeRestarts">
+                0
+            </strong>
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+<section class="card">
+
+    <div class="card-title">
+
+        <i class="fa-solid fa-crosshairs"></i>
+
+        <div>
+
+            <h2>
+                Hunting
+            </h2>
+
+            <small>
+                Command availability
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <div class="hunting-status">
+
+        <span
+            class="dot"
+            id="huntingDot"
+        ></span>
+
+        <span id="huntingStatus">
+            Checking...
+        </span>
+
+    </div>
+
+</section>
+
 
 </main>
 
 
 
-<!-- =========================================================
-     SCROLL UP
-========================================================= -->
+<footer>
 
-<button
-    id="scrollUpBtn"
-    type="button"
-    aria-label="Scroll to top"
->
-
-    <i class="fa-solid fa-angles-up"></i>
-
-</button>
-
-
-
-<!-- =========================================================
-     FOOTER
-========================================================= -->
-
-<footer class="footer">
-
-    <div class="footer-brand">
+    <strong>
         NULLFIED
-    </div>
+    </strong>
 
-
-    <p>
+    <span>
         Messenger Automation Control Center
-    </p>
+    </span>
 
-
-    <p>
-        © 2026 NULLFIED · made by sinzu
-    </p>
+    <span>
+        © 2026 Sinzu
+    </span>
 
 </footer>
 
 
 
-<!-- =========================================================
-     PAGE FUNCTIONS
-========================================================= -->
-
 <script>
 
-function scrollToSection(sectionId) {
+const commandsContainer =
+    document.getElementById(
+        "commandsContainer"
+    );
 
-    const section =
-        document.getElementById(sectionId);
 
-    if (!section) {
-        return;
+const eventsContainer =
+    document.getElementById(
+        "eventsContainer"
+    );
+
+
+const checkbox =
+    document.getElementById(
+        "agreeCheckbox"
+    );
+
+
+const submit =
+    document.getElementById(
+        "submitButton"
+    );
+
+
+const result =
+    document.getElementById(
+        "result"
+    );
+
+
+
+let commands = [];
+
+let events = [];
+
+
+
+/* =========================================================
+   FORMAT UPTIME
+========================================================= */
+
+function formatUptime(ms) {
+
+    if (!ms || ms < 0) {
+        return "--";
     }
 
-    section.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
 
-}
-
-
-
-function selectAllCommands() {
-
-    const boxes =
-        document.querySelectorAll(
-            '#commandsContainer input[type="checkbox"]'
+    let seconds =
+        Math.floor(
+            ms / 1000
         );
 
 
-    boxes.forEach(function(box) {
-
-        box.checked = true;
-
-        box.dispatchEvent(
-            new Event(
-                "change",
-                {
-                    bubbles: true
-                }
-            )
-        );
-
-    });
-
-}
-
-
-
-function selectAllEvents() {
-
-    const boxes =
-        document.querySelectorAll(
-            '#eventsContainer input[type="checkbox"]'
+    const days =
+        Math.floor(
+            seconds / 86400
         );
 
 
-    boxes.forEach(function(box) {
+    seconds %= 86400;
 
-        box.checked = true;
 
-        box.dispatchEvent(
-            new Event(
-                "change",
-                {
-                    bubbles: true
-                }
-            )
+    const hours =
+        Math.floor(
+            seconds / 3600
         );
 
-    });
+
+    seconds %= 3600;
+
+
+    const minutes =
+        Math.floor(
+            seconds / 60
+        );
+
+
+    seconds %= 60;
+
+
+    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
 }
 
 
 
 /* =========================================================
-   TERMS CHECKBOX
+   LOAD COMMANDS
 ========================================================= */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    function() {
-
-        const checkbox =
-            document.getElementById(
-                "agreeCheckbox"
-            );
-
-
-        const submit =
-            document.getElementById(
-                "submitButton"
-            );
-
-
-        if (checkbox && submit) {
-
-            checkbox.addEventListener(
-                "change",
-                function() {
-
-                    submit.disabled =
-                        !checkbox.checked;
-
-                }
-            );
-
-        }
-
-
-
-        /* =================================================
-           SCROLL BUTTON
-        ================================================= */
-
-        const scrollBtn =
-            document.getElementById(
-                "scrollUpBtn"
-            );
-
-
-        if (scrollBtn) {
-
-            window.addEventListener(
-                "scroll",
-                function() {
-
-                    if (window.scrollY > 350) {
-
-                        scrollBtn.classList.add(
-                            "show"
-                        );
-
-                    } else {
-
-                        scrollBtn.classList.remove(
-                            "show"
-                        );
-
-                    }
-
-                }
-            );
-
-
-            scrollBtn.addEventListener(
-                "click",
-                function() {
-
-                    window.scrollTo({
-                        top: 0,
-                        behavior: "smooth"
-                    });
-
-                }
-            );
-
-        }
-
-
-
-        /* =================================================
-           TIME
-        ================================================= */
-
-        function updateTime() {
-
-            const timeElement =
-                document.getElementById(
-                    "time"
-                );
-
-
-            if (!timeElement) {
-                return;
-            }
-
-
-            const now =
-                new Date();
-
-
-            timeElement.textContent =
-                now.toLocaleTimeString();
-
-        }
-
-
-        updateTime();
-
-        setInterval(
-            updateTime,
-            1000
-        );
-
-
-
-        /* =================================================
-           CONNECTION
-        ================================================= */
-
-        const connection =
-            document.getElementById(
-                "connectionStatus"
-            );
-
-
-        function updateConnection() {
-
-            if (!connection) {
-                return;
-            }
-
-
-            connection.textContent =
-                navigator.onLine
-                    ? "ONLINE"
-                    : "OFFLINE";
-
-        }
-
-
-        updateConnection();
-
-
-        window.addEventListener(
-            "online",
-            updateConnection
-        );
-
-
-        window.addEventListener(
-            "offline",
-            updateConnection
-        );
-
-    }
-);
-
-
-
-/* =========================================================
-   PING
-========================================================= */
-
-async function updatePing() {
-
-    const pingElement =
-        document.getElementById(
-            "ping"
-        );
-
-
-    if (!pingElement) {
-        return;
-    }
-
-
-    const start =
-        performance.now();
-
+async function loadCommands() {
 
     try {
 
-        await fetch(
-            window.location.href,
-            {
-                method: "HEAD",
-                cache: "no-store"
-            }
-        );
-
-
-        const ping =
-            Math.round(
-                performance.now() - start
+        const response =
+            await fetch(
+                "/api/commands",
+                {
+                    cache: "no-store"
+                }
             );
 
 
-        pingElement.textContent =
-            ping + " ms";
+        const data =
+            await response.json();
+
+
+        commands =
+            data.commands || [];
+
+
+        renderCommands();
 
 
     } catch (error) {
 
-        pingElement.textContent =
-            "OFFLINE";
+        commandsContainer.innerHTML =
+            `<div class="error">
+                Failed to load commands.
+            </div>`;
 
     }
 
 }
 
 
-updatePing();
+
+/* =========================================================
+   RENDER COMMANDS
+========================================================= */
+
+function renderCommands() {
+
+    commandsContainer.innerHTML = "";
 
 
-setInterval(
-    updatePing,
-    10000
-);
+    if (!commands.length) {
 
-</script>
+        commandsContainer.innerHTML =
+            `<div class="empty">
+                No commands found in /script.
+            </div>`;
 
+        return;
 
-
-<!-- =========================================================
-     EXISTING SCRIPT.JS
-========================================================= -->
-
-<script src="script.js"></script>
+    }
 
 
+    commands.forEach(
+        command => {
 
-<!-- =========================================================
-     BOOTSTRAP
-========================================================= -->
-
-<script
-    src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
-></script>
-
-
-<script
-    src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
-></script>
+            const item =
+                document.createElement(
+                    "label"
+                );
 
 
-<script
-    src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
-></script>
+            item.className =
+                "command-item";
 
 
+            item.innerHTML = `
 
-<!-- =========================================================
-     FONT AWESOME
-========================================================= -->
+                <input
+                    type="checkbox"
+                    class="command-checkbox"
+                    value="${escapeHtml(command.name)}"
+                    ${command.name === "hunting" ? "checked" : ""}
+                >
 
-<script
-    src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"
-></script>
+                <div class="command-main">
 
+                    <strong>
+                        ${escapeHtml(command.name)}
+                    </strong>
 
+                    <small>
+                        ${escapeHtml(
+                            command.description ||
+                            "Command module"
+                        )}
+                    </small>
 
-<!-- =========================================================
-     SWEETALERT
-========================================================= -->
+                </div>
 
-<script
-    src="https://cdn.jsdelivr.net/npm/sweetalert2@11"
-></script>
+                <span class="ready">
+                    READY
+                </span>
 
-
-
-<!-- =========================================================
-     HOWLER
-========================================================= -->
-
-<script
-    src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"
-></script>
-
-
-
-<!-- =========================================================
-     MUSIC
-========================================================= -->
-
-<script>
-
-const tracks = [
-    "https://raw.githubusercontent.com/Kaizenji/Kaizenji/main/cute-depressed.mp3"
-];
+            `;
 
 
-const randomTrack =
-    tracks[
-        Math.floor(
-            Math.random() * tracks.length
-        )
-    ];
+            commandsContainer.appendChild(
+                item
+            );
 
-
-let sound;
-
-
-try {
-
-    sound = new Howl({
-
-        src: [
-            randomTrack
-        ],
-
-        autoplay: true,
-
-        loop: false,
-
-        format: [
-            "mp3"
-        ],
-
-        volume: 0.35,
-
-        onend: function() {}
-
-    });
-
-
-    sound.play();
-
-} catch (error) {
-
-    console.log(
-        "Audio autoplay blocked."
+        }
     );
 
 }
+
+
+
+/* =========================================================
+   ESCAPE HTML
+========================================================= */
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+
+/* =========================================================
+   SELECT COMMANDS
+========================================================= */
+
+document
+    .getElementById(
+        "selectCommands"
+    )
+    .addEventListener(
+        "click",
+        () => {
+
+            document
+                .querySelectorAll(
+                    ".command-checkbox"
+                )
+                .forEach(
+                    box => {
+                        box.checked = true;
+                    }
+                );
+
+        }
+    );
+
+
+
+/* =========================================================
+   SELECT EVENTS
+========================================================= */
+
+document
+    .getElementById(
+        "selectEvents"
+    )
+    .addEventListener(
+        "click",
+        () => {
+
+            document
+                .querySelectorAll(
+                    ".event-checkbox"
+                )
+                .forEach(
+                    box => {
+                        box.checked = true;
+                    }
+                );
+
+        }
+    );
+
+
+
+/* =========================================================
+   TERMS
+========================================================= */
+
+checkbox.addEventListener(
+    "change",
+    () => {
+
+        submit.disabled =
+            !checkbox.checked;
+
+    }
+);
+
+
+
+/* =========================================================
+   SUBMIT
+========================================================= */
+
+submit.addEventListener(
+    "click",
+    async () => {
+
+        submit.disabled = true;
+
+
+        result.className =
+            "result loading-result";
+
+
+        result.textContent =
+            "Saving configuration...";
+
+
+        const selectedCommands =
+            Array.from(
+                document.querySelectorAll(
+                    ".command-checkbox:checked"
+                )
+            )
+            .map(
+                box =>
+                    box.value
+            );
+
+
+        const selectedEvents =
+            Array.from(
+                document.querySelectorAll(
+                    ".event-checkbox:checked"
+                )
+            )
+            .map(
+                box =>
+                    box.value
+            );
+
+
+        let session = null;
+
+
+        const raw =
+            document
+                .getElementById(
+                    "json-data"
+                )
+                .value
+                .trim();
+
+
+        if (raw) {
+
+            try {
+
+                session =
+                    JSON.parse(
+                        raw
+                    );
+
+            } catch {
+
+                result.className =
+                    "result error";
+
+                result.textContent =
+                    "Invalid JSON session data.";
+
+                submit.disabled =
+                    false;
+
+                return;
+
+            }
+
+        }
+
+
+        const payload = {
+
+            prefix:
+                document
+                    .getElementById(
+                        "inputOfPrefix"
+                    )
+                    .value
+                    .trim(),
+
+            admin:
+                document
+                    .getElementById(
+                        "inputOfAdmin"
+                    )
+                    .value
+                    .trim(),
+
+            selectedCommands,
+
+            selectedEvents,
+
+            session,
+
+            enabled: true
+
+        };
+
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/config",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body:
+                            JSON.stringify(
+                                payload
+                            )
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!data.ok) {
+                throw new Error(
+                    data.error ||
+                    "Failed."
+                );
+            }
+
+
+            result.className =
+                "result success";
+
+
+            result.textContent =
+                "Configuration saved. Worker restarting...";
+
+
+            setTimeout(
+                updateStatus,
+                1000
+            );
+
+
+        } catch (error) {
+
+            result.className =
+                "result error";
+
+
+            result.textContent =
+                error.message;
+
+
+        }
+
+
+        submit.disabled =
+            !checkbox.checked;
+
+    }
+);
+
+
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+async function updateStatus() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/status",
+                {
+                    cache: "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        const status =
+            data.status ||
+            "unknown";
+
+
+        document
+            .getElementById(
+                "runtimeStatus"
+            )
+            .textContent =
+                status.toUpperCase();
+
+
+        document
+            .getElementById(
+                "runtimePid"
+            )
+            .textContent =
+                data.pid || "--";
+
+
+        document
+            .getElementById(
+                "runtimeUptime"
+            )
+            .textContent =
+                formatUptime(
+                    data.uptime
+                );
+
+
+        document
+            .getElementById(
+                "runtimeRestarts"
+            )
+            .textContent =
+                data.restarts || 0;
+
+
+        document
+            .getElementById(
+                "topStatus"
+            )
+            .textContent =
+                status.toUpperCase();
+
+
+        const topDot =
+            document.getElementById(
+                "topDot"
+            );
+
+
+        if (
+            status === "online"
+        ) {
+
+            topDot.classList.add(
+                "active"
+            );
+
+        } else {
+
+            topDot.classList.remove(
+                "active"
+            );
+
+        }
+
+
+    } catch {
+
+        document
+            .getElementById(
+                "runtimeStatus"
+            )
+            .textContent =
+                "OFFLINE";
+
+    }
+
+}
+
+
+
+/* =========================================================
+   HUNTING STATUS
+========================================================= */
+
+async function updateHunting() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/hunting",
+                {
+                    cache: "no-store"
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        const available =
+            data.hunting &&
+            data.hunting.available;
+
+
+        document
+            .getElementById(
+                "huntingStatus"
+            )
+            .textContent =
+                available
+                    ? "HUNTING AVAILABLE"
+                    : "HUNTING NOT FOUND";
+
+
+        const dot =
+            document.getElementById(
+                "huntingDot"
+            );
+
+
+        if (available) {
+
+            dot.classList.add(
+                "active"
+            );
+
+        } else {
+
+            dot.classList.remove(
+                "active"
+            );
+
+        }
+
+
+    } catch {
+
+        document
+            .getElementById(
+                "huntingStatus"
+            )
+            .textContent =
+                "CHECK FAILED";
+
+    }
+
+}
+
+
+
+loadCommands();
+
+updateStatus();
+
+updateHunting();
+
+
+setInterval(
+    updateStatus,
+    3000
+);
+
+
+setInterval(
+    updateHunting,
+    5000
+);
 
 </script>
 
 
 </body>
-    </html>
+
+</html>
