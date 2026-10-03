@@ -1,26 +1,28 @@
+"use strict";
+
 const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "5.8.0",
+    version: "7.0.0",
     hasPermission: 2,
     credits: "User",
-    description: "Single Reply Engine - 1 Message Per 10 Seconds",
+    description: "Prefixless Hunting + Count + GC Lock + Set Nickname + Status",
     usePrefix: false,
     commandCategory: "system",
-    usages: ".start | .off | /count on | /count off",
+    usages: "start | stop | count | lock [name] | unlock | set [name] | status",
     cooldowns: 0
 };
 
-// ==========================================
+// ============================================================
 // AUTHORIZED ADMIN
-// ==========================================
+// ============================================================
 
 const ADMIN_ID = "61594616562680";
 
-// ==========================================
+// ============================================================
 // GLOBAL STORAGE
-// ==========================================
+// ============================================================
 
 if (!global.huntingState)
     global.huntingState = new Map();
@@ -34,207 +36,846 @@ if (!global.huntingReplyState)
 if (!global.activeSendingState)
     global.activeSendingState = new Map();
 
-if (!global.pendingReplyState)
-    global.pendingReplyState = new Map();
+if (!global.gcNameLockState)
+    global.gcNameLockState = new Map();
+
+if (!global.nicknameState)
+    global.nicknameState = new Map();
+
+if (!global.huntingDuplicateState)
+    global.huntingDuplicateState = new Map();
+
+if (!global.huntingStats)
+    global.huntingStats = new Map();
+
+if (!global.countStartState)
+    global.countStartState = new Map();
+
+if (!global.countRunState)
+    global.countRunState = new Map();
 
 let usedTaunts = [];
 
-// ==========================================
+// ============================================================
 // SETTINGS
-// ==========================================
+// ============================================================
 
-const REPLY_INTERVAL = 10000; // 10 seconds
+const REPLY_INTERVAL = 10000;
+
 const MIN_TYPING_DELAY = 1500;
 const MAX_TYPING_DELAY = 3500;
 
-// ==========================================
-// HUMANIZE TEXT
-// ==========================================
+const DUPLICATE_WINDOW = 4500;
+
+const MAX_COUNT = 50;
+
+// ============================================================
+// SELF REACTIONS
+// ============================================================
+
+const SELF_REACTIONS = [
+    "👍",
+    "❤️",
+    "😂",
+    "😆",
+    "😮",
+    "😎",
+    "😏",
+    "😅",
+    "🔥",
+    "💯",
+    "👀",
+    "🤝",
+    "👏",
+    "🥷",
+    "💀",
+    "🤣",
+    "🙃",
+    "😈"
+];
+
+const lastReactionState = new Map();
+
+function getRandomReaction(threadID) {
+
+    let list = SELF_REACTIONS;
+
+    const previous =
+        lastReactionState.get(threadID);
+
+    if (previous && list.length > 1) {
+        list = list.filter(
+            reaction => reaction !== previous
+        );
+    }
+
+    const reaction =
+        list[
+            Math.floor(
+                Math.random() * list.length
+            )
+        ];
+
+    lastReactionState.set(
+        threadID,
+        reaction
+    );
+
+    return reaction;
+}
+
+function selfReact(api, threadID, messageID) {
+
+    try {
+
+        if (
+            typeof api.setMessageReaction !==
+            "function"
+        ) {
+            return;
+        }
+
+        const reaction =
+            getRandomReaction(threadID);
+
+        api.setMessageReaction(
+            reaction,
+            messageID,
+            () => {},
+            true
+        );
+
+    } catch (err) {}
+}
+
+// ============================================================
+// HUMANIZE
+// ============================================================
 
 function humanizeText(text) {
 
-    const replacements = {
-        a: ["a", "à", "ā", "ą", "ä", "â", "á"],
-        e: ["e", "ē", "ê", "ë", "è", "é"],
-        i: ["i", "ī", "î", "ï", "í", "ì"],
-        o: ["o", "ō", "ó", "ö", "ô", "ò"],
-        u: ["u", "ū", "û", "ü", "ú", "ù"]
-    };
+    if (!text)
+        return text;
 
-    return text
-        .split("")
-        .map(char => {
+    let result = text;
 
-            const lower = char.toLowerCase();
+    // Random lowercase behavior
+    if (Math.random() < 0.30) {
+        result = result.toLowerCase();
+    }
 
-            if (
-                replacements[lower] &&
-                Math.random() < 0.25
-            ) {
+    // Sometimes remove final punctuation
+    if (
+        Math.random() < 0.35 &&
+        /[.!?]$/.test(result)
+    ) {
+        result = result.slice(0, -1);
+    }
 
-                const list = replacements[lower];
-
-                const sub =
-                    list[Math.floor(Math.random() * list.length)];
-
-                return char === char.toUpperCase()
-                    ? sub.toUpperCase()
-                    : sub;
-            }
-
-            return char;
-        })
-        .join("");
+    return result;
 }
 
-// ==========================================
+// ============================================================
 // TAUNTS
-// ==========================================
+// ============================================================
 
 const massiveTaunts = [
 
-    "wag ka mawawala lods 🥷🔥 dami mong sinasabi papansin ka lang 🗣️🤡",
+    "ano ba yan pre",
 
-    "ops nawala ako bigla 🤡🤣 sunod sunod ah galit na galit yarn? 🤬🔥",
+    "bat ganyan ka sumagot",
 
-    "nawala ata ako san ka napunta 💩 hinay hinay lang lods baka mapagod ka 🐢💨",
+    "puro ka dada eh",
 
-    "bawal waterbreak at pahinga dito 🩸⚔️ spammer yarn? pondo muna lods 📦🤣",
+    "wala ka na bang ibang alam",
 
-    "moka ka tabo bro hahaha 🤪🪠 iyak na yarn haha sige pa 😭🩸",
+    "ulit ulit ka na naman",
 
-    "san ka na pupunta haha takbo pa 🏃‍♂💨 hinga muna baka mahimatay ka 😮‍💨💀",
+    "anong pinagsasabi mo",
 
-    "hanggang madaling araw to boy wag ka susuko 🥷🩸 bagsak ka nanaman boy aral ka muna 📚📉",
+    "lutang ka ba ngayon",
 
-    "tulog ka na ba agad mahina ka pala 😴💤 tuloy mo lang yan hanggang bukas 🗓🥷",
+    "saan napunta punto mo",
 
-    "galaw galaw baka pumanaw ka diyan 💀⚰️ mabilis mag-type pero walang laman 🗑️🤷‍♂️",
+    "wala namang connect",
 
-    "bawal magpahinga dito laban lang 🥊🔥 paulit-ulit na lang sinasabi mo 🔁🤦‍♂️",
+    "ang layo ng sagot mo",
 
-    "isa pa nga diyan bawi ka dali 🎯 walang epekto yang ginagawa mo 🧊⚡",
+    "di mo rin alam sinasabi mo",
 
-    "umiyak ka na lang sa gilid bro 🥺😂 pumipiyok ka na ata sa chat 🐥🔊",
+    "seryoso ka dyan",
 
-    "palag ka pa ba o tameme ka na? 🤫🥷 ubos na ba linyahan mo? tulungan kita 📖🤡",
+    "yan lang naisip mo",
 
-    "parang di mo man lang kinaya ah 📉🤪 puro tapang sa chat pero duwag sa personal 🤫🏃‍♂️",
+    "ang pilit naman",
 
-    "pasok sa banga ka nanaman boy 🗑️💥 kumusta na palad mo? kalyo overload na yan ✋🛑",
+    "wag mo nang ipilit yan",
 
-    "ipahinga mo na yang kamay mo nanginginig na 🤏🤣 hina naman ng palag mo pambata eh 👶🍼",
+    "ang dami mong palusot",
 
-    "ngawit ka na ba mag-type? 🦾🤖 dahan-dahan baka mapunit keyboard mo ⌨️💥",
+    "may dahilan ka pa",
 
-    "wala ka palang maipakita eh 📉👎 antok ka na noh? amoy laway ka na screen mo 🥱📱",
+    "tahimik ka muna",
 
-    "asan na yung tapang mo kanina? 👻⚡ himbing ng tulog ng pangarap mo bagsak agad 📉💤",
+    "nag loading ka ba",
 
-    "kala ko ba palag ka bat parang nag-agaw buhay ka na? 🧟‍♂️🩸 san banda yungangas mo? 🕵️‍♂️🔍",
+    "reboot ka muna pre",
 
-    "hinga ka muna malalim baka atakihin ka 🫁💨 huli ka balbon gising pa ang master 🥷👀",
+    "bakit ka napipikon",
 
-    "lutang ka na ata sa puyat boss 😵‍💫🌌 sige piga pa ng bungo baka lumabas utak mo 🧠💥",
+    "tinamaan ka ba",
 
-    "yan na ba pinakamabilis mo mag-type? bagal ah 🐢⏱️ taob ka na naman sa pormahan ko 🚢🌊",
+    "bakit defensive ka",
 
-    "sumuko ka na lang para di ka na mahirapan 🏳️🥷 kumusta naman ang mga mata mo? 👀🔥",
+    "wag mong ilihis usapan",
 
-    "i-iyak mo na lang yan walang makakakita 🥲🌧️ buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨",
+    "balik ka sa punto",
 
-    "tulog na yung kalaban antok na antok na 🥱🛌 lakas ng trip mo eh no kaso sablay naman 🎯❌",
+    "sagot naman di palusot",
 
-    "may tubig pa ba diyan? tagak ka na eh 💧🥵 chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭",
+    "puro ka dahilan eh",
 
-    "parang computer icon lang lods stock up ka na 🖥️🤡 pilit na pilit ang banat mo tigil mo na 🛑🤡",
+    "hanggang salita ka lang",
 
-    "nag-iisip ka pa ba ng ire-reply o umiiyak ka na? 🧠💥 wala ka bang ibang alam kundi yan lang? 🥱📉",
+    "dami mong sinabi wala pa rin",
 
-    "subukan mo ulit baka sakaling pumasa ka na 📝🔥 dahan-dahan baka mapunit keyboard mo ⌨️💥",
+    "diretsohin mo kasi",
 
-    "antok ka na noh? amoy laway ka na screen mo 🥱📱 puyat pa more para bagsak agad ulo mo sa mesa 🪑💤",
+    "wag paikot ikot",
 
-    "himbing ng tulog ng pangarap mo bagsak agad 📉💤 gising na gising ang diwa ko samantalang ikaw tulog na 🍜😴",
+    "takot ka ba sa tanong",
 
-    "san banda yungangas mo? di ko makita e 🕵️‍♂️🔍 puro ka angas wala namang binatbat 🦆💨",
+    "may bago ka pa ba",
 
-    "huli ka balbon gising pa ang master 🥷👀 huli sa akto na nagpapanic ka na 🧯🏃‍♂️",
+    "copy paste ka ba",
 
-    "sige piga pa ng bungo baka lumabas utak mo 🧠💥 wala na ngang laman pinipilit pa 🤡",
+    "parang template eh",
 
-    "taob ka na naman sa pormahan ko 🚢🌊 lumubog agad ang barko mo sa unang banat pa lang ⚓📉",
+    "scripted masyado",
 
-    "kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥 pikit ka na kasi kung di mo na kaya 🙈💤",
+    "ang tagal mo para dyan",
 
-    "buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨 hatid ko na ba kayo sa pinakamalapit na hospital? 🏥",
+    "yan lang inabot ng isip mo",
 
-    "lakas ng trip mo eh no kaso sablay naman 🎯❌ sablay na naman ang tira praning ka na 🤪🌪️",
+    "pinilit mo pa talaga",
 
-    "chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭 namumula na tenga mo sa sobrang inis eh 🍅🔥",
+    "tama na pre",
 
-    "hina naman ng palag mo pambata eh 👶🍼 balik ka na muna sa gatas mo bago ka makipag-chat 🍼",
+    "di ka marunong tumigil",
 
-    "dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥 basag na naman tempered glass mo no? 📱💔",
+    "wala kang preno",
 
-    "paulit-ulit na lang sinasabi mo 🔁🤦‍♂️ naubusan ka na ba ng vocabulary kaya yan na lang ulit? 📖❌",
+    "paulit ulit na lang",
 
-    "walang epekto yang ginagawa mo 🧊⚡ parang hangin lang na dumaan sa harap ko 🌬️🍃",
+    "nakakaumay na linya mo",
 
-    "pumipiyok ka na ata sa chat 🐥🔊 uminom ka muna ng malamig na tubig 🥤🧊",
+    "ang hirap mong sundan",
 
-    "ubos na ba linyahan mo? tulungan kita 📖🤡 magbasa ka muna ng libro para may maiambag ka 📚",
+    "wala ka sa hulog",
 
-    "puro tapang sa chat pero duwag sa personal 🤫🏃‍♂️ tago kaagad sa ilalim ng kama pag may kumatok 🛏️👻",
+    "sablay na naman",
 
-    "kumusta na palad mo? kalyo overload na yan ✋🛑 piga-piga din ng daliri paminsan-minsan 🦾",
+    "suko ka na lang",
 
-    "pilit na pilit ang banat mo lods tigil mo na 🛑🤡 nakakahiya na po sa angkan niyo 🙈📉",
+    "ang haba para sa wala",
 
-    "wala ka bang ibang alam kundi yan lang? 🥱📉 paulit-ulit na plaka sirang-sira na 💿💥",
+    "daming salita wala pa rin",
 
-    "sabog na naman ang puyat mo no? 🌌😵‍💫 halata sa mata mo na lutang na lutang ka na 🛸👽",
+    "final answer mo na yan",
 
-    "huli ka sa balita matagal na kaming tapos ikaw nag-uumpisa pa lang 🕰️🏃‍♂️",
+    "isipin mo muna ulit",
 
-    "ano na? hinto ka na kasi napapagod na ako sa kabagalan mo 🐢💤",
+    "wag mo na",
 
-    "puro ka reklamo wala ka namang maibuga 🗣️💨 sabaw na sabaw ka na boss 🍲🤪",
+    "wag na lods",
 
-    "iyak semento ka na naman mamaya paggising mo 🛣️😭",
+    "gusto mo talaga ng gulo ah",
 
-    "wala ka talagang pag-asa umangat sa kaalaman 📉🧠",
+    "ikaw naghahanap eh",
 
-    "lipad ka na lang ibon para makatakas ka dito 🐦💨",
+    "chat lang yan pre",
 
-    "kala ko matibay ka manipis lang pala parang tissue 🧻💥",
+    "bitawan mo muna keyboard",
 
-    "tiklop ka na agad wala pang limang minuto ⏱️🏳️",
+    "baka masira keyboard mo",
 
-    "sarap mong asarin kasi madali kang mapikon 🤬🎯",
+    "gigil na gigil ka",
 
-    "iyak ka na sa madilim na sulok habang pinapanood kita 🌑👀"
+    "pahinga ka muna",
+
+    "ano pa",
+
+    "may kasunod pa",
+
+    "eto nanaman tayo",
+
+    "di ka talaga natututo",
+
+    "nakalimutan mo na naman",
+
+    "lutang mo pre",
+
+    "sabog ka yata",
+
+    "wag kang tumakas sa topic",
+
+    "sumagot ka nang maayos",
+
+    "alam mo naman sagot eh",
+
+    "kunwari ka pa",
+
+    "halata naman",
+
+    "nahuli ka na",
+
+    "ano excuse ngayon",
+
+    "may bago ka bang dahilan",
+
+    "pareho pa rin excuse",
+
+    "pinapahaba mo lang",
+
+    "yan na talaga",
+
+    "sigurado ka dyan",
+
+    "bawi ka na lang",
+
+    "talagang pinipilit mo",
+
+    "wala ka nang masabi",
+
+    "ubos na ba",
+
+    "hanggang dyan ka lang",
+
+    "anong klaseng sagot yan",
+
+    "di mo maayos yung punto mo",
+
+    "wag ka muna mag ingay",
+
+    "ayusin mo muna sinasabi mo",
+
+    "parang naliligaw ka",
+
+    "saan ka ba papunta",
+
+    "iba naman sagot mo",
+
+    "di yan yung tanong",
+
+    "sumagot ka ulit",
+
+    "basahin mo muna",
+
+    "maling topic ka",
+
+    "di mo nasundan",
+
+    "ang gulo mo pre",
+
+    "wag kang magpaligoy ligoy",
+
+    "diretso lang",
+
+    "ano ba talaga",
+
+    "puro liko",
+
+    "wala kang direksyon",
+
+    "ang labo mo",
+
+    "nag iba nanaman kwento",
+
+    "iba iba sinasabi mo",
+
+    "di mo mapanindigan",
+
+    "kanina iba naman",
+
+    "nagbago nanaman",
+
+    "ano na naman yan",
+
+    "saan galing yan",
+
+    "bigla ka namang lumiko",
+
+    "di bagay sa usapan",
+
+    "walang connect talaga",
+
+    "ang layo na",
+
+    "napunta ka na kung saan saan",
+
+    "balik topic",
+
+    "wag kang lumusot",
+
+    "wag kang umiwas",
+
+    "sagot lang",
+
+    "wag palusot",
+
+    "alam mong mali eh",
+
+    "pilit mo pa rin",
+
+    "di na kailangan pahabain",
+
+    "tapos na sana eh",
+
+    "pinapahaba mo pa",
+
+    "ang dami mong ikot",
+
+    "ikot ka nang ikot",
+
+    "wala pa rin",
+
+    "wala talaga",
+
+    "ano pa sasabihin mo",
+
+    "may dagdag ka pa",
+
+    "eto nanaman dahilan",
+
+    "parehas lang",
+
+    "same energy nanaman",
+
+    "di ka pa tapos",
+
+    "hanggang ngayon yan pa rin",
+
+    "di ka nauubusan",
+
+    "ang kulit mo",
+
+    "kulit mo pre",
+
+    "wala ka bang ibang linya",
+
+    "iba naman next time",
+
+    "parang sirang plaka",
+
+    "paulit ulit ka",
+
+    "narinig na namin yan",
+
+    "alam na namin yan",
+
+    "di na bago yan",
+
+    "same script",
+
+    "parehong banat",
+
+    "wala nang bago",
+
+    "may bago ka bang ambag",
+
+    "asan yung punto",
+
+    "wala yung punto",
+
+    "nawala ka na",
+
+    "lutang nanaman",
+
+    "saan napunta utak mo",
+
+    "isip muna bago send",
+
+    "send ka nang send",
+
+    "di mo binabasa",
+
+    "basa muna pre",
+
+    "intindi muna",
+
+    "wag puro send",
+
+    "nagmamadali ka",
+
+    "chill ka lang",
+
+    "kalma muna",
+
+    "hinga muna",
+
+    "pahinga muna",
+
+    "keyboard break muna",
+
+    "tama na muna",
+
+    "wag ka gigil",
+
+    "di kailangan magalit",
+
+    "bakit galit na",
+
+    "kalmahan mo",
+
+    "napipikon ka na",
+
+    "halata yung gigil",
+
+    "wag masyadong seryoso",
+
+    "chat lang yan",
+
+    "nag iinit ka na",
+
+    "lumalabas na galit mo",
+
+    "bakit defensive",
+
+    "may tinatamaan ba",
+
+    "tinamaan yata",
+
+    "aray ba",
+
+    "bakit biglang tahimik",
+
+    "nawala ka",
+
+    "asan ka",
+
+    "nag isip ka pa ba",
+
+    "matagal na ah",
+
+    "loading nanaman",
+
+    "buffering ka ba",
+
+    "restart muna",
+
+    "update ka muna",
+
+    "check mo muna sagot mo",
+
+    "mali ata yan",
+
+    "sigurado ka talaga",
+
+    "pag isipan mo",
+
+    "balikan mo",
+
+    "read back muna",
+
+    "wag mo iedit yung kwento",
+
+    "consistent naman sana",
+
+    "kanina iba sinabi mo",
+
+    "nahuli sa sariling salita",
+
+    "ikaw din nagsabi nyan",
+
+    "balikan mo chat mo",
+
+    "nasa taas lang",
+
+    "basahin mo ulit",
+
+    "di mo nakita",
+
+    "missing point",
+
+    "wala sa context",
+
+    "di mo gets",
+
+    "gets mo ba",
+
+    "intindi ka muna",
+
+    "wag agad reply",
+
+    "isip dalawang beses",
+
+    "send isang beses",
+
+    "wag spam",
+
+    "kalma sa keyboard",
+
+    "ang bilis mo naman",
+
+    "pero wala pa rin",
+
+    "bilis walang laman",
+
+    "haba walang punto",
+
+    "short answer lang sana",
+
+    "dami mo sinabi",
+
+    "pero wala pa rin",
+
+    "eto na naman yung palusot",
+
+    "excuse nanaman",
+
+    "may dahilan ulit",
+
+    "same excuse",
+
+    "bagong excuse naman",
+
+    "wag puro dahilan",
+
+    "wag takasan tanong",
+
+    "harap sa tanong",
+
+    "sagot sa tanong",
+
+    "hindi ibang kwento",
+
+    "wag mag change topic",
+
+    "balik tayo",
+
+    "focus muna",
+
+    "wag maligaw",
+
+    "san ka nanaman pumunta",
+
+    "ano yan",
+
+    "ano ba talaga",
+
+    "seryoso ka",
+
+    "yan na",
+
+    "ayan na naman",
+
+    "eto nanaman",
+
+    "wala na bang iba",
+
+    "paulit ulit talaga",
+
+    "nakakailang na",
+
+    "ilang beses na yan",
+
+    "narinig na yan",
+
+    "wag na pre",
+
+    "tama na",
+
+    "stop na",
+
+    "sobra na",
+
+    "pahinga ka",
+
+    "hinga ka",
+
+    "uminom ka muna",
+
+    "wag kang gigil",
+
+    "wag mong pilitin",
+
+    "di bagay sayo yan",
+
+    "ang pilit",
+
+    "halatang pilit",
+
+    "pinipilit talaga",
+
+    "di mo mapalabas",
+
+    "di mo maayos",
+
+    "ayos muna",
+
+    "compose ka muna",
+
+    "isip ka muna",
+
+    "balikan mo yung sinabi mo",
+
+    "di tugma",
+
+    "di pareho",
+
+    "may kulang",
+
+    "may sablay",
+
+    "sablay na naman",
+
+    "maling basa",
+
+    "maling intindi",
+
+    "maling punto",
+
+    "maling direction",
+
+    "wala sa usapan",
+
+    "out of topic",
+
+    "off topic ka",
+
+    "balik sa tanong",
+
+    "sagot lang pre",
+
+    "wag essay",
+
+    "wag paligoy",
+
+    "straight answer",
+
+    "ano sagot",
+
+    "nasaan sagot",
+
+    "wala pa rin sagot",
+
+    "hindi yan sagot",
+
+    "palusot yan",
+
+    "reason nanaman",
+
+    "excuse nanaman",
+
+    "di ka matapos",
+
+    "ang dami",
+
+    "sobra dami",
+
+    "konti lang sana",
+
+    "pinahaba mo pa",
+
+    "pinilit pahabain",
+
+    "tapos na sana",
+
+    "wala na pre",
+
+    "next na",
+
+    "sunod",
+
+    "ano pa",
+
+    "may iba pa",
+
+    "sige ano pa",
+
+    "labas mo pa",
+
+    "yan lang",
+
+    "yun na",
+
+    "ganun lang",
+
+    "okay na yan",
+
+    "tigil na",
+
+    "wag na dagdagan",
+
+    "puro ka salita",
+
+    "salita nang salita",
+
+    "chat nang chat",
+
+    "send nang send",
+
+    "walang preno",
+
+    "di ka humihinto",
+
+    "di ka natututo",
+
+    "same problem",
+
+    "same answer",
+
+    "same excuse",
+
+    "same line",
+
+    "same script",
+
+    "wala nang bago",
+
+    "nakakasawa na",
+
+    "nakakaumay",
+
+    "ang repetitive",
+
+    "paulit ulit",
+
+    "parang naka loop",
+
+    "naka loop ka ba",
+
+    "stuck ka ba",
+
+    "restart ka muna pre"
 
 ];
 
-// ==========================================
+// ============================================================
 // UNIQUE TAUNT
-// ==========================================
+// ============================================================
 
 function getUniqueTaunt() {
 
-    if (usedTaunts.length >= massiveTaunts.length) {
+    if (
+        usedTaunts.length >=
+        massiveTaunts.length
+    ) {
         usedTaunts = [];
     }
 
     const available =
         massiveTaunts.filter(
-            item => !usedTaunts.includes(item)
+            item =>
+                !usedTaunts.includes(item)
         );
 
     const chosen =
         available[
-            Math.floor(Math.random() * available.length)
+            Math.floor(
+                Math.random() *
+                available.length
+            )
         ];
 
     usedTaunts.push(chosen);
@@ -242,33 +883,65 @@ function getUniqueTaunt() {
     return chosen;
 }
 
-// ==========================================
-// SIMPLE HUMAN MIMICKER
-// ==========================================
+// ============================================================
+// HUMAN MIMICKER
+// ============================================================
 
 function humanMimicker(targetBody, text) {
 
-    if (!targetBody) return text;
+    if (!targetBody)
+        return text;
 
-    if (targetBody.length <= 10) {
+    const length =
+        targetBody.trim().length;
 
-        const words = text.split(" ");
+    if (length <= 4) {
 
-        return (
-            words[0] +
-            " " +
-            (words[1] || "")
-        );
+        const words =
+            text.split(/\s+/);
+
+        return words
+            .slice(
+                0,
+                Math.min(
+                    2,
+                    words.length
+                )
+            )
+            .join(" ");
+    }
+
+    if (
+        length <= 10 &&
+        Math.random() < 0.45
+    ) {
+
+        const words =
+            text.split(/\s+/);
+
+        return words
+            .slice(
+                0,
+                Math.min(
+                    4,
+                    words.length
+                )
+            )
+            .join(" ");
     }
 
     return text;
 }
 
-// ==========================================
+// ============================================================
 // SAFE SEND
-// ==========================================
+// ============================================================
 
-function sendMessageSafe(api, message, threadID) {
+function sendMessageSafe(
+    api,
+    message,
+    threadID
+) {
 
     return new Promise(resolve => {
 
@@ -278,9 +951,7 @@ function sendMessageSafe(api, message, threadID) {
                 message,
                 threadID,
                 err => {
-
                     resolve(!err);
-
                 }
             );
 
@@ -293,11 +964,14 @@ function sendMessageSafe(api, message, threadID) {
     });
 }
 
-// ==========================================
-// TYPING INDICATOR
-// ==========================================
+// ============================================================
+// TYPING
+// ============================================================
 
-function sendTyping(api, threadID) {
+function sendTyping(
+    api,
+    threadID
+) {
 
     try {
 
@@ -316,29 +990,304 @@ function sendTyping(api, threadID) {
     } catch (err) {}
 }
 
-// ==========================================
+// ============================================================
+// GET THREAD INFO
+// ============================================================
+
+function getThreadInfoSafe(
+    api,
+    threadID
+) {
+
+    return new Promise(resolve => {
+
+        try {
+
+            api.getThreadInfo(
+                threadID,
+                (err, info) => {
+
+                    if (err || !info)
+                        return resolve(null);
+
+                    resolve(info);
+
+                }
+            );
+
+        } catch (err) {
+
+            resolve(null);
+
+        }
+
+    });
+}
+
+// ============================================================
+// CHANGE NICKNAME
+// ============================================================
+
+function changeNicknameSafe(
+    api,
+    nickname,
+    userID,
+    threadID
+) {
+
+    return new Promise(resolve => {
+
+        try {
+
+            api.changeNickname(
+                nickname,
+                userID,
+                threadID,
+                err => {
+                    resolve(!err);
+                }
+            );
+
+        } catch (err) {
+
+            resolve(false);
+
+        }
+
+    });
+}
+
+// ============================================================
+// SET ALL NICKNAMES
+// ============================================================
+
+async function setAllNicknames(
+    api,
+    threadID,
+    nickname
+) {
+
+    const info =
+        await getThreadInfoSafe(
+            api,
+            threadID
+        );
+
+    if (!info)
+        return {
+            success: false,
+            total: 0
+        };
+
+    let members =
+        info.participantIDs || [];
+
+    const botID =
+        api.getCurrentUserID();
+
+    members =
+        members.filter(
+            id => id !== botID
+        );
+
+    let success = 0;
+
+    for (const userID of members) {
+
+        const result =
+            await changeNicknameSafe(
+                api,
+                nickname,
+                userID,
+                threadID
+            );
+
+        if (result)
+            success++;
+
+        await new Promise(
+            resolve =>
+                setTimeout(
+                    resolve,
+                    150
+                )
+        );
+    }
+
+    global.nicknameState.set(
+        threadID,
+        {
+            nickname,
+            total: members.length,
+            success,
+            updatedAt: Date.now()
+        }
+    );
+
+    return {
+        success: true,
+        total: members.length,
+        changed: success
+    };
+}
+
+// ============================================================
+// SET GC TITLE
+// ============================================================
+
+function setGCTitleSafe(
+    api,
+    title,
+    threadID
+) {
+
+    return new Promise(resolve => {
+
+        try {
+
+            api.setTitle(
+                title,
+                threadID,
+                err => {
+                    resolve(!err);
+                }
+            );
+
+        } catch (err) {
+
+            resolve(false);
+
+        }
+
+    });
+}
+
+// ============================================================
+// LOCK GC NAME
+// ============================================================
+
+async function lockGCName(
+    api,
+    threadID,
+    requestedName
+) {
+
+    const name =
+        requestedName.trim();
+
+    if (!name)
+        return false;
+
+    const success =
+        await setGCTitleSafe(
+            api,
+            name,
+            threadID
+        );
+
+    if (!success)
+        return false;
+
+    global.gcNameLockState.set(
+        threadID,
+        {
+            locked: true,
+            name,
+            updatedAt: Date.now()
+        }
+    );
+
+    return true;
+}
+
+// ============================================================
 // COUNT ENGINE
-// ==========================================
+// ============================================================
 
 async function startCounting(
     api,
-    event,
-    mentionText = ""
+    event
 ) {
 
-    const threadID = event.threadID;
+    const threadID =
+        event.threadID;
 
-    let count = 1;
-
-    const maxCount = 50;
+    if (
+        global.countEngineState.get(
+            threadID
+        ) === true
+    ) {
+        return;
+    }
 
     global.countEngineState.set(
         threadID,
         true
     );
 
+    const started =
+        Date.now();
+
+    global.countStartState.set(
+        threadID,
+        started
+    );
+
+    global.countRunState.set(
+        threadID,
+        0
+    );
+
+    let count = 1;
+
+    while (
+        global.countEngineState.get(
+            threadID
+        ) === true &&
+        count <= MAX_COUNT
+    ) {
+
+        const sent =
+            await sendMessageSafe(
+                api,
+                String(count),
+                threadID
+            );
+
+        if (!sent)
+            break;
+
+        global.countRunState.set(
+            threadID,
+            count
+        );
+
+        count++;
+
+        if (count <= MAX_COUNT) {
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        500
+                    )
+            );
+        }
+    }
+
+    const finished =
+        Date.now();
+
+    const completed =
+        global.countRunState.get(
+            threadID
+        ) || 0;
+
     const startTime =
-        new Date().toLocaleTimeString(
+        new Date(
+            started
+        ).toLocaleTimeString(
             "en-US",
             {
                 hour: "2-digit",
@@ -347,69 +1296,131 @@ async function startCounting(
             }
         );
 
-    while (
-        global.countEngineState.get(threadID) === true &&
-        count <= maxCount
-    ) {
+    const finishTime =
+        new Date(
+            finished
+        ).toLocaleTimeString(
+            "en-US",
+            {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit"
+            }
+        );
 
-        await sendMessageSafe(
-            api,
-            `${count}`,
+    const status =
+        completed >= MAX_COUNT
+            ? "COMPLETED"
+            : "STOPPED";
+
+    global.countEngineState.set(
+        threadID,
+        false
+    );
+
+    await new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                500
+            )
+    );
+
+    await sendMessageSafe(
+        api,
+
+        `COUNT RESIBO
+━━━━━━━━━━━━━━━━━━
+TOTAL: ${completed} / ${MAX_COUNT}
+START: ${startTime}
+FINISH: ${finishTime}
+STATUS: ${status}
+━━━━━━━━━━━━━━━━━━
+COUNT ENGINE DONE`,
+
+        threadID
+    );
+}
+
+// ============================================================
+// BOT STATUS
+// ============================================================
+
+async function getStatusText(
+    api,
+    threadID
+) {
+
+    const hunting =
+        global.huntingState.get(
+            threadID
+        ) === true;
+
+    const counting =
+        global.countEngineState.get(
+            threadID
+        ) === true;
+
+    const lock =
+        global.gcNameLockState.get(
             threadID
         );
 
-        if (count === maxCount) {
-
-            global.countEngineState.set(
-                threadID,
-                false
-            );
-
-            const endTime =
-                new Date().toLocaleTimeString(
-                    "en-US",
-                    {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit"
-                    }
-                );
-
-            const receipt =
-                `🧾 🥷🩸 VOIDLESS4LGNG OFFICIAL RESIBO 🩸🥷 🧾\n` +
-                `━━━━━━━━━━━━━━━━━━━\n` +
-                `🎯 TARGET: ${mentionText || "EVERYONE"}\n` +
-                `📊 TOTAL COUNT: ${maxCount} / ${maxCount}\n` +
-                `⏰ START TIME: ${startTime}\n` +
-                `⏱ FINISH TIME: ${endTime}\n` +
-                `STATUS: COMPLETED\n` +
-                `━━━━━━━━━━━━━━━━━━━\n` +
-                `🔥 VOIDLESS4LGNG COUNT ENGINE FINISHED 🔥`;
-
-            await new Promise(
-                resolve =>
-                    setTimeout(resolve, 500)
-            );
-
-            return sendMessageSafe(
-                api,
-                receipt,
-                threadID
-            );
-        }
-
-        count++;
-
-        await new Promise(
-            resolve =>
-                setTimeout(resolve, 500)
+    const nickname =
+        global.nicknameState.get(
+            threadID
         );
-    }
+
+    const stats =
+        global.huntingStats.get(
+            threadID
+        ) || {
+            replies: 0,
+            blocked: 0
+        };
+
+    const info =
+        await getThreadInfoSafe(
+            api,
+            threadID
+        );
+
+    const currentName =
+        info && info.threadName
+            ? info.threadName
+            : "Unknown";
+
+    return (
+        `BOT STATUS\n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `HUNTING: ${hunting ? "ON" : "OFF"}\n` +
+        `COUNT: ${counting ? "RUNNING" : "OFF"}\n` +
+        `GC NAME LOCK: ${
+            lock && lock.locked
+                ? "ON"
+                : "OFF"
+        }\n` +
+        `CURRENT GC NAME: ${currentName}\n` +
+        `LOCKED NAME: ${
+            lock && lock.locked
+                ? lock.name
+                : "NONE"
+        }\n` +
+        `SET NICKNAME: ${
+            nickname
+                ? nickname.nickname
+                : "NONE"
+        }\n` +
+        `HUNTING REPLIES: ${stats.replies}\n` +
+        `BLOCKED/SPAM: ${stats.blocked}\n` +
+        `UPTIME: ${Math.floor(process.uptime())}s\n` +
+        `━━━━━━━━━━━━━━━━━━`
+    );
 }
 
-// ==========================================
-// COMMAND
-// ==========================================
+// ============================================================
+// COMMAND HANDLER
+// ============================================================
 
 module.exports.run = async function ({
     api,
@@ -423,17 +1434,27 @@ module.exports.run = async function ({
         messageID
     } = event;
 
-    if (senderID !== ADMIN_ID)
+    if (
+        senderID !== ADMIN_ID
+    ) {
         return;
+    }
 
-    const option =
-        args[0]
-            ? args[0].toLowerCase()
+    const input =
+        Array.isArray(args)
+            ? args.join(" ").trim()
             : "";
 
+    const lower =
+        input.toLowerCase();
+
+    // ========================================================
+    // START
+    // ========================================================
+
     if (
-        option === "start" ||
-        option === "on"
+        lower === "start" ||
+        lower === "on"
     ) {
 
         global.huntingState.set(
@@ -441,51 +1462,257 @@ module.exports.run = async function ({
             true
         );
 
-        if (
-            typeof api.setMessageReaction ===
-            "function"
-        ) {
-
-            api.setMessageReaction(
-                "🥷",
-                messageID,
-                () => {},
-                true
-            );
-
-        }
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
 
         return;
     }
 
-    if (option === "off") {
+    // ========================================================
+    // STOP
+    // ========================================================
+
+    if (
+        lower === "stop" ||
+        lower === "off"
+    ) {
 
         global.huntingState.set(
             threadID,
             false
         );
 
-        if (
-            typeof api.setMessageReaction ===
-            "function"
-        ) {
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
 
-            api.setMessageReaction(
-                "🥷",
-                messageID,
-                () => {},
-                true
+        return;
+    }
+
+    // ========================================================
+    // COUNT
+    // ========================================================
+
+    if (
+        lower === "count"
+    ) {
+
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
+
+        if (
+            global.countEngineState.get(
+                threadID
+            ) === true
+        ) {
+            return;
+        }
+
+        startCounting(
+            api,
+            event
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // COUNT OFF
+    // ========================================================
+
+    if (
+        lower === "count off"
+    ) {
+
+        global.countEngineState.set(
+            threadID,
+            false
+        );
+
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // STATUS
+    // ========================================================
+
+    if (
+        lower === "status"
+    ) {
+
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
+
+        const status =
+            await getStatusText(
+                api,
+                threadID
             );
 
+        await sendMessageSafe(
+            api,
+            status,
+            threadID
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // LOCK GC NAME
+    // ========================================================
+
+    if (
+        lower.startsWith("lock ")
+    ) {
+
+        const name =
+            input
+                .substring(5)
+                .trim();
+
+        if (!name)
+            return;
+
+        const success =
+            await lockGCName(
+                api,
+                threadID,
+                name
+            );
+
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
+
+        if (success) {
+
+            await sendMessageSafe(
+                api,
+                `GC NAME LOCKED\nName: ${name}`,
+                threadID
+            );
+
+        } else {
+
+            await sendMessageSafe(
+                api,
+                `Hindi ma-lock ang GC name.`,
+                threadID
+            );
         }
+
+        return;
+    }
+
+    // ========================================================
+    // UNLOCK
+    // ========================================================
+
+    if (
+        lower === "unlock"
+    ) {
+
+        global.gcNameLockState.delete(
+            threadID
+        );
+
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
+
+        await sendMessageSafe(
+            api,
+            "GC NAME LOCK: OFF",
+            threadID
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // SET ALL NICKNAME
+    // ========================================================
+
+    if (
+        lower.startsWith("set ")
+    ) {
+
+        const nickname =
+            input
+                .substring(4)
+                .trim();
+
+        if (!nickname)
+            return;
+
+        selfReact(
+            api,
+            threadID,
+            messageID
+        );
+
+        await sendMessageSafe(
+            api,
+            `Setting nickname: ${nickname}`,
+            threadID
+        );
+
+        const result =
+            await setAllNicknames(
+                api,
+                threadID,
+                nickname
+            );
+
+        if (!result.success) {
+
+            await sendMessageSafe(
+                api,
+                "Hindi makuha ang members ng GC.",
+                threadID
+            );
+
+            return;
+        }
+
+        await sendMessageSafe(
+            api,
+            `SET NICKNAME DONE\n` +
+            `Nickname: ${nickname}\n` +
+            `Members: ${result.total}\n` +
+            `Changed: ${result.changed}`,
+            threadID
+        );
 
         return;
     }
 };
 
-// ==========================================
+// ============================================================
 // EVENT ENGINE
-// ==========================================
+// ============================================================
 
 module.exports.handleEvent = async function ({
     api,
@@ -496,7 +1723,6 @@ module.exports.handleEvent = async function ({
         threadID,
         senderID,
         body,
-        mentions,
         messageID
     } = event;
 
@@ -506,151 +1732,181 @@ module.exports.handleEvent = async function ({
     if (!senderID)
         return;
 
-    if (senderID === botID)
+    if (
+        senderID === botID
+    )
         return;
 
     if (!body)
         return;
 
     const text =
-        body.trim().toLowerCase();
+        body.trim();
 
-    // ======================================
-    // ADMIN COMMANDS
-    // ======================================
+    const lower =
+        text.toLowerCase();
 
-    if (senderID === ADMIN_ID) {
+    // ========================================================
+    // GC NAME LOCK
+    // ========================================================
 
-        if (
-            text === "." ||
-            text === ".start" ||
-            text === "start" ||
-            text === ".off" ||
-            text === "off" ||
-            text.startsWith("/count")
-        ) {
+    const lock =
+        global.gcNameLockState.get(
+            threadID
+        );
 
-            if (
-                typeof api.setMessageReaction ===
-                "function"
-            ) {
+    if (
+        lock &&
+        lock.locked
+    ) {
 
-                api.setMessageReaction(
-                    "🥷",
-                    messageID,
-                    () => {},
-                    true
-                );
-
-            }
-
-        }
-
-        if (
-            text === ".start" ||
-            text === "start"
-        ) {
-
-            global.huntingState.set(
-                threadID,
-                true
-            );
-
-            return;
-        }
-
-        if (
-            text === ".off" ||
-            text === "off"
-        ) {
-
-            global.huntingState.set(
-                threadID,
-                false
-            );
-
-            return;
-        }
-
-        // COUNT ON
-        if (
-            text === "/count on" ||
-            text.startsWith("/count on ")
-        ) {
-
-            if (
-                global.countEngineState.get(
-                    threadID
-                )
-            ) {
-                return;
-            }
-
-            let mentionText = "";
-
-            if (
-                mentions &&
-                Object.keys(mentions).length > 0
-            ) {
-
-                const targetID =
-                    Object.keys(mentions)[0];
-
-                mentionText =
-                    `@${mentions[targetID]}`;
-            }
-
-            startCounting(
+        const info =
+            await getThreadInfoSafe(
                 api,
-                event,
-                mentionText
+                threadID
             );
 
-            return;
+        if (
+            info &&
+            info.threadName &&
+            info.threadName !== lock.name
+        ) {
+
+            await setGCTitleSafe(
+                api,
+                lock.name,
+                threadID
+            );
         }
+    }
 
-        // COUNT OFF
-        if (text === "/count off") {
+    // ========================================================
+    // ADMIN
+    // ========================================================
 
-            global.countEngineState.set(
+    if (
+        senderID === ADMIN_ID
+    ) {
+
+        if (
+            lower === "start" ||
+            lower === "on" ||
+            lower === "stop" ||
+            lower === "off" ||
+            lower === "count" ||
+            lower === "count off" ||
+            lower === "status" ||
+            lower === "unlock" ||
+            lower.startsWith("lock ") ||
+            lower.startsWith("set ")
+        ) {
+
+            selfReact(
+                api,
                 threadID,
-                false
+                messageID
             );
 
-            return;
         }
 
         return;
     }
 
-    // ======================================
+    // ========================================================
+    // COMMAND-LIKE MESSAGES
+    // ========================================================
+
+    if (
+        lower === "start" ||
+        lower === "stop" ||
+        lower === "on" ||
+        lower === "off" ||
+        lower === "count" ||
+        lower === "count off" ||
+        lower === "status" ||
+        lower === "unlock" ||
+        lower.startsWith("lock ") ||
+        lower.startsWith("set ")
+    ) {
+
+        return;
+    }
+
+    // ========================================================
     // HUNTING CHECK
-    // ======================================
+    // ========================================================
 
     if (
-        global.huntingState.get(threadID) !== true
+        global.huntingState.get(
+            threadID
+        ) !== true
     ) {
         return;
     }
 
-    if (
-        text.startsWith("/count")
-    ) {
-        return;
-    }
-
-    // ======================================
+    // ========================================================
     // PER USER KEY
-    // ======================================
+    // ========================================================
 
     const userKey =
         `${threadID}_${senderID}`;
 
-    const now = Date.now();
+    const now =
+        Date.now();
 
-    // ======================================
-    // HARD 10-SECOND LOCK
-    // ======================================
+    // ========================================================
+    // STATS
+    // ========================================================
+
+    let stats =
+        global.huntingStats.get(
+            threadID
+        );
+
+    if (!stats) {
+
+        stats = {
+            replies: 0,
+            blocked: 0
+        };
+
+        global.huntingStats.set(
+            threadID,
+            stats
+        );
+    }
+
+    // ========================================================
+    // DUPLICATE SUPPRESSION
+    // ========================================================
+
+    const duplicateKey =
+        `${threadID}_${senderID}_${lower}`;
+
+    const lastDuplicate =
+        global.huntingDuplicateState.get(
+            duplicateKey
+        );
+
+    if (
+        lastDuplicate &&
+        now - lastDuplicate <
+        DUPLICATE_WINDOW
+    ) {
+
+        stats.blocked++;
+
+        return;
+    }
+
+    global.huntingDuplicateState.set(
+        duplicateKey,
+        now
+    );
+
+    // ========================================================
+    // HARD 10 SECOND LOCK
+    // ========================================================
 
     const state =
         global.huntingReplyState.get(
@@ -662,20 +1918,20 @@ module.exports.handleEvent = async function ({
         const elapsed =
             now - state.lastReply;
 
-        // Still inside 10-second window
         if (
-            elapsed < REPLY_INTERVAL
+            elapsed <
+            REPLY_INTERVAL
         ) {
 
-            // Don't create another timer.
-            // Don't send another reply.
+            stats.blocked++;
+
             return;
         }
     }
 
-    // ======================================
+    // ========================================================
     // ACTIVE SEND LOCK
-    // ======================================
+    // ========================================================
 
     if (
         global.activeSendingState.get(
@@ -683,19 +1939,20 @@ module.exports.handleEvent = async function ({
         )
     ) {
 
+        stats.blocked++;
+
         return;
     }
 
-    // ======================================
-    // LOCK IMMEDIATELY
-    // ======================================
+    // ========================================================
+    // LOCK
+    // ========================================================
 
     global.activeSendingState.set(
         userKey,
         true
     );
 
-    // Reserve the reply slot immediately.
     global.huntingReplyState.set(
         userKey,
         {
@@ -703,14 +1960,14 @@ module.exports.handleEvent = async function ({
         }
     );
 
-    // ======================================
-    // GENERATE ONE MESSAGE ONLY
-    // ======================================
+    // ========================================================
+    // GENERATE REPLY
+    // ========================================================
 
     const rawTaunt =
         getUniqueTaunt();
 
-    const mimickedText =
+    const mimicked =
         humanMimicker(
             body,
             rawTaunt
@@ -718,12 +1975,12 @@ module.exports.handleEvent = async function ({
 
     const finalMessage =
         humanizeText(
-            mimickedText
+            mimicked
         );
 
-    // ======================================
-    // HUMAN-LIKE WAIT
-    // ======================================
+    // ========================================================
+    // TYPING
+    // ========================================================
 
     const typingDelay =
         Math.floor(
@@ -758,45 +2015,101 @@ module.exports.handleEvent = async function ({
 
     }, typingDelay);
 
-    // ======================================
-    // EXACTLY ONE SEND
-    // ======================================
+    // ========================================================
+    // EXACTLY ONE REPLY AFTER 10 SECONDS
+    // ========================================================
 
-    setTimeout(async () => {
+    setTimeout(
+        async () => {
 
-        try {
+            try {
 
-            if (
-                global.huntingState.get(
-                    threadID
-                ) !== true
-            ) {
+                if (
+                    global.huntingState.get(
+                        threadID
+                    ) !== true
+                ) {
+                    return;
+                }
 
-                return;
+                const sent =
+                    await sendMessageSafe(
+                        api,
+                        finalMessage,
+                        threadID
+                    );
+
+                if (sent) {
+                    stats.replies++;
+                }
+
+            } catch (err) {
+
+                console.error(
+                    "[HUNTING]",
+                    err
+                );
+
+            } finally {
+
+                global.activeSendingState.set(
+                    userKey,
+                    false
+                );
+
             }
 
-            await sendMessageSafe(
-                api,
-                finalMessage,
-                threadID
-            );
-
-        } catch (err) {
-
-            console.error(
-                "[HUNTING SEND ERROR]",
-                err
-            );
-
-        } finally {
-
-            // Unlock AFTER send attempt
-            global.activeSendingState.set(
-                userKey,
-                false
-            );
-
-        }
-
-    }, REPLY_INTERVAL);
+        },
+        REPLY_INTERVAL
+    );
 };
+
+// ============================================================
+// CLEANUP
+// ============================================================
+
+setInterval(() => {
+
+    const now =
+        Date.now();
+
+    for (
+        const [
+            key,
+            timestamp
+        ]
+        of global.huntingDuplicateState
+    ) {
+
+        if (
+            now - timestamp >
+            30000
+        ) {
+
+            global.huntingDuplicateState.delete(
+                key
+            );
+        }
+    }
+
+    for (
+        const [
+            key,
+            state
+        ]
+        of global.huntingReplyState
+    ) {
+
+        if (
+            state &&
+            now - state.lastReply >
+            60000
+        ) {
+
+            global.huntingReplyState.delete(
+                key
+            );
+        }
+    }
+
+}, 30000);
