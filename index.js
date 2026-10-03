@@ -1,667 +1,638 @@
 "use strict";
 
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
-const http = require("http");
+const express = require("express");
 const { spawn } = require("child_process");
 
+const app = express();
+
+const PORT = process.env.PORT || 8080;
+
 const ROOT = __dirname;
-const AUTO_FILE = path.join(ROOT, "auto.js");
+const PUBLIC_DIR = path.join(ROOT, "public");
 const DATA_DIR = path.join(ROOT, "data");
-const RUNTIME_FILE = path.join(DATA_DIR, "runtime.json");
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
+const CONFIG_FILE = path.join(DATA_DIR, "config.json");
+const HISTORY_FILE = path.join(DATA_DIR, "history.json");
 
-const CONFIG = {
-    port: Number(process.env.PORT) || 3000,
+const AUTO_FILE = path.join(ROOT, "auto.js");
 
-    initialRestartDelay: 5000,
-    maxRestartDelay: 60000,
-    backoffMultiplier: 2,
+fs.ensureDirSync(DATA_DIR);
+fs.ensureDirSync(PUBLIC_DIR);
 
-    crashWindow: 60000,
-    maxCrashesInWindow: 5,
-    crashPause: 5 * 60 * 1000,
+if (!fs.existsSync(CONFIG_FILE)) {
+    fs.writeJsonSync(
+        CONFIG_FILE,
+        {
+            prefix: ".",
+            admin: "",
+            selectedCommands: ["hunting"],
+            selectedEvents: [],
+            session: null,
+            enabled: true
+        },
+        { spaces: 2 }
+    );
+}
 
-    healthCheckInterval: 30000,
-    shutdownTimeout: 10000,
+if (!fs.existsSync(HISTORY_FILE)) {
+    fs.writeJsonSync(HISTORY_FILE, [], { spaces: 2 });
+}
 
-    dashboardRateWindow: 10000,
-    dashboardRateMax: 30
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+
+app.use(express.static(PUBLIC_DIR));
+
+let child = null;
+
+const startedAt = Date.now();
+
+const runtime = {
+    status: "starting",
+    restarts: 0,
+    lastError: null,
+    lastMessage: null
 };
 
-let childProcess = null;
-let restartTimer = null;
-let healthTimer = null;
-let shutdownTimer = null;
 
-let shuttingDown = false;
-let starting = false;
+/* =========================================================
+   CONFIG
+========================================================= */
 
-let restartDelay = CONFIG.initialRestartDelay;
-let crashHistory = [];
-
-let processStartedAt = null;
-let lastStartAttempt = null;
-
-const dashboardRequests = new Map();
-
-function now() {
-    return Date.now();
-}
-
-function uptimeSeconds() {
-    if (!processStartedAt) return 0;
-    return Math.floor((now() - processStartedAt) / 1000);
-}
-
-function formatUptime(seconds) {
-    seconds = Number(seconds) || 0;
-
-    const days = Math.floor(seconds / 86400);
-    seconds %= 86400;
-
-    const hours = Math.floor(seconds / 3600);
-    seconds %= 3600;
-
-    const minutes = Math.floor(seconds / 60);
-    seconds %= 60;
-
-    return [
-        days ? `${days}d` : "",
-        hours ? `${hours}h` : "",
-        minutes ? `${minutes}m` : "",
-        `${seconds}s`
-    ].filter(Boolean).join(" ");
-}
-
-function readRuntime() {
+function readConfig() {
     try {
-        if (!fs.existsSync(RUNTIME_FILE)) {
-            return {
-                online: false,
-                updatedAt: null,
-                accounts: [],
-                commands: [],
-                stats: {}
-            };
-        }
-
-        const raw = fs.readFileSync(RUNTIME_FILE, "utf8");
-
-        if (!raw.trim()) {
-            return {};
-        }
-
-        return JSON.parse(raw);
-    } catch (error) {
+        return fs.readJsonSync(CONFIG_FILE);
+    } catch {
         return {
-            online: false,
-            error: error.message
+            prefix: ".",
+            admin: "",
+            selectedCommands: ["hunting"],
+            selectedEvents: [],
+            session: null,
+            enabled: true
         };
     }
 }
 
-function cleanupDashboardRequests() {
-    const cutoff = now() - CONFIG.dashboardRateWindow;
 
-    for (const [ip, data] of dashboardRequests) {
-        data.timestamps = data.timestamps.filter(time => time >= cutoff);
-
-        if (!data.timestamps.length) {
-            dashboardRequests.delete(ip);
-        }
-    }
-}
-
-function dashboardRateLimit(req) {
-    const ip =
-        req.headers["x-forwarded-for"] ||
-        req.socket.remoteAddress ||
-        "unknown";
-
-    const current = now();
-
-    let record = dashboardRequests.get(ip);
-
-    if (!record) {
-        record = {
-            timestamps: []
-        };
-
-        dashboardRequests.set(ip, record);
-    }
-
-    record.timestamps = record.timestamps.filter(
-        time => current - time < CONFIG.dashboardRateWindow
+function writeConfig(config) {
+    fs.writeJsonSync(
+        CONFIG_FILE,
+        config,
+        { spaces: 2 }
     );
+}
 
-    if (record.timestamps.length >= CONFIG.dashboardRateMax) {
-        return false;
+
+/* =========================================================
+   COMMAND DISCOVERY
+========================================================= */
+
+function discoverCommands() {
+
+    const scriptDir =
+        path.join(ROOT, "script");
+
+    if (!fs.existsSync(scriptDir)) {
+        return [];
     }
 
-    record.timestamps.push(current);
+    const files =
+        fs.readdirSync(scriptDir)
+            .filter(file =>
+                file.endsWith(".js")
+            );
 
-    return true;
+    const commands = [];
+
+    for (const file of files) {
+
+        try {
+
+            const full =
+                path.join(scriptDir, file);
+
+            delete require.cache[
+                require.resolve(full)
+            ];
+
+            const mod =
+                require(full);
+
+            if (
+                mod &&
+                mod.config &&
+                mod.config.name
+            ) {
+
+                commands.push({
+                    name: String(mod.config.name),
+                    file,
+                    version:
+                        mod.config.version || "1.0.0",
+                    description:
+                        mod.config.description || "",
+                    hasPermission:
+                        mod.config.hasPermission ?? 0,
+                    usePrefix:
+                        mod.config.usePrefix !== false &&
+                        mod.config.hasPrefix !== false
+                });
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                `[COMMAND] ${file}: ${error.message}`
+            );
+
+        }
+
+    }
+
+    return commands.sort(
+        (a, b) =>
+            a.name.localeCompare(b.name)
+    );
 }
 
-function sendJSON(res, status, data) {
-    const body = JSON.stringify(data);
 
-    res.writeHead(status, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-        "Content-Length": Buffer.byteLength(body)
+/* =========================================================
+   API
+========================================================= */
+
+app.get("/api/status", (req, res) => {
+
+    const config = readConfig();
+
+    res.json({
+
+        ok: true,
+
+        status: runtime.status,
+
+        uptime:
+            Date.now() - startedAt,
+
+        restarts:
+            runtime.restarts,
+
+        lastError:
+            runtime.lastError,
+
+        lastMessage:
+            runtime.lastMessage,
+
+        pid:
+            child ? child.pid : null,
+
+        config: {
+            prefix:
+                config.prefix,
+
+            admin:
+                config.admin,
+
+            selectedCommands:
+                config.selectedCommands || [],
+
+            selectedEvents:
+                config.selectedEvents || []
+        }
+
     });
 
-    res.end(body);
-}
+});
 
-function readBody(req) {
-    return new Promise((resolve, reject) => {
-        let body = "";
 
-        req.on("data", chunk => {
-            body += chunk.toString();
+app.get("/api/commands", (req, res) => {
 
-            if (body.length > 1024 * 1024) {
-                reject(new Error("Request body too large."));
-                req.destroy();
-            }
-        });
-
-        req.on("end", () => {
-            if (!body.trim()) {
-                resolve({});
-                return;
-            }
-
-            try {
-                resolve(JSON.parse(body));
-            } catch {
-                reject(new Error("Invalid JSON."));
-            }
-        });
-
-        req.on("error", reject);
+    res.json({
+        ok: true,
+        commands: discoverCommands()
     });
-}
 
-function getProcessStatus() {
-    return {
-        running: !!childProcess,
-        pid: childProcess ? childProcess.pid : null,
-        uptime: uptimeSeconds(),
-        uptimeFormatted: formatUptime(uptimeSeconds()),
-        startedAt: processStartedAt
-            ? new Date(processStartedAt).toISOString()
-            : null,
-        lastStartAttempt: lastStartAttempt
-            ? new Date(lastStartAttempt).toISOString()
-            : null
-    };
-}
+});
 
-function getRecoveryStatus() {
-    return {
-        restartDelay,
-        crashCount: crashHistory.length,
-        crashHistory: crashHistory.map(time =>
-            new Date(time).toISOString()
-        ),
-        nextRestartIn: restartTimer ? restartDelay : 0
-    };
-}
 
-function spawnBot() {
-    if (shuttingDown) return;
+app.get("/api/accounts", (req, res) => {
 
-    if (starting) return;
+    res.json({
+        ok: true,
+        accounts: [
+            {
+                pid:
+                    child ? child.pid : null,
 
-    if (childProcess) return;
+                status:
+                    runtime.status,
 
-    if (!fs.existsSync(AUTO_FILE)) {
-        console.error("[SUPERVISOR] auto.js not found.");
+                uptime:
+                    Date.now() - startedAt
+            }
+        ]
+    });
+
+});
+
+
+app.get("/api/hunting", (req, res) => {
+
+    res.json({
+        ok: true,
+        hunting: {
+            available:
+                discoverCommands()
+                    .some(
+                        command =>
+                            command.name === "hunting"
+                    )
+        }
+    });
+
+});
+
+
+/* =========================================================
+   SAVE CONFIG / START
+========================================================= */
+
+app.post("/api/config", (req, res) => {
+
+    try {
+
+        const old =
+            readConfig();
+
+        const body =
+            req.body || {};
+
+        const config = {
+
+            ...old,
+
+            prefix:
+                typeof body.prefix === "string"
+                    ? body.prefix.trim()
+                    : old.prefix,
+
+            admin:
+                typeof body.admin === "string"
+                    ? body.admin.trim()
+                    : old.admin,
+
+            selectedCommands:
+                Array.isArray(body.selectedCommands)
+                    ? body.selectedCommands
+                    : old.selectedCommands,
+
+            selectedEvents:
+                Array.isArray(body.selectedEvents)
+                    ? body.selectedEvents
+                    : old.selectedEvents,
+
+            session:
+                body.session !== undefined
+                    ? body.session
+                    : old.session,
+
+            enabled:
+                body.enabled !== undefined
+                    ? Boolean(body.enabled)
+                    : true
+
+        };
+
+
+        writeConfig(config);
+
+
+        restartWorker();
+
+
+        res.json({
+            ok: true,
+            message: "Configuration saved."
+        });
+
+
+    } catch (error) {
+
+        res.status(500).json({
+            ok: false,
+            error: error.message
+        });
+
+    }
+
+});
+
+
+/* =========================================================
+   WORKER
+========================================================= */
+
+function startWorker() {
+
+    if (child) {
         return;
     }
 
-    starting = true;
-    lastStartAttempt = now();
+    if (!fs.existsSync(AUTO_FILE)) {
 
-    console.log("[SUPERVISOR] Starting auto.js...");
+        runtime.status = "missing-auto-js";
 
-    const child = spawn(
+        console.error(
+            "[NULLFIED] auto.js not found."
+        );
+
+        return;
+    }
+
+
+    runtime.status = "starting";
+
+
+    child = spawn(
         process.execPath,
         [AUTO_FILE],
         {
             cwd: ROOT,
+
             env: {
                 ...process.env,
-                NODE_ENV: process.env.NODE_ENV || "production",
-                BOT_WORKER: "true",
-                SUPERVISOR_PID: String(process.pid)
+                NULLFIED_CHILD: "1"
             },
-            stdio: ["inherit", "inherit", "inherit", "ipc"],
-            shell: false
+
+            stdio: [
+                "ignore",
+                "pipe",
+                "pipe",
+                "ipc"
+            ]
         }
     );
 
-    childProcess = child;
-    processStartedAt = now();
-    starting = false;
 
-    child.on("message", message => {
-        if (!message || typeof message !== "object") return;
+    child.stdout.on(
+        "data",
+        data => {
 
-        if (message.type === "runtime") {
-            try {
-                fs.writeFileSync(
-                    RUNTIME_FILE,
-                    JSON.stringify(message.data, null, 2),
-                    "utf8"
-                );
-            } catch (error) {
-                console.error(
-                    "[SUPERVISOR] Runtime write error:",
-                    error.message
-                );
-            }
-        }
-    });
+            const text =
+                data.toString();
 
-    child.on("spawn", () => {
-        console.log(
-            `[SUPERVISOR] auto.js started PID=${child.pid}`
-        );
-    });
-
-    child.on("error", error => {
-        console.error(
-            "[SUPERVISOR] Child process error:",
-            error.message
-        );
-    });
-
-    child.on("exit", (code, signal) => {
-        childProcess = null;
-
-        console.log(
-            `[SUPERVISOR] auto.js exited code=${code} signal=${signal || "none"}`
-        );
-
-        if (shuttingDown) return;
-
-        const current = now();
-
-        crashHistory.push(current);
-
-        crashHistory = crashHistory.filter(
-            time => current - time <= CONFIG.crashWindow
-        );
-
-        if (crashHistory.length >= CONFIG.maxCrashesInWindow) {
-            console.error(
-                "[SUPERVISOR] Crash limit reached. Pausing recovery."
+            process.stdout.write(
+                `[AUTO] ${text}`
             );
 
-            scheduleRestart(CONFIG.crashPause);
+            runtime.lastMessage =
+                text.trim();
 
-            return;
         }
-
-        scheduleRestart(restartDelay);
-
-        restartDelay = Math.min(
-            CONFIG.maxRestartDelay,
-            Math.floor(
-                restartDelay * CONFIG.backoffMultiplier
-            )
-        );
-    });
-}
-
-function scheduleRestart(delay) {
-    if (shuttingDown) return;
-
-    if (restartTimer) {
-        clearTimeout(restartTimer);
-    }
-
-    console.log(
-        `[SUPERVISOR] Restart scheduled in ${delay}ms.`
     );
 
-    restartTimer = setTimeout(() => {
-        restartTimer = null;
 
-        if (!shuttingDown) {
-            spawnBot();
-        }
-    }, delay);
-}
+    child.stderr.on(
+        "data",
+        data => {
 
-function restartBot() {
-    if (shuttingDown) return false;
+            const text =
+                data.toString();
 
-    restartDelay = CONFIG.initialRestartDelay;
-
-    if (restartTimer) {
-        clearTimeout(restartTimer);
-        restartTimer = null;
-    }
-
-    if (childProcess) {
-        try {
-            childProcess.kill("SIGTERM");
-        } catch {}
-    } else {
-        spawnBot();
-    }
-
-    return true;
-}
-
-function startHealthMonitor() {
-    if (healthTimer) {
-        clearInterval(healthTimer);
-    }
-
-    healthTimer = setInterval(() => {
-        cleanupDashboardRequests();
-
-        if (!childProcess && !restartTimer && !shuttingDown) {
-            spawnBot();
-        }
-
-        const runtime = readRuntime();
-
-        if (
-            runtime &&
-            runtime.updatedAt &&
-            runtime.online &&
-            now() - new Date(runtime.updatedAt).getTime() > 120000
-        ) {
-            console.warn(
-                "[SUPERVISOR] Worker runtime heartbeat is stale."
-            );
-        }
-    }, CONFIG.healthCheckInterval);
-}
-
-const server = http.createServer(async (req, res) => {
-    try {
-        if (!dashboardRateLimit(req)) {
-            sendJSON(res, 429, {
-                ok: false,
-                error: "Too many requests."
-            });
-
-            return;
-        }
-
-        const url = new URL(
-            req.url,
-            `http://${req.headers.host || "localhost"}`
-        );
-
-        if (req.method === "GET" && url.pathname === "/health") {
-            sendJSON(res, 200, {
-                ok: true,
-                supervisor: true,
-                worker: !!childProcess,
-                pid: process.pid,
-                time: new Date().toISOString()
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            (
-                url.pathname === "/" ||
-                url.pathname === "/dashboard"
-            )
-        ) {
-            const indexFile = path.join(
-                ROOT,
-                "public",
-                "index.html"
+            process.stderr.write(
+                `[AUTO ERROR] ${text}`
             );
 
-            if (!fs.existsSync(indexFile)) {
-                sendJSON(res, 404, {
-                    ok: false,
-                    error: "public/index.html not found."
-                });
+            runtime.lastError =
+                text.trim();
 
+        }
+    );
+
+
+    child.on(
+        "message",
+        message => {
+
+            if (!message) {
                 return;
             }
 
-            const html = fs.readFileSync(indexFile);
+            if (message.type === "status") {
 
-            res.writeHead(200, {
-                "Content-Type": "text/html; charset=utf-8",
-                "Cache-Control": "no-store"
-            });
+                runtime.status =
+                    message.status;
 
-            res.end(html);
+            }
 
-            return;
+            if (message.type === "error") {
+
+                runtime.lastError =
+                    message.error;
+
+            }
+
         }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/api/status"
-        ) {
-            const runtime = readRuntime();
-
-            sendJSON(res, 200, {
-                ok: true,
-                supervisor: getProcessStatus(),
-                recovery: getRecoveryStatus(),
-                worker: runtime
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/api/bot/status"
-        ) {
-            const runtime = readRuntime();
-
-            sendJSON(res, 200, {
-                ok: true,
-                process: getProcessStatus(),
-                bot: runtime
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/api/recovery"
-        ) {
-            sendJSON(res, 200, {
-                ok: true,
-                ...getRecoveryStatus()
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/api/commands"
-        ) {
-            const runtime = readRuntime();
-
-            sendJSON(res, 200, {
-                ok: true,
-                commands: runtime.commands || [],
-                count: Array.isArray(runtime.commands)
-                    ? runtime.commands.length
-                    : 0
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/api/accounts"
-        ) {
-            const runtime = readRuntime();
-
-            sendJSON(res, 200, {
-                ok: true,
-                accounts: runtime.accounts || []
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/api/hunting"
-        ) {
-            const runtime = readRuntime();
-
-            sendJSON(res, 200, {
-                ok: true,
-                hunting: runtime.hunting || {
-                    enabled: false
-                }
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/commands"
-        ) {
-            const runtime = readRuntime();
-
-            sendJSON(res, 200, {
-                ok: true,
-                commands: runtime.commands || [],
-                events: runtime.events || []
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "GET" &&
-            url.pathname === "/info"
-        ) {
-            const runtime = readRuntime();
-
-            sendJSON(res, 200, {
-                ok: true,
-                accounts: runtime.accounts || []
-            });
-
-            return;
-        }
-
-        if (
-            req.method === "POST" &&
-            url.pathname === "/api/restart"
-        ) {
-            await readBody(req);
-
-            const result = restartBot();
-
-            sendJSON(res, 200, {
-                ok: result,
-                message: result
-                    ? "Restart requested."
-                    : "Restart unavailable."
-            });
-
-            return;
-        }
-
-        sendJSON(res, 404, {
-            ok: false,
-            error: "Not found."
-        });
-    } catch (error) {
-        sendJSON(res, 500, {
-            ok: false,
-            error: error.message
-        });
-    }
-});
-
-function shutdown(signal) {
-    if (shuttingDown) return;
-
-    shuttingDown = true;
-
-    console.log(
-        `[SUPERVISOR] Shutdown requested by ${signal}.`
     );
 
-    if (restartTimer) {
-        clearTimeout(restartTimer);
-        restartTimer = null;
-    }
 
-    if (healthTimer) {
-        clearInterval(healthTimer);
-        healthTimer = null;
-    }
+    child.on(
+        "error",
+        error => {
 
-    if (childProcess) {
-        try {
-            childProcess.kill("SIGTERM");
-        } catch {}
-    }
+            runtime.lastError =
+                error.message;
 
-    shutdownTimer = setTimeout(() => {
-        if (childProcess) {
-            try {
-                childProcess.kill("SIGKILL");
-            } catch {}
+            runtime.status =
+                "error";
+
         }
+    );
 
-        process.exit(0);
-    }, CONFIG.shutdownTimeout);
 
-    server.close(() => {
-        clearTimeout(shutdownTimer);
-        process.exit(0);
-    });
+    child.on(
+        "exit",
+        (code, signal) => {
+
+            child = null;
+
+            runtime.status =
+                "stopped";
+
+
+            console.log(
+                `[NULLFIED] Worker exited. code=${code} signal=${signal}`
+            );
+
+
+            if (
+                code !== 0 &&
+                runtime.status !== "stopping"
+            ) {
+
+                runtime.restarts++;
+
+                setTimeout(
+                    () => {
+
+                        if (!child) {
+                            startWorker();
+                        }
+
+                    },
+                    5000
+                );
+
+            }
+
+        }
+    );
+
 }
 
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-process.on("uncaughtException", error => {
-    console.error(
-        "[SUPERVISOR] Uncaught exception:",
-        error
+function stopWorker() {
+
+    if (!child) {
+        return;
+    }
+
+    runtime.status =
+        "stopping";
+
+
+    try {
+        child.kill("SIGTERM");
+    } catch {}
+
+
+    setTimeout(
+        () => {
+
+            if (child) {
+
+                try {
+                    child.kill("SIGKILL");
+                } catch {}
+
+            }
+
+        },
+        5000
     );
+
+}
+
+
+function restartWorker() {
+
+    stopWorker();
+
+    setTimeout(
+        () => {
+
+            if (!child) {
+                startWorker();
+            }
+
+        },
+        1500
+    );
+
+}
+
+
+/* =========================================================
+   HEALTH
+========================================================= */
+
+app.get("/health", (req, res) => {
+
+    res.json({
+        ok: true,
+        service: "NULLFIED",
+        worker:
+            runtime.status
+    });
+
 });
 
-process.on("unhandledRejection", error => {
-    console.error(
-        "[SUPERVISOR] Unhandled rejection:",
-        error
-    );
-});
 
-server.listen(CONFIG.port, "0.0.0.0", () => {
+/* =========================================================
+   SERVER
+========================================================= */
+
+const server =
+    app.listen(
+        PORT,
+        () => {
+
+            console.log(
+                "========================================"
+            );
+
+            console.log(
+                "        NULLFIED CONTROL CENTER"
+            );
+
+            console.log(
+                "========================================"
+            );
+
+            console.log(
+                `Dashboard: http://localhost:${PORT}`
+            );
+
+            console.log(
+                "Worker: starting..."
+            );
+
+            startWorker();
+
+        }
+    );
+
+
+/* =========================================================
+   SHUTDOWN
+========================================================= */
+
+function shutdown() {
+
     console.log(
-        `[SUPERVISOR] Dashboard running on port ${CONFIG.port}`
+        "\n[NULLFIED] Shutting down..."
     );
 
-    spawnBot();
-    startHealthMonitor();
-});
+    runtime.status =
+        "stopping";
+
+    stopWorker();
+
+    setTimeout(
+        () => {
+
+            try {
+                server.close();
+            } catch {}
+
+            process.exit(0);
+
+        },
+        1000
+    );
+
+}
+
+
+process.on(
+    "SIGINT",
+    shutdown
+);
+
+process.on(
+    "SIGTERM",
+    shutdown
+);
