@@ -4,306 +4,68 @@ const { spawn } = require("child_process");
 const path = require("path");
 
 // ============================================================
-// CONFIGURATION
+// BOT SUPERVISOR
 // ============================================================
 
 const SCRIPT_FILE = "auto.js";
 const SCRIPT_PATH = path.join(__dirname, SCRIPT_FILE);
 
+// ============================================================
+// CONFIGURATION
+// ============================================================
+
 const CONFIG = {
-  // TRAFFIC PROTECTION
-  maxMessages: 3,
-  windowMs: 10_000,
-  cooldownMs: 30_000,
-  dedupWindowMs: 5_000,
-
-  // RESPONSE TIMING
-  cpm: 260,
-  minDelay: 800,
-  maxExtraDelay: 1800,
-
+  // ----------------------------------------------------------
   // PROCESS RECOVERY
+  // ----------------------------------------------------------
+
   initialRestartDelay: 5_000,
+
   maxRestartDelay: 60_000,
+
   backoffMultiplier: 2,
 
-  crashWindow: 60_000,
-  maxCrashesInWindow: 8,
+  // ----------------------------------------------------------
+  // CRASH PROTECTION
+  // ----------------------------------------------------------
 
-  // HEALTH CHECK
+  crashWindow: 60_000,
+
+  maxCrashesInWindow: 5,
+
+  crashPause: 5 * 60_000,
+
+  // ----------------------------------------------------------
+  // HEALTH MONITOR
+  // ----------------------------------------------------------
+
   healthCheckInterval: 30_000,
 
+  // ----------------------------------------------------------
   // SHUTDOWN
-  shutdownTimeout: 10_000
+  // ----------------------------------------------------------
+
+  shutdownTimeout: 10_000,
+
+  // Prevent multiple start() calls
+  startLockMs: 3_000
 };
 
 // ============================================================
-// BOT PROTECTION ENGINE
-// ============================================================
-
-class BotProtectionEngine {
-
-  constructor(options = {}) {
-
-    this.maxMessagesPerWindow =
-      options.maxMessages ?? CONFIG.maxMessages;
-
-    this.windowMs =
-      options.windowMs ?? CONFIG.windowMs;
-
-    this.cooldownMs =
-      options.cooldownMs ?? CONFIG.cooldownMs;
-
-    this.dedupWindowMs =
-      options.dedupWindowMs ?? CONFIG.dedupWindowMs;
-
-    this.cpm =
-      options.cpm ?? CONFIG.cpm;
-
-    this.minDelay =
-      options.minDelay ?? CONFIG.minDelay;
-
-    this.maxExtraDelay =
-      options.maxExtraDelay ?? CONFIG.maxExtraDelay;
-
-    this.userHistory = new Map();
-    this.recentMessages = new Map();
-
-    this.cleanupTimer = setInterval(
-      () => this.cleanupMemory(),
-      60 * 60 * 1000
-    );
-
-    if (this.cleanupTimer.unref) {
-      this.cleanupTimer.unref();
-    }
-  }
-
-  cleanupMemory() {
-
-    const now = Date.now();
-
-    for (const [userId, data] of this.userHistory) {
-
-      data.timestamps =
-        data.timestamps.filter(
-          timestamp =>
-            now - timestamp < this.windowMs
-        );
-
-      if (
-        data.timestamps.length === 0 &&
-        now >= data.blockedUntil
-      ) {
-        this.userHistory.delete(userId);
-      }
-    }
-
-    for (const [key, timestamp] of this.recentMessages) {
-
-      if (
-        now - timestamp >
-        this.dedupWindowMs
-      ) {
-        this.recentMessages.delete(key);
-      }
-    }
-
-    console.log(
-      "[PROTECTION] Memory cleanup completed."
-    );
-  }
-
-  isSpamming(userId) {
-
-    if (!userId) return false;
-
-    const now = Date.now();
-
-    let data =
-      this.userHistory.get(userId);
-
-    if (!data) {
-
-      data = {
-        timestamps: [],
-        blockedUntil: 0
-      };
-    }
-
-    if (now < data.blockedUntil) {
-      return true;
-    }
-
-    data.timestamps =
-      data.timestamps.filter(
-        timestamp =>
-          now - timestamp < this.windowMs
-      );
-
-    data.timestamps.push(now);
-
-    if (
-      data.timestamps.length >
-      this.maxMessagesPerWindow
-    ) {
-
-      data.blockedUntil =
-        now + this.cooldownMs;
-
-      this.userHistory.set(
-        userId,
-        data
-      );
-
-      console.log(
-        `[LIMITER] ${userId} temporarily throttled.`
-      );
-
-      return true;
-    }
-
-    this.userHistory.set(
-      userId,
-      data
-    );
-
-    return false;
-  }
-
-  isDuplicate(userId, messageText) {
-
-    if (!userId || !messageText) {
-      return false;
-    }
-
-    const cleanText =
-      String(messageText)
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, " ");
-
-    if (!cleanText) {
-      return false;
-    }
-
-    const key =
-      `${userId}:${cleanText}`;
-
-    const now = Date.now();
-
-    const previous =
-      this.recentMessages.get(key);
-
-    if (
-      previous &&
-      now - previous <
-      this.dedupWindowMs
-    ) {
-
-      console.log(
-        `[TRAFFIC] Duplicate suppressed for ${userId}.`
-      );
-
-      return true;
-    }
-
-    this.recentMessages.set(
-      key,
-      now
-    );
-
-    return false;
-  }
-
-  getTypingDelay(text = "") {
-
-    const length =
-      String(text).length;
-
-    const cps =
-      this.cpm / 60;
-
-    const base =
-      length / cps * 1000;
-
-    const variation =
-      0.75 +
-      Math.random() * 0.65;
-
-    const extra =
-      Math.floor(
-        Math.random() *
-        this.maxExtraDelay
-      );
-
-    let delay =
-      base * variation + extra;
-
-    delay =
-      Math.max(
-        this.minDelay,
-        delay
-      );
-
-    delay =
-      Math.min(
-        delay,
-        12_000
-      );
-
-    return Math.floor(delay);
-  }
-
-  getHumanPause() {
-
-    const pauses = [
-      700,
-      900,
-      1100,
-      1300,
-      1500,
-      1800,
-      2200
-    ];
-
-    return pauses[
-      Math.floor(
-        Math.random() *
-        pauses.length
-      )
-    ];
-  }
-
-  getResponseDelay(text = "") {
-
-    const typing =
-      this.getTypingDelay(text);
-
-    const pause =
-      Math.random() < 0.25
-        ? this.getHumanPause()
-        : 0;
-
-    return typing + pause;
-  }
-}
-
-// ============================================================
-// PROTECTION INSTANCE
-// ============================================================
-
-const botProtection =
-  new BotProtectionEngine();
-
-// ============================================================
-// CHILD PROCESS STATE
+// STATE
 // ============================================================
 
 let childProcess = null;
+
 let restartTimer = null;
 
+let healthTimer = null;
+
+let forceKillTimer = null;
+
 let shuttingDown = false;
+
+let starting = false;
 
 let restartDelay =
   CONFIG.initialRestartDelay;
@@ -312,23 +74,23 @@ let crashHistory = [];
 
 let processStartedAt = 0;
 
+let lastStartAttempt = 0;
+
 // ============================================================
 // LOGGING
 // ============================================================
 
 function log(message) {
-
   console.log(
     `[${new Date().toISOString()}] ${message}`
   );
 }
 
 // ============================================================
-// CRASH HISTORY
+// CRASH HISTORY CLEANUP
 // ============================================================
 
 function cleanCrashHistory() {
-
   const now = Date.now();
 
   crashHistory =
@@ -340,14 +102,33 @@ function cleanCrashHistory() {
 }
 
 // ============================================================
-// START
+// CLEAR RESTART TIMER
+// ============================================================
+
+function clearRestartTimer() {
+  if (restartTimer) {
+    clearTimeout(restartTimer);
+    restartTimer = null;
+  }
+}
+
+// ============================================================
+// START AUTO.JS
 // ============================================================
 
 function start() {
 
+  // ----------------------------------------------------------
+  // SHUTDOWN CHECK
+  // ----------------------------------------------------------
+
   if (shuttingDown) {
     return;
   }
+
+  // ----------------------------------------------------------
+  // ALREADY RUNNING
+  // ----------------------------------------------------------
 
   if (childProcess) {
 
@@ -358,14 +139,32 @@ function start() {
     return;
   }
 
-  if (restartTimer) {
+  // ----------------------------------------------------------
+  // START LOCK
+  // ----------------------------------------------------------
 
-    clearTimeout(
-      restartTimer
-    );
-
-    restartTimer = null;
+  if (starting) {
+    return;
   }
+
+  const now = Date.now();
+
+  if (
+    now - lastStartAttempt <
+    CONFIG.startLockMs
+  ) {
+    return;
+  }
+
+  lastStartAttempt = now;
+
+  starting = true;
+
+  clearRestartTimer();
+
+  // ----------------------------------------------------------
+  // START
+  // ----------------------------------------------------------
 
   log(
     "[SYSTEM] Starting auto.js..."
@@ -374,39 +173,73 @@ function start() {
   processStartedAt =
     Date.now();
 
-  childProcess =
-    spawn(
+  let child;
+
+  try {
+
+    child = spawn(
       process.execPath,
       [SCRIPT_PATH],
       {
         cwd: __dirname,
+
         stdio: "inherit",
+
         shell: false,
+
         env: {
           ...process.env,
+
           NODE_ENV:
             process.env.NODE_ENV ||
             "production",
+
           BOT_SUPERVISOR: "true"
         }
       }
     );
 
+  } catch (error) {
+
+    starting = false;
+
+    log(
+      `[SYSTEM] Failed to spawn auto.js: ${error.message}`
+    );
+
+    scheduleRestart();
+
+    return;
+  }
+
+  childProcess = child;
+
+  starting = false;
+
   log(
-    `[SYSTEM] auto.js PID: ${childProcess.pid}`
+    `[SYSTEM] auto.js started. PID=${child.pid}`
   );
 
-  childProcess.on(
+  // ==========================================================
+  // CHILD PROCESS ERROR
+  // ==========================================================
+
+  child.on(
     "error",
     error => {
 
       log(
         `[CHILD ERROR] ${error.message}`
       );
+
     }
   );
 
-  childProcess.on(
+  // ==========================================================
+  // CHILD PROCESS EXIT
+  // ==========================================================
+
+  child.on(
     "close",
     (exitCode, signal) => {
 
@@ -414,7 +247,16 @@ function start() {
         Date.now() -
         processStartedAt;
 
-      childProcess = null;
+      // Only clear current process
+      if (
+        childProcess === child
+      ) {
+        childProcess = null;
+      }
+
+      // ------------------------------------------------------
+      // SHUTDOWN
+      // ------------------------------------------------------
 
       if (shuttingDown) {
 
@@ -425,16 +267,26 @@ function start() {
         return;
       }
 
-      cleanCrashHistory();
+      // ------------------------------------------------------
+      // LOG EXIT
+      // ------------------------------------------------------
 
       log(
-        `[SYSTEM] auto.js exited. code=${exitCode}, signal=${signal || "none"}, runtime=${Math.floor(runtime / 1000)}s`
+        `[SYSTEM] auto.js exited | code=${exitCode} | signal=${signal || "none"} | runtime=${Math.floor(runtime / 1000)}s`
       );
 
-      // Stable process = reset recovery state
+      // ------------------------------------------------------
+      // STABLE RUNTIME
+      // ------------------------------------------------------
+
       if (
-        runtime >= CONFIG.crashWindow
+        runtime >=
+        CONFIG.crashWindow
       ) {
+
+        log(
+          "[RECOVERY] auto.js was stable. Resetting recovery backoff."
+        );
 
         restartDelay =
           CONFIG.initialRestartDelay;
@@ -442,91 +294,130 @@ function start() {
         crashHistory = [];
       }
 
+      // ------------------------------------------------------
+      // RECORD CRASH/EXIT
+      // ------------------------------------------------------
+
       crashHistory.push(
         Date.now()
       );
 
       cleanCrashHistory();
 
-      // Too many crashes
+      // ------------------------------------------------------
+      // CRASH LIMIT
+      // ------------------------------------------------------
+
       if (
         crashHistory.length >=
         CONFIG.maxCrashesInWindow
       ) {
 
         log(
-          "[RECOVERY] Crash limit reached. Automatic restart paused."
+          `[RECOVERY] ${CONFIG.maxCrashesInWindow} exits detected within ${CONFIG.crashWindow / 1000}s.`
         );
+
+        log(
+          `[RECOVERY] Recovery paused for ${CONFIG.crashPause / 1000}s.`
+        );
+
+        clearRestartTimer();
+
+        restartTimer =
+          setTimeout(
+            () => {
+
+              restartTimer = null;
+
+              if (shuttingDown) {
+                return;
+              }
+
+              log(
+                "[RECOVERY] Crash pause finished. Resuming auto.js."
+              );
+
+              crashHistory = [];
+
+              restartDelay =
+                CONFIG.initialRestartDelay;
+
+              start();
+
+            },
+            CONFIG.crashPause
+          );
+
+        if (
+          restartTimer.unref
+        ) {
+          restartTimer.unref();
+        }
 
         return;
       }
 
-      const delay =
-        restartDelay;
+      // ------------------------------------------------------
+      // NORMAL RECOVERY
+      // ------------------------------------------------------
 
-      restartDelay =
-        Math.min(
-          restartDelay *
-            CONFIG.backoffMultiplier,
-          CONFIG.maxRestartDelay
-        );
-
-      log(
-        `[RECOVERY] Restarting auto.js in ${Math.ceil(delay / 1000)} seconds...`
-      );
-
-      restartTimer =
-        setTimeout(
-          () => {
-
-            restartTimer = null;
-
-            if (!shuttingDown) {
-              start();
-            }
-
-          },
-          delay
-        );
-
-      if (restartTimer.unref) {
-        restartTimer.unref();
-      }
+      scheduleRestart();
     }
   );
 }
 
 // ============================================================
-// HEALTH MONITOR
+// SCHEDULE RESTART
 // ============================================================
 
-const healthTimer =
-  setInterval(
-    () => {
+function scheduleRestart() {
 
-      if (shuttingDown) {
-        return;
-      }
+  if (shuttingDown) {
+    return;
+  }
 
-      if (!childProcess) {
+  if (childProcess) {
+    return;
+  }
 
-        log(
-          "[HEALTH] auto.js is not running."
-        );
+  if (restartTimer) {
+    return;
+  }
 
-        return;
-      }
+  const delay =
+    restartDelay;
 
-      log(
-        `[HEALTH] auto.js running. PID=${childProcess.pid}`
-      );
+  restartDelay =
+    Math.min(
+      restartDelay *
+        CONFIG.backoffMultiplier,
 
-    },
-    CONFIG.healthCheckInterval
+      CONFIG.maxRestartDelay
+    );
+
+  log(
+    `[RECOVERY] Restarting auto.js in ${Math.ceil(delay / 1000)} seconds...`
   );
 
-if (healthTimer.unref) {
-  healthTimer.unref();
+  restartTimer =
+    setTimeout(
+      () => {
+
+        restartTimer = null;
+
+        if (!shuttingDown) {
+          start();
+        }
+
+      },
+      delay
+    );
+
+  if (
+    restartTimer.unref
+  ) {
+    restartTimer.unref();
+  }
 }
 
 // ============================================================
@@ -539,15 +430,30 @@ function restart() {
     return;
   }
 
+  // ----------------------------------------------------------
+  // START IF NOT RUNNING
+  // ----------------------------------------------------------
+
   if (!childProcess) {
+
+    log(
+      "[SYSTEM] auto.js is offline. Starting..."
+    );
+
+    restartDelay =
+      CONFIG.initialRestartDelay;
 
     start();
 
     return;
   }
 
+  // ----------------------------------------------------------
+  // STOP CURRENT PROCESS
+  // ----------------------------------------------------------
+
   log(
-    "[SYSTEM] Restart requested."
+    `[SYSTEM] Restart requested for PID=${childProcess.pid}`
   );
 
   try {
@@ -561,6 +467,65 @@ function restart() {
     log(
       `[SYSTEM] Restart error: ${error.message}`
     );
+
+  }
+}
+
+// ============================================================
+// HEALTH MONITOR
+// ============================================================
+
+function startHealthMonitor() {
+
+  healthTimer =
+    setInterval(
+      () => {
+
+        if (shuttingDown) {
+          return;
+        }
+
+        // ----------------------------------------------------
+        // OFFLINE
+        // ----------------------------------------------------
+
+        if (!childProcess) {
+
+          log(
+            "[HEALTH] auto.js is not running."
+          );
+
+          if (!restartTimer) {
+            start();
+          }
+
+          return;
+        }
+
+        // ----------------------------------------------------
+        // ONLINE
+        // ----------------------------------------------------
+
+        const uptime =
+          Math.floor(
+            (
+              Date.now() -
+              processStartedAt
+            ) / 1000
+          );
+
+        log(
+          `[HEALTH] auto.js OK | PID=${childProcess.pid} | uptime=${uptime}s`
+        );
+
+      },
+      CONFIG.healthCheckInterval
+    );
+
+  if (
+    healthTimer.unref
+  ) {
+    healthTimer.unref();
   }
 }
 
@@ -580,63 +545,89 @@ function shutdown(signal) {
     `[SYSTEM] Received ${signal}. Shutting down...`
   );
 
-  if (restartTimer) {
+  // ----------------------------------------------------------
+  // CANCEL RESTART
+  // ----------------------------------------------------------
 
-    clearTimeout(
-      restartTimer
-    );
+  clearRestartTimer();
 
-    restartTimer = null;
-  }
+  // ----------------------------------------------------------
+  // STOP HEALTH MONITOR
+  // ----------------------------------------------------------
 
-  clearInterval(
-    healthTimer
-  );
-
-  if (
-    botProtection.cleanupTimer
-  ) {
+  if (healthTimer) {
 
     clearInterval(
-      botProtection.cleanupTimer
+      healthTimer
     );
+
+    healthTimer = null;
   }
 
-  const processToStop =
+  // ----------------------------------------------------------
+  // CURRENT CHILD
+  // ----------------------------------------------------------
+
+  const child =
     childProcess;
 
   childProcess = null;
 
-  if (processToStop) {
+  // ----------------------------------------------------------
+  // NO CHILD
+  // ----------------------------------------------------------
 
-    try {
+  if (!child) {
 
-      processToStop.kill(
-        "SIGTERM"
-      );
+    log(
+      "[SYSTEM] No child process to stop."
+    );
 
-    } catch (error) {
+    process.exit(0);
 
-      log(
-        `[SYSTEM] Stop error: ${error.message}`
-      );
-    }
+    return;
+  }
 
+  // ----------------------------------------------------------
+  // GRACEFUL STOP
+  // ----------------------------------------------------------
+
+  try {
+
+    log(
+      `[SYSTEM] Sending SIGTERM to PID=${child.pid}...`
+    );
+
+    child.kill(
+      "SIGTERM"
+    );
+
+  } catch (error) {
+
+    log(
+      `[SYSTEM] Shutdown error: ${error.message}`
+    );
+  }
+
+  // ----------------------------------------------------------
+  // FORCE STOP FALLBACK
+  // ----------------------------------------------------------
+
+  forceKillTimer =
     setTimeout(
       () => {
 
         try {
 
           if (
-            processToStop.exitCode === null &&
-            !processToStop.killed
+            child.exitCode === null
           ) {
 
             log(
-              "[SYSTEM] Force stopping auto.js..."
+              `[SYSTEM] Graceful shutdown timed out. Sending SIGKILL to PID=${child.pid}...`
             );
 
-            processToStop.kill(
+            child.kill(
               "SIGKILL"
             );
           }
@@ -646,13 +637,24 @@ function shutdown(signal) {
       },
       CONFIG.shutdownTimeout
     );
+
+  if (
+    forceKillTimer.unref
+  ) {
+    forceKillTimer.unref();
   }
+
+  // ----------------------------------------------------------
+  // EXIT SUPERVISOR
+  // ----------------------------------------------------------
 
   setTimeout(
     () => {
+
       process.exit(0);
+
     },
-    CONFIG.shutdownTimeout + 1000
+    CONFIG.shutdownTimeout + 1_000
   );
 }
 
@@ -662,16 +664,20 @@ function shutdown(signal) {
 
 process.on(
   "SIGINT",
-  () => shutdown("SIGINT")
+  () => {
+    shutdown("SIGINT");
+  }
 );
 
 process.on(
   "SIGTERM",
-  () => shutdown("SIGTERM")
+  () => {
+    shutdown("SIGTERM");
+  }
 );
 
 // ============================================================
-// ERRORS
+// UNCAUGHT EXCEPTION
 // ============================================================
 
 process.on(
@@ -688,15 +694,21 @@ process.on(
   }
 );
 
+// ============================================================
+// UNHANDLED REJECTION
+// ============================================================
+
 process.on(
   "unhandledRejection",
   reason => {
 
     log(
       `[WARNING] Unhandled rejection: ${
-        reason?.stack || reason
+        reason?.stack ||
+        reason
       }`
     );
+
   }
 );
 
@@ -707,12 +719,11 @@ process.on(
 module.exports = {
   start,
   restart,
-  shutdown,
-  botProtection
+  shutdown
 };
 
 // ============================================================
-// START SUPERVISOR
+// BOOT
 // ============================================================
 
 log(
@@ -736,15 +747,15 @@ log(
 );
 
 log(
-  "Traffic limiter: ENABLED"
-);
-
-log(
-  "Duplicate suppression: ENABLED"
-);
-
-log(
   "Crash recovery: ENABLED"
+);
+
+log(
+  "Exponential backoff: ENABLED"
+);
+
+log(
+  "Crash-loop protection: ENABLED"
 );
 
 log(
@@ -752,7 +763,17 @@ log(
 );
 
 log(
+  "Graceful shutdown: ENABLED"
+);
+
+log(
   "============================================================"
 );
 
+// ============================================================
+// START
+// ============================================================
+
 start();
+
+startHealthMonitor();
