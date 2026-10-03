@@ -1,138 +1,888 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>SANZU AI</title>
-    <meta name="description" content="Explore our AI Autobot messenger for personalized interactions and efficient task automation, enhancing your online experience.">
-    <meta property="og:image" content="https://i.imgur.com/Zvo9Wc0.jpeg">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@300;400;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+
+    <title>NULLFIED</title>
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#050505">
+
+    <meta
+        name="description"
+        content="NULLFIED Messenger Automation Dashboard"
+    >
+
+    <meta
+        property="og:image"
+        content="https://i.imgur.com/Zvo9Wc0.jpeg"
+    >
+
+    <!-- Bootstrap -->
+    <link
+        rel="stylesheet"
+        href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    >
+
+    <!-- Font Awesome -->
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    >
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <!-- Main CSS -->
     <link rel="stylesheet" href="styles.css">
+
     <link rel="icon" href="/image/home.png">
 </head>
+
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <a class="navbar-brand" href="#">
-          <img src="/image/home.png" alt="Home" style="width: 30px; height: auto;">
-        </a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav" style="margin-right: 70px;">
-            <ul class="navbar-nav">
-                <li class="nav-item active">
-                    <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> Features </a>
-                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <a class="dropdown-item" href="/step_by_step_guide">Step-by-Step Guide</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://zark-spam-share.onrender.com/">SpamShare-Tools</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://my-portfolio-f9lz.onrender.com/">Developer</a>
-                    </div>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="online_user">Active</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="tos-privacy-policy">Terms and Conditions</a>
-                </li>
-            </ul>
-        </div>
-    </nav>
-    <div class="container">
-        <h1 class="col text-center" style="font-size: 20px; padding: 10px;">SANZU AI🐝</h1><p style="font-size: 10px; text-align: center;">Version: 1.0.1</p>
-        <form id="json-form">
-            <div class="row">
-                <div class="col-md-12">
-                    <textarea id="json-data" class="form-control centered-textarea center-placeholder" placeholder=""></textarea>
+
+<!-- =========================================================
+     BACKGROUND
+========================================================= -->
+
+<div class="noise"></div>
+
+<!-- =========================================================
+     NAVBAR
+========================================================= -->
+
+<nav class="navbar navbar-expand-lg navbar-dark null-navbar">
+
+    <a class="navbar-brand null-brand" href="/">
+        <img
+            src="/image/home.png"
+            alt="NULLFIED"
+            class="brand-icon"
+        >
+
+        <span>NULLFIED</span>
+    </a>
+
+    <button
+        class="navbar-toggler"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarNav"
+    >
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div
+        class="collapse navbar-collapse justify-content-end"
+        id="navbarNav"
+    >
+
+        <ul class="navbar-nav">
+
+            <li class="nav-item active">
+                <a class="nav-link" href="/">
+                    <i class="fa-solid fa-house"></i>
+                    Home
+                </a>
+            </li>
+
+            <li class="nav-item dropdown">
+
+                <a
+                    class="nav-link dropdown-toggle"
+                    href="#"
+                    id="navbarDropdown"
+                    role="button"
+                    data-toggle="dropdown"
+                >
+                    <i class="fa-solid fa-layer-group"></i>
+                    Features
+                </a>
+
+                <div
+                    class="dropdown-menu dropdown-menu-right null-dropdown"
+                    aria-labelledby="navbarDropdown"
+                >
+
+                    <a
+                        class="dropdown-item"
+                        href="/step_by_step_guide"
+                    >
+                        <i class="fa-solid fa-book"></i>
+                        Step-by-Step Guide
+                    </a>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a
+                        class="dropdown-item"
+                        href="https://zark-spam-share.onrender.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <i class="fa-solid fa-toolbox"></i>
+                        SpamShare Tools
+                    </a>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a
+                        class="dropdown-item"
+                        href="https://my-portfolio-f9lz.onrender.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <i class="fa-solid fa-code"></i>
+                        Developer
+                    </a>
+
                 </div>
-            </div>
-        </form>
-        <p style="margin-top: 15px; font-size: 12px; text-align: left;">Greetings! Begin by entering your cookie. Scroll down to see other features.</p>
+
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="/online_user">
+                    <i class="fa-solid fa-signal"></i>
+                    Active
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="/tos-privacy-policy">
+                    <i class="fa-solid fa-file-shield"></i>
+                    Terms
+                </a>
+            </li>
+
+        </ul>
+
     </div>
 
-    <div class="container" id="listOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your commands by tapping on the respective options.</h1>
-         <button class="btn btn-primary" onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');">SELECT ALL COMMANDS</button>
-    </div>
-    
-    <div class="container" id="listOfCommandsEvent">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your event commands by tapping on the respective options.</h1>
-        <button class="btn btn-primary" onclick="selectAllEvents(); scrollToSection('prefixOfCommands');">SELECT ALL EVENTS</button>
-    </div>
-    
-    <div class="container" id="prefixOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide a prefix (optional). If you choose not to, entering "non-prefix" will be considered as your input.</h1>
-        <input type="text" id="inputOfPrefix" placeholder="@, #, /, *,.">
-    </div>
-    
-    <div class="container" id="adminOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide an uid (optional). If you choose not to, entering "default" will be considered as your input.</h1>
-        <input type="text" id="inputOfAdmin" placeholder="Admin userID">
-    </div>
-    
-    <label style="font-size: 10px; display: flex; align-items: center; padding: 22px;">
-        <input type="checkbox" id="agreeCheckbox" style="margin-right: 10px;"> Checking this box certifies that I have read, understood, and agreed to the Terms and Conditions.
-    </label>
-    
-    <div class="col text-center">
-        <button class="btn btn-primary" onclick="State()" disabled id="submitButton" style="width: 100%">Submit</button>
-    </div>
-    
-    <div id="result" class="container text-center" style="display: none; font-size: 10px;"></div>
-    
-    <br><br>
-    
-    <div>
-        <br>
-        <button id="scrollUpBtn"><i class="fa-solid fa-angles-up"></i></button>
-        <div class="footer">
-            <p>© 2025 made with love by sinzu | All rights reserved.</p>
-            <p>Time: <span id="time"></span> | Ping: <span id="ping"></span></p>
+</nav>
+
+
+<!-- =========================================================
+     MAIN
+========================================================= -->
+
+<main class="null-main">
+
+    <!-- HERO -->
+
+    <section class="null-hero">
+
+        <div class="status-line">
+            <span class="status-dot"></span>
+            SYSTEM ONLINE
         </div>
+
+        <h1 class="null-title">
+            NULL<span>FIED</span>
+        </h1>
+
+        <p class="null-subtitle">
+            MESSENGER AUTOMATION CONTROL CENTER
+        </p>
+
+        <div class="version">
+            VERSION 1.0.1
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         LOGIN / COOKIE
+    ====================================================== -->
+
+    <section class="null-card">
+
+        <div class="card-header-null">
+
+            <div class="header-icon">
+                <i class="fa-solid fa-key"></i>
+            </div>
+
+            <div>
+                <h2>Authentication</h2>
+
+                <p>
+                    Enter your Messenger session data
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="field-group">
+
+            <label for="json-data">
+                <i class="fa-solid fa-terminal"></i>
+                C3C / COOKIE / APPSTATE
+            </label>
+
+            <textarea
+                id="json-data"
+                class="form-control centered-textarea center-placeholder"
+                placeholder="Paste your session data here..."
+                autocomplete="off"
+                spellcheck="false"
+            ></textarea>
+
+            <div class="field-hint">
+                <i class="fa-solid fa-circle-info"></i>
+                Keep your session data private.
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         COMMANDS
+    ====================================================== -->
+
+    <section
+        class="null-card"
+        id="listOfCommands"
+    >
+
+        <div class="card-header-null">
+
+            <div class="header-icon">
+                <i class="fa-solid fa-terminal"></i>
+            </div>
+
+            <div>
+                <h2>Commands</h2>
+
+                <p>
+                    Select the commands available to the bot
+                </p>
+            </div>
+
+        </div>
+
+
+        <!-- script.js may populate this area -->
+
+        <div
+            id="commandsContainer"
+            class="commands-container"
+        ></div>
+
+
+        <button
+            type="button"
+            class="null-btn"
+            onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');"
+        >
+
+            <i class="fa-solid fa-check-double"></i>
+
+            SELECT ALL COMMANDS
+
+        </button>
+
+    </section>
+
+
+    <!-- =====================================================
+         EVENT COMMANDS
+    ====================================================== -->
+
+    <section
+        class="null-card"
+        id="listOfCommandsEvent"
+    >
+
+        <div class="card-header-null">
+
+            <div class="header-icon">
+                <i class="fa-solid fa-bolt"></i>
+            </div>
+
+            <div>
+                <h2>Event Handlers</h2>
+
+                <p>
+                    Select automatic event commands
+                </p>
+            </div>
+
+        </div>
+
+
+        <div
+            id="eventsContainer"
+            class="commands-container"
+        ></div>
+
+
+        <button
+            type="button"
+            class="null-btn"
+            onclick="selectAllEvents(); scrollToSection('prefixOfCommands');"
+        >
+
+            <i class="fa-solid fa-check-double"></i>
+
+            SELECT ALL EVENTS
+
+        </button>
+
+    </section>
+
+
+    <!-- =====================================================
+         PREFIX
+    ====================================================== -->
+
+    <section
+        class="null-card"
+        id="prefixOfCommands"
+    >
+
+        <div class="card-header-null">
+
+            <div class="header-icon">
+                <i class="fa-solid fa-hashtag"></i>
+            </div>
+
+            <div>
+                <h2>Command Prefix</h2>
+
+                <p>
+                    Optional command prefix
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="field-group">
+
+            <label for="inputOfPrefix">
+                PREFIX
+            </label>
+
+            <input
+                type="text"
+                id="inputOfPrefix"
+                class="null-input"
+                placeholder="@, #, /, *, ."
+                autocomplete="off"
+            >
+
+            <div class="field-hint">
+                Enter <b>non-prefix</b> if commands should work without a prefix.
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         ADMIN
+    ====================================================== -->
+
+    <section
+        class="null-card"
+        id="adminOfCommands"
+    >
+
+        <div class="card-header-null">
+
+            <div class="header-icon">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+
+            <div>
+                <h2>Administrator</h2>
+
+                <p>
+                    Configure the bot administrator UID
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="field-group">
+
+            <label for="inputOfAdmin">
+                ADMIN USER ID
+            </label>
+
+            <input
+                type="text"
+                id="inputOfAdmin"
+                class="null-input"
+                placeholder="Admin userID"
+                autocomplete="off"
+            >
+
+            <div class="field-hint">
+                Enter <b>default</b> to use the configured default administrator.
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         TERMS
+    ====================================================== -->
+
+    <section class="null-card terms-card">
+
+        <label
+            class="null-check"
+            for="agreeCheckbox"
+        >
+
+            <input
+                type="checkbox"
+                id="agreeCheckbox"
+            >
+
+            <span class="checkmark"></span>
+
+            <span class="check-text">
+
+                I have read, understood, and agree to the
+                <a href="/tos-privacy-policy">
+                    Terms and Conditions
+                </a>.
+
+            </span>
+
+        </label>
+
+    </section>
+
+
+    <!-- =====================================================
+         SUBMIT
+    ====================================================== -->
+
+    <section class="submit-section">
+
+        <button
+            type="button"
+            id="submitButton"
+            class="submit-btn"
+            onclick="State()"
+            disabled
+        >
+
+            <span class="submit-icon">
+                <i class="fa-solid fa-power-off"></i>
+            </span>
+
+            <span>
+                INITIALIZE BOT
+            </span>
+
+        </button>
+
+    </section>
+
+
+    <!-- =====================================================
+         RESULT
+    ====================================================== -->
+
+    <div
+        id="result"
+        class="result-box"
+        style="display:none;"
+    ></div>
+
+
+    <!-- =====================================================
+         SYSTEM INFO
+    ====================================================== -->
+
+    <section class="system-panel">
+
+        <div class="system-title">
+            <i class="fa-solid fa-microchip"></i>
+            SYSTEM STATUS
+        </div>
+
+
+        <div class="system-grid">
+
+            <div class="system-item">
+
+                <span class="system-label">
+                    STATUS
+                </span>
+
+                <span class="system-value">
+                    <span class="status-dot"></span>
+                    READY
+                </span>
+
+            </div>
+
+
+            <div class="system-item">
+
+                <span class="system-label">
+                    CONNECTION
+                </span>
+
+                <span
+                    class="system-value"
+                    id="connectionStatus"
+                >
+                    ONLINE
+                </span>
+
+            </div>
+
+
+            <div class="system-item">
+
+                <span class="system-label">
+                    TIME
+                </span>
+
+                <span
+                    class="system-value"
+                    id="time"
+                >
+                    --
+                </span>
+
+            </div>
+
+
+            <div class="system-item">
+
+                <span class="system-label">
+                    PING
+                </span>
+
+                <span
+                    class="system-value"
+                    id="ping"
+                >
+                    --
+                </span>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+</main>
+
+
+<!-- =========================================================
+     SCROLL UP
+========================================================= -->
+
+<button
+    id="scrollUpBtn"
+    type="button"
+    aria-label="Scroll to top"
+>
+
+    <i class="fa-solid fa-angles-up"></i>
+
+</button>
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="footer">
+
+    <div class="footer-brand">
+        NULLFIED
     </div>
 
-      <script>
-        function scrollToSection(sectionId) {
+    <p>
+        Messenger Automation Control Center
+    </p>
+
+    <p>
+        © 2026 NULLFIED · made by sinzu
+    </p>
+
+</footer>
+
+
+<!-- =========================================================
+     SCRIPTS
+========================================================= -->
+
+<script>
+
+function scrollToSection(sectionId) {
+
     const section = document.getElementById(sectionId);
-    section.scrollIntoView({ behavior: 'smooth' });
+
+    if (!section) return;
+
+    section.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
 }
+
 
 function selectAllCommands() {
-    scrollToSection('listOfCommandsEvent');
+
+    /*
+     * Keep compatibility with the existing script.js.
+     * If script.js provides its own command-selection logic,
+     * it will continue to work.
+     */
+
+    const boxes = document.querySelectorAll(
+        '#commandsContainer input[type="checkbox"], #listOfCommands input[type="checkbox"]'
+    );
+
+    boxes.forEach(box => {
+        box.checked = true;
+        box.dispatchEvent(
+            new Event("change", { bubbles: true })
+        );
+    });
+
 }
 
+
 function selectAllEvents() {
-    scrollToSection('prefixOfCommands');
+
+    const boxes = document.querySelectorAll(
+        '#eventsContainer input[type="checkbox"], #listOfCommandsEvent input[type="checkbox"]'
+    );
+
+    boxes.forEach(box => {
+        box.checked = true;
+        box.dispatchEvent(
+            new Event("change", { bubbles: true })
+        );
+    });
+
 }
-      </script>
-    
-    <script src="script.js"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
-    <script>
-        let tracks = [
-    "https://raw.githubusercontent.com/Kaizenji/Kaizenji/main/cute-depressed.mp3"];
-     let randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-        
-        let sound = new Howl({
-          src: [randomTrack],
-          autoplay: true,
-          loop: false,
-          format: ["mp3"],
-          volume: 2.0,
-          onend: () => {},
+
+
+/* =========================================================
+   TERMS CHECKBOX
+========================================================= */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const checkbox = document.getElementById("agreeCheckbox");
+    const submit = document.getElementById("submitButton");
+
+    if (checkbox && submit) {
+
+        checkbox.addEventListener("change", () => {
+
+            submit.disabled = !checkbox.checked;
+
         });
-        
-        sound.play();
-    </script>
+
+    }
+
+
+    /* Scroll button */
+
+    const scrollBtn = document.getElementById("scrollUpBtn");
+
+    if (scrollBtn) {
+
+        window.addEventListener("scroll", () => {
+
+            if (window.scrollY > 350) {
+                scrollBtn.classList.add("show");
+            } else {
+                scrollBtn.classList.remove("show");
+            }
+
+        });
+
+
+        scrollBtn.addEventListener("click", () => {
+
+            window.scrollTo({
+                top: 0,
+                behavior: "smooth"
+            });
+
+        });
+
+    }
+
+
+    /* Time */
+
+    function updateTime() {
+
+        const timeElement = document.getElementById("time");
+
+        if (!timeElement) return;
+
+        const now = new Date();
+
+        timeElement.textContent =
+            now.toLocaleTimeString();
+
+    }
+
+    updateTime();
+
+    setInterval(updateTime, 1000);
+
+
+    /* Simple connection check */
+
+    const connection = document.getElementById(
+        "connectionStatus"
+    );
+
+    if (connection) {
+
+        connection.textContent =
+            navigator.onLine ? "ONLINE" : "OFFLINE";
+
+        window.addEventListener("online", () => {
+            connection.textContent = "ONLINE";
+        });
+
+        window.addEventListener("offline", () => {
+            connection.textContent = "OFFLINE";
+        });
+
+    }
+
+});
+
+
+/* =========================================================
+   PING
+========================================================= */
+
+async function updatePing() {
+
+    const pingElement =
+        document.getElementById("ping");
+
+    if (!pingElement) return;
+
+    const start = performance.now();
+
+    try {
+
+        await fetch(
+            window.location.href,
+            {
+                method: "HEAD",
+                cache: "no-store"
+            }
+        );
+
+        const ping =
+            Math.round(performance.now() - start);
+
+        pingElement.textContent =
+            ping + " ms";
+
+    } catch (error) {
+
+        pingElement.textContent =
+            "OFFLINE";
+
+    }
+
+}
+
+
+updatePing();
+
+setInterval(updatePing, 10000);
+
+</script>
+
+
+<!-- Existing project logic -->
+<script src="script.js"></script>
+
+
+<!-- Bootstrap -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+
+<!-- Font Awesome -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+
+
+<!-- SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+<!-- Howler -->
+<script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
+
+
+<!-- =========================================================
+     BACKGROUND MUSIC
+========================================================= -->
+
+<script>
+
+const tracks = [
+    "https://raw.githubusercontent.com/Kaizenji/Kaizenji/main/cute-depressed.mp3"
+];
+
+const randomTrack =
+    tracks[Math.floor(Math.random() * tracks.length)];
+
+
+const sound = new Howl({
+
+    src: [randomTrack],
+
+    autoplay: true,
+
+    loop: false,
+
+    format: ["mp3"],
+
+    volume: 0.35,
+
+    onend: function () {}
+
+});
+
+
+try {
+    sound.play();
+} catch (error) {
+    console.log("Audio autoplay blocked.");
+}
+
+</script>
+
 </body>
-        </html>
+            </html>
