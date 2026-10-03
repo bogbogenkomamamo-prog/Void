@@ -1,148 +1,337 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>voidless4lgng</title>
-    <meta name="description" content="Explore our AI Autobot messenger for personalized interactions and efficient task automation, enhancing your online experience.">
-    <meta property="og:image" content="https://i.imgur.com/Zvo9Wc0.jpeg">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@300;400;700&display=swap" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="/image/home.png">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <a class="navbar-brand" href="#">
-          <img src="/image/home.png" alt="Home" style="width: 30px; height: auto;">
-        </a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav" style="margin-right: 70px;">
-            <ul class="navbar-nav">
-                <li class="nav-item active">
-                    <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> Features </a>
-                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <a class="dropdown-item" href="/step_by_step_guide">Step-by-Step Guide</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://zark-spam-share.onrender.com/">SpamShare-Tools</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://my-portfolio-f9lz.onrender.com/">Developer</a>
-                    </div>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="online_user">Active</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="tos-privacy-policy">Terms and Conditions</a>
-                </li>
-            </ul>
-        </div>
-    </nav>
-    
-    <div class="container">
-        <h1 class="col text-center" style="font-size: 20px; padding: 10px; color: #ff3333;">voidless4lgng</h1>
-        <p style="font-size: 10px; text-align: center;">Version: 1.0.1</p>
-        <p style="margin-top: 10px; font-size: 12px; text-align: center;">Greetings! Begin by entering your cookie. Scroll down to see other features.</p>
-        
-        <!-- Active Sessions Section katulad ng pulang disenyo -->
-        <div style="margin: 20px 0; padding: 15px; border: 1px solid #331111; border-radius: 8px; background-color: rgba(20, 5, 5, 0.6);">
-            <p style="font-size: 12px; margin-bottom: 5px; color: #fff;"><span style="color: #00ff66;">🟢</span> Active Sessions / Online Bots</p>
-            <p style="font-size: 11px; text-align: center; color: #aaa; margin-top: 10px;">No active bots right now.</p>
-        </div>
+Body {
+    min-height: 100vh;
+    position: relative;
+    padding: 20px;
+    background-color: #080202;
+    font-family: 'Courier Prime', sans-serif;
+    color: #ffcccc;
+    opacity: 0;
+    animation: fadeInContent 1.2s forwards ease-in-out;
+}
 
-        <form id="json-form">
-            <div class="row">
-                <div class="col-md-12">
-                    <textarea id="json-data" class="form-control centered-textarea center-placeholder" placeholder="Paste your Facebook cookie / appstate here..."></textarea>
-                </div>
-            </div>
-        </form>
-    </div>
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Dark gothic/reddish ambient background vibe */
+    background-image: url('https://i.gifer.com/origin/7b/7b848c772e2cfbc99d9154f8e0d4c1da_w200.gif');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    z-index: -1;
+    opacity: 0.25;
+    animation: fadeInBackground 1.8s forwards ease-in-out;
+}
 
-    <div class="container" id="listOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your commands by tapping on the respective options.</h1>
-         <button class="btn btn-danger" onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');" style="background: linear-gradient(45deg, #8b0000, #ff0000); border: none;">SELECT ALL COMMANDS</button>
-    </div>
-    
-    <div class="container" id="listOfCommandsEvent">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your event commands by tapping on the respective options.</h1>
-        <button class="btn btn-danger" onclick="selectAllEvents(); scrollToSection('prefixOfCommands');" style="background: linear-gradient(45deg, #8b0000, #ff0000); border: none;">SELECT ALL EVENTS</button>
-    </div>
-    
-    <div class="container" id="prefixOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide a prefix (optional). If you choose not to, entering "non-prefix" will be considered as your input.</h1>
-        <input type="text" id="inputOfPrefix" placeholder="@, #, /, *,.">
-    </div>
-    
-    <div class="container" id="adminOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide an uid (optional). If you choose not to, entering "default" will be considered as your input.</h1>
-        <input type="text" id="inputOfAdmin" placeholder="Admin userID">
-    </div>
-    
-    <label style="font-size: 10px; display: flex; align-items: center; padding: 22px;">
-        <input type="checkbox" id="agreeCheckbox" style="margin-right: 10px;"> Checking this box certifies that I have read, understood, and agreed to the Terms and Conditions.
-    </label>
-    
-    <div class="col text-center">
-        <button class="btn btn-danger" onclick="State()" disabled id="submitButton" style="width: 100%; background: linear-gradient(45deg, #8b0000, #ff0000); border: none;">Submit</button>
-    </div>
-    
-    <div id="result" class="container text-center" style="display: none; font-size: 10px;"></div>
-    
-    <br><br>
-    
-    <div>
-        <br>
-        <button id="scrollUpBtn"><i class="fa-solid fa-angles-up"></i></button>
-        <div class="footer">
-            <p>© 2026 made with love by voidless4lgng | All rights reserved.</p>
-            <p>Time: <span id="time"></span> | Ping: <span id="ping"></span></p>
-        </div>
-    </div>
+@keyframes fadeInContent {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
 
-    <script>
-        function scrollToSection(sectionId) {
-            const section = document.getElementById(sectionId);
-            section.scrollIntoView({ behavior: 'smooth' });
-        }
+@keyframes fadeInBackground {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 0.25;
+    }
+}
 
-        function selectAllCommands() {
-            scrollToSection('listOfCommandsEvent');
-        }
+.container {
+    background-image: url('');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-color: rgba(20, 5, 5, 0.85);
+    border: 1px solid rgba(255, 0, 0, 0.2);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
 
-        function selectAllEvents() {
-            scrollToSection('prefixOfCommands');
-        }
-    </script>
-    
-    <script src="script.js"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
-    <script>
-        let tracks = [
-            "https://raw.githubusercontent.com/Kaizenji/Kaizenji/main/cute-depressed.mp3"
-        ];
-        let randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-        
-        let sound = new Howl({
-          src: [randomTrack],
-          autoplay: true,
-          loop: false,
-          format: ["mp3"],
-          volume: 2.0,
-          onend: () => {},
-        });
-        
-        sound.play();
-    </script>
-</body>
-</html>
+h1 {
+    color: #ff3333;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
+label {
+    color: #ff9999;
+}
+
+.navbar {
+  background-color: rgba(20, 5, 5, 0.9);
+  color: #fff;
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  border-radius: 10px;
+}
+
+.navbar a {
+  color: #ff9999;
+}
+
+.navbar a:hover {
+  color: #ff3333;
+}
+
+/* Dashboard Brand styled for voidless4lgng with an animated rotating dragon element */
+.navbar-brand {
+    color: #ff3333 !important;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+}
+
+/* Rotating Dragon Logo Animation */
+.navbar-brand::before {
+    content: '🐉';
+    display: inline-block;
+    font-size: 24px;
+    animation: rotateDragon 6s linear infinite;
+    filter: drop-shadow(0 0 5px #ff0000);
+}
+
+@keyframes rotateDragon {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.navbar-toggler-icon {
+   background-color: rgba(40, 10, 10, 0.8);
+}
+
+.dropdown-menu {
+  background-color: #1a0505;
+  border: 1px solid #ff3333;
+}
+
+.centered-textarea {
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    min-height: 150px;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #771111;
+    border-radius: 10px;
+    resize: none;
+    color: #fff;
+    background-color: #120303;
+}
+
+.centered-textarea:focus {
+    border-color: #ff3333;
+    outline: none;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #b30000, #4d0000);
+    border: 1px solid #ff3333;
+    border-radius: 15px;
+    font-size: 14px;
+    color: #fff;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #ff0000, #800000);
+    border: 1px solid #ff8800;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+}
+
+.success-message {
+    color: #00ff66;
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.footer {
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 12px;
+    color: #b5b5b5;
+    position: relative;
+    background-color: rgba(20, 5, 5, 0.9);
+    border-top: 1px solid rgba(255, 0, 0, 0.2);
+    width: 115%;
+    margin-left: -30px;
+    margin-bottom: -20px;
+}
+
+.footer p {
+  margin: 5px 0;
+}
+
+.footer a {
+  color: #ff9999;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.footer a:hover {
+  color: #ff3333;
+}
+
+.container-buttons {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.container-buttons .btn {
+    margin: 5px;
+}
+
+#result {
+    padding: 5px;
+    margin-top: 20px;
+    border-radius: 10px;
+    font-size: 10px;
+    color: #ffcccc;
+}
+
+.center-placeholder::placeholder {
+    text-align: center;
+    color: #884444;
+}
+
+.custom-swal {
+  background-color: #1a0505;
+  color: #fff;
+  font-size: 14px;
+  border: 1px solid #ff3333;
+}
+
+.form-check {
+    display: flex;
+    margin-top: 10px;
+    padding: 10px;
+    width: 90%;
+    align-items: center;
+    border: 1px solid #661111;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, border-color 0.3s ease; 
+    background-color: #140505;
+    font-size: 15px;
+}
+
+.form-check:hover {
+    background-color: #260a0a; 
+    border-color: #ff3333; 
+}
+
+.form-check-input {
+    margin-right: 10px; 
+    opacity: 0;
+}
+
+.disable {
+    display: none;
+}
+
+#inputOfPrefix, #inputOfAdmin {
+    padding: 10px;
+    width: 90%;
+    border: 1px solid #661111;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, border-color 0.3s ease; 
+    background-color: #140505;
+    color: #fff;
+    font-size: 15px;
+}
+
+#inputOfPrefix:focus, #inputOfAdmin:focus {
+    border-color: #ff3333;
+    outline: none;
+}
+
+#json-data {
+    background-size: cover;
+    color: #fff;
+    background-repeat: no-repeat;
+    background-color: #120303;
+}
+
+#listOfCommands, #listOfCommandsEvent, #prefixOfCommands, #adminOfCommands {
+    border: none !important;
+}
+
+#listOfCommands:not(.modal), #listOfCommandsEvent:not(.modal), #prefixOfCommands:not(.modal), #adminOfCommands:not(.modal) {
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.23);
+}
+
+.container h1 {
+    position: relative;
+    display: inline-block;
+    padding: 10px 20px;
+    margin-bottom: 20px;
+    background-color: #1a0505;
+    border: 1px solid #551111;
+    border-radius: 8px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
+}
+
+.container p {
+    line-height: 1.6;
+}
+
+.container ul {
+    padding-left: 20px;
+}
+
+.container ul li {
+    list-style: none;
+}
+
+.container ul li::before {
+    content: '\2022';
+    color: #ff3333;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+}
+
+.container ul li + li {
+    margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+    .container h1 {
+        font-size: 18px;
+    }
+}
+
+#scrollUpBtn {
+  position: fixed;
+  margin-bottom: 70px; 
+  right: 20px;
+  padding: 15px 30px;
+  font-size: 14px;
+  background-color: #4d0000;
+  color: white;
+  border: 1px solid #ff3333;
+  border-radius: 8px;
+  cursor: pointer;
+  display: none;
+}
+
+#scrollUpBtn:hover {
+  background-color: #ff0000;
+}
