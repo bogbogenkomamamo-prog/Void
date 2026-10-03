@@ -1,14 +1,15 @@
-body {
+Body {
     min-height: 100vh;
     position: relative;
     padding: 20px;
-    background-color: #0e0e0e;
+    background-color: #080202;
     font-family: 'Courier Prime', sans-serif;
     color: #fff;
     opacity: 0;
     animation: fadeInContent 1.2s forwards ease-in-out;
 }
 
+/* Base animated background */
 body::before {
     content: '';
     position: absolute;
@@ -21,9 +22,39 @@ body::before {
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
-    z-index: -1;
+    z-index: -2;
     opacity: 0;
     animation: fadeInBackground 1.8s forwards ease-in-out;
+}
+
+/* Red Dragon Background Effect na umiikot/lumulutang sa likod */
+body::after {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 120vw;
+    height: 120vh;
+    transform: translate(-50%, -50%);
+    /* Gumamit ako ng pulang dragon/fire theme GIF bilang overlay sa background */
+    background-image: url('https://i.gifer.com/origin/7b/7b7d8bfa7962c68e146a4805bb5f769d_w200.gif');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -1;
+    opacity: 0.25; /* Banayad lang para hindi matakpan ang mga teksto */
+    mix-blend-mode: screen;
+    animation: rotateDragon 30s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes rotateDragon {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg) scale(1.1);
+    }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg) scale(1.1);
+    }
 }
 
 @keyframes fadeInContent {
@@ -43,18 +74,19 @@ body::before {
         opacity: 1;
     }
 }
+
 .container {
     background-image: url('');
     background-size: cover;
     background-repeat: no-repeat;
-    background-color: rgba(26, 26, 26, 0.8);
+    background-color: rgba(20, 5, 5, 0.85);
+    border: 1px solid #331111;
     border-radius: 10px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.1), 0 6px 6px rgba(0, 0, 0, 0.5);
     padding: 20px;
     margin-top: 20px;
     margin-bottom: 10px;
 }
-
 
 h1 {
     color: #fff;
@@ -65,7 +97,8 @@ label {
 }
 
 .navbar {
-  background-color: rgba(26, 26, 26, 0.8);
+  background-color: rgba(20, 5, 5, 0.9);
+  border: 1px solid #331111;
   color: #fff;
   border-radius: 10px;
 }
@@ -75,19 +108,28 @@ label {
 }
 
 .navbar a:hover {
-  color: gray;
+  color: #ff4444;
 }
 
 .navbar-brand {
-    color: #000;
+    color: #fff;
 }
 
 .navbar-toggler-icon {
-   background-color: rgba(26, 26, 26, 0.8);
+   background-color: rgba(30, 10, 10, 0.8);
 }
 .dropdown-menu {
-  background-color: #222;
+  background-color: #1a0505;
+  border: 1px solid #441111;
 }
+.dropdown-item {
+  color: #fff;
+}
+.dropdown-item:hover {
+  background-color: #331111;
+  color: #ff4444;
+}
+
 .centered-textarea {
     display: block;
     margin: 0 auto;
@@ -95,26 +137,27 @@ label {
     min-height: 150px;
     padding: 10px;
     box-sizing: border-box;
-    border: 1px solid #555;
+    border: 1px solid #551111;
     border-radius: 10px;
     resize: none;
     color: #fff;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #8e44ad, #3498db);
+    background: linear-gradient(135deg, #8b0000, #ff0000);
+    border: none;
     border-radius: 15px;
     font-size: 14px;
     color: #fff;
 }
 
 .btn-primary:hover {
-    background-color: #0056b3;
+    background: linear-gradient(135deg, #ff0000, #ff4444);
     border: 1px solid #ff8800;
 }
 
 .success-message {
-    color: green;
+    color: #00ff66;
     margin-top: 10px;
     font-size: 12px;
 }
@@ -125,10 +168,11 @@ label {
     font-size: 12px;
     color: #b5b5b5;
     position: relative;
-    background-color: rgba(26, 26, 26, 0.8);
+    background-color: rgba(20, 5, 5, 0.9);
     width: 115%;
     margin-left: -30px;
     margin-bottom: -20px;
+    border-top: 1px solid #331111;
 }
 
 .footer p {
@@ -136,7 +180,7 @@ label {
 }
 
 .footer a {
-  color: #999999;
+  color: #ff6666;
   text-decoration: none;
   transition: color 0.3s;
 }
@@ -164,13 +208,14 @@ label {
 
 .center-placeholder::placeholder {
     text-align: center;
-    color: #ccc;
+    color: #aaa;
 }
 
 .custom-swal {
-  background-color: #222;
+  background-color: #1a0505;
   color: #fff;
   font-size: 14px;
+  border: 1px solid #441111;
 }
 
 .form-check {
@@ -179,17 +224,17 @@ label {
     padding: 10px;
     width: 90%;
     align-items: center;
-    border: 1px solid #555;
+    border: 1px solid #551111;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #1a1a1a;
+    background-color: #140505;
     font-size: 15px;
 }
 
 .form-check:hover {
-    background-color: #222; 
-    border-color: #777; 
+    background-color: #220808; 
+    border-color: #aa1111; 
 }
 
 .form-check-input {
@@ -204,11 +249,11 @@ label {
 #inputOfPrefix, #inputOfAdmin {
     padding: 10px;
     width: 90%;
-    border: 1px solid #555;
+    border: 1px solid #551111;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #1a1a1a;
+    background-color: #140505;
     color: #fff;
     font-size: 15px;
 }
@@ -225,7 +270,7 @@ label {
 }
 
 #listOfCommands:not(.modal), #listOfCommandsEvent:not(.modal), #prefixOfCommands:not(.modal), #adminOfCommands:not(.modal) {
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.1), 0 6px 6px rgba(0, 0, 0, 0.5);
 }
 
 .container h1 {
@@ -233,7 +278,8 @@ label {
     display: inline-block;
     padding: 10px 20px;
     margin-bottom: 20px;
-    background-color: #222;
+    background-color: #1c0707;
+    border: 1px solid #441111;
     border-radius: 8px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
 }
@@ -252,7 +298,7 @@ label {
 
 .container ul li::before {
     content: '\2022';
-    color: #007bff;
+    color: #ff3333;
     font-weight: bold;
     display: inline-block;
     width: 1em;
@@ -267,15 +313,18 @@ label {
     .container h1 {
         font-size: 18px;
     }
+}
+
 #scrollUpBtn {
   position: fixed;
   margin-bottom: 70px; 
   right: 20px;
   padding: 15px 30px;
   font-size: 14px;
-  background-color: #555;
+  background-color: #551111;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   display: none;
+}
