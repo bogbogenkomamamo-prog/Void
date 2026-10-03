@@ -2,10 +2,10 @@ const fs = require("fs-extra");
 
 module.exports.config = {
     name: "hunting",
-    version: "5.5.1",
+    version: "5.6.0",
     hasPermission: 2, // Admin only
     credits: "User",
-    description: "Continuous Rapid Reply and Spammer Anti-Pause Engine (5s Interval)",
+    description: "Continuous Human-like Reply and Spammer Anti-Pause Engine (1 Min Interval + Anti-Detect)",
     usePrefix: false,
     commandCategory: "system",
     usages: ".start | .off | /count on | /count off",
@@ -59,25 +59,25 @@ const massiveTaunts = [
     "parang di mo man lang kinaya ah 📉🤪 puro tapang sa chat pero duwag sa personal 🤫🏃‍♂️",
     "pasok sa banga ka nanaman boy 🗑️💥 kumusta na palad mo? kalyo overload na yan ✋🛑",
     "ipahinga mo na yang kamay mo nanginginig na 🤏🤣 hina naman ng palag mo, pambata eh 👶🍼",
-    "ngawit ka na ba mag-type? 🦾🤖 dahan-dahan baka mapunit keyboard mo sa galit ⌨️️💥",
+    "ngawit ka na ba mag-type? 🦾🤖 dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥",
     "wala ka palang maipakita eh 📉👎 antok ka na noh? amoy laway ka na screen mo 🥱📱",
     "asan na yung tapang mo kanina? 👻⚡ himbing ng tulog ng pangarap mo bagsak agad 📉💤",
     "kala ko ba palag ka bat parang nag-agaw buhay ka na? 🧟‍♂️🩸 san banda yungangas mo? di ko makita e 🕵️‍♂️🔍",
     "hinga ka muna malalim baka atakihin ka 🫁💨 huli ka balbon, gising pa ang master 🥷👀",
     "lutang ka na ata sa puyat boss 😵‍💫🌌 sige piga pa ng bungo baka lumabas utak mo 🧠💥",
-    "yan na ba pinakamabilis mo mag-type? bagal ah 🐢⏱️️ taob ka na naman sa pormahan ko 🚢🌊",
+    "yan na ba pinakamabilis mo mag-type? bagal ah 🐢⏱️ taob ka na naman sa pormahan ko 🚢🌊",
     "sumuko ka na lang para di ka na mahirapan 🏳️🥷 kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥",
-    "i-iyak mo na lang yan walang makakakita 🥲🌧 buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨",
+    "i-iyak mo na lang yan walang makakakita 🥲🌧️ buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨",
     "tulog na yung kalaban antok na antok na 🥱🛌 lakas ng trip mo eh no, kaso sablay naman 🎯❌",
     "may tubig pa ba diyan? tagak ka na eh 💧🥵 chill ka lang boss baka mapunit mukha mo sa gigil 😬🎭",
     "parang computer icon lang lods, stock up ka na 🖥️🤡 pilit na pilit ang banat mo lods tigil mo na 🛑🤡",
     "nag-iisip ka pa ba ng ire-reply o umiiyak ka na? 🧠💥 wala ka bang ibang alam kundi yan lang? 🥱📉",
-    "subukan mo ulit baka sakaling pumasa ka na 📝🔥 dahan-dahan baka mapunit keyboard mo sa galit ⌨💥",
+    "subukan mo ulit baka sakaling pumasa ka na 📝🔥 dahan-dahan baka mapunit keyboard mo sa galit ⌨️💥",
     "antok ka na noh? amoy laway ka na screen mo 🥱📱 puyat pa more para bagsak agad ulo mo sa mesa 🪑💤",
     "himbing ng tulog ng pangarap mo bagsak agad 📉💤 gising na gising ang diwa ko samantalang ikaw tulog na sa pansitan 🍜😴",
-    "san banda yungangas mo? di ko makita e 🕵️‍♂️️🔍 puro ka angas wala namang binatbat 🦆💨",
-    "huli ka balbon, gising pa ang master 🥷👀 huli sa akto na nagpapanic ka na 🧯🏃‍♂️️",
-    "sige piga pa ng bungo baka lumabas utak mo 🧠💥 wala na ngang laman pinipilit pa 🕳️🤡",
+    "san banda yungangas mo? di ko makita e 🕵️‍♂️🔍 puro ka angas wala namang binatbat 🦆💨",
+    "huli ka balbon, gising pa ang master 🥷👀 huli sa akto na nagpapanic ka na 🧯🏃‍♂️",
+    "sige piga pa ng bungo baka lumabas utak mo 🧠💥 wala na ngang laman pinipilit pa 🕳️️🤡",
     "taob ka na naman sa pormahan ko 🚢🌊 lumubog agad ang barko mo sa unang banat palang ⚓📉",
     "kumusta naman ang mga mata mo? pulang pula na ba? 👀🔥 pikit ka na kasi kung di mo na kaya 🙈💤",
     "buhay ka pa ba o nag-aabang na ng ambulansya? 🚑💨 hatid ko na ba kayo sa pinakamalapit na hospital? 🏥🛏️",
@@ -235,10 +235,10 @@ module.exports.handleEvent = async function ({ api, event }) {
     if (!isHuntingActive) return;
     if (text.startsWith("/count")) return;
 
-    // Naka-lock sa 5 seconds (5000ms) ang cooldown bawat lapag ng banat
+    // Cooldown na 60 seconds (1 minute) bawat tao sa bawat thread para hindi mag-reply nang paulit-ulit kaagad
     const userKey = `${threadID}_${senderID}`;
     const now = Date.now();
-    const cooldownTime = 5000; 
+    const cooldownTime = 60000; 
 
     if (!global.spamCooldownState) global.spamCooldownState = new Map();
     const lastTime = global.spamCooldownState.get(userKey) || 0;
@@ -249,19 +249,23 @@ module.exports.handleEvent = async function ({ api, event }) {
 
     global.spamCooldownState.set(userKey, now);
 
-    // Ipakita ang typing indicator bago mag-reply
-    try {
-        if (typeof api.sendTypingIndicator === "function") {
-            api.sendTypingIndicator(threadID, (err) => {});
-        }
-    } catch (e) {}
+    // Anti-Detect: Random delay sa pagpapakita ng typing (mga 3 hanggang 8 segundo bago kunwaring nagtitipa)
+    const typingDelay = Math.floor(Math.random() * 5000) + 3000;
+    setTimeout(() => {
+        try {
+            if (typeof api.sendTypingIndicator === "function") {
+                api.sendTypingIndicator(threadID, (err) => {});
+            }
+        } catch (e) {}
+    }, typingDelay);
 
     let rawTaunt = getUniqueTaunt();
     let mimickedText = humanMimicker(body, rawTaunt);
     const finalMessage = humanizeText(mimickedText);
     
-    // Eksaktong 5 seconds (5000ms) ang pagkaantala ng paglapag
-    const delay = 5000; 
+    // Anti-Detect Delay: Kabuuang 60 hanggang 75 seconds bago ilapag ang mensahe para magmukhang totoong tao
+    const randomJitter = Math.floor(Math.random() * 15000); // 0 hanggang 15 seconds na dagdag
+    const delay = 60000 + randomJitter; 
 
     setTimeout(() => {
         if (global.huntingState.get(threadID) === true) {
