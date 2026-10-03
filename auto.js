@@ -3,13 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const login = require("ws3-fca");
-const express = require("express");
 const chalk = require("chalk");
-const bodyParser = require("body-parser");
-
-// ============================================================
-// PATHS
-// ============================================================
 
 const ROOT = __dirname;
 
@@ -20,2333 +14,1808 @@ const SCRIPT_DIR = path.join(ROOT, "script");
 const CONFIG_FILE = path.join(DATA_DIR, "config.json");
 const HISTORY_FILE = path.join(DATA_DIR, "history.json");
 const DATABASE_FILE = path.join(DATA_DIR, "database.json");
+const RUNTIME_FILE = path.join(DATA_DIR, "runtime.json");
 
-// ============================================================
-// DIRECTORIES
-// ============================================================
-
-for (const dir of [DATA_DIR, SESSION_DIR, SCRIPT_DIR]) {
-  fs.mkdirSync(dir, { recursive: true });
+for (const dir of [
+    DATA_DIR,
+    SESSION_DIR,
+    SCRIPT_DIR
+]) {
+    fs.mkdirSync(dir, {
+        recursive: true
+    });
 }
 
-// ============================================================
-// SAFE FILE HELPERS
-// ============================================================
-
 function readJSON(file, fallback) {
-  try {
-    if (!fs.existsSync(file)) return fallback;
+    try {
+        if (!fs.existsSync(file)) {
+            return fallback;
+        }
 
-    const raw = fs.readFileSync(file, "utf8").trim();
+        const raw = fs.readFileSync(
+            file,
+            "utf8"
+        ).trim();
 
-    if (!raw) return fallback;
+        if (!raw) {
+            return fallback;
+        }
 
-    return JSON.parse(raw);
-  } catch (error) {
-    console.error(`[JSON READ ERROR] ${file}`, error.message);
-    return fallback;
-  }
+        return JSON.parse(raw);
+    } catch (error) {
+        console.error(
+            `[JSON READ] ${file}:`,
+            error.message
+        );
+
+        return fallback;
+    }
 }
 
 function writeJSON(file, data) {
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
+    try {
+        fs.mkdirSync(
+            path.dirname(file),
+            {
+                recursive: true
+            }
+        );
 
-    const temp = `${file}.tmp`;
+        const temp =
+            `${file}.${process.pid}.tmp`;
 
-    fs.writeFileSync(
-      temp,
-      JSON.stringify(data, null, 2),
-      "utf8"
-    );
+        fs.writeFileSync(
+            temp,
+            JSON.stringify(
+                data,
+                null,
+                2
+            ),
+            "utf8"
+        );
 
-    fs.renameSync(temp, file);
+        fs.renameSync(
+            temp,
+            file
+        );
 
-    return true;
-  } catch (error) {
-    console.error(`[JSON WRITE ERROR] ${file}`, error.message);
-    return false;
-  }
-}
+        return true;
+    } catch (error) {
+        console.error(
+            `[JSON WRITE] ${file}:`,
+            error.message
+        );
 
-// ============================================================
-// DEFAULT CONFIG
-// ============================================================
-
-function createConfig() {
-  const config = [
-    {
-      masterKey: {
-        admin: []
-      },
-
-      devMode: false,
-      database: false,
-      restartTime: 15,
-
-      forceLogin: true,
-      listenEvents: true,
-      logLevel: "silent",
-      updatePresence: true,
-      selfListen: true,
-
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/120.0.0.0 Safari/537.36",
-
-      online: true,
-      autoMarkDelivery: false,
-      autoMarkRead: false
+        return false;
     }
-  ];
-
-  writeJSON(CONFIG_FILE, config);
-
-  if (!fs.existsSync(HISTORY_FILE)) {
-    writeJSON(HISTORY_FILE, []);
-  }
-
-  if (!fs.existsSync(DATABASE_FILE)) {
-    writeJSON(DATABASE_FILE, {});
-  }
-
-  return config;
 }
 
-const configData = fs.existsSync(CONFIG_FILE)
-  ? readJSON(CONFIG_FILE, null)
-  : createConfig();
+function defaultConfig() {
+    return {
+        masterKey: {
+            admin: []
+        },
+
+        devMode: false,
+        database: false,
+
+        restartTime: 15,
+        forceLogin: true,
+
+        listenEvents: true,
+
+        logLevel: "silent",
+
+        updatePresence: true,
+        selfListen: true,
+
+        userAgent:
+            "Mozilla/5.0 " +
+            "(Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) " +
+            "Chrome/120.0.0.0 Safari/537.36",
+
+        online: true,
+
+        autoMarkDelivery: false,
+        autoMarkRead: false
+    };
+}
+
+function ensureFiles() {
+    if (!fs.existsSync(CONFIG_FILE)) {
+        writeJSON(
+            CONFIG_FILE,
+            [defaultConfig()]
+        );
+    }
+
+    if (!fs.existsSync(HISTORY_FILE)) {
+        writeJSON(
+            HISTORY_FILE,
+            []
+        );
+    }
+
+    if (!fs.existsSync(DATABASE_FILE)) {
+        writeJSON(
+            DATABASE_FILE,
+            {}
+        );
+    }
+}
+
+ensureFiles();
+
+const configData = readJSON(
+    CONFIG_FILE,
+    [defaultConfig()]
+);
 
 const config =
-  Array.isArray(configData) && configData.length
-    ? configData[0]
-    : createConfig()[0];
-
-const dev = fs.existsSync("./dev.json")
-  ? readJSON("./dev.json", [])
-  : [];
-
-// ============================================================
-// GLOBAL UTILS
-// ============================================================
+    Array.isArray(configData) &&
+    configData.length
+        ? configData[0]
+        : defaultConfig();
 
 const Utils = {
-  commands: new Map(),
-  handleEvent: new Map(),
-  account: new Map(),
-  cooldowns: new Map()
+    commands: new Map(),
+    handleEvent: new Map(),
+    account: new Map(),
+    cooldowns: new Map()
 };
 
-// ============================================================
-// CONSERVATIVE TRAFFIC CONTROLLER
-// ============================================================
+const Runtime = {
+    startedAt: Date.now(),
+
+    receivedMessages: 0,
+    processedMessages: 0,
+    sentMessages: 0,
+
+    suppressedDuplicates: 0,
+    suppressedBurst: 0,
+    queueDrops: 0,
+    commandErrors: 0,
+
+    lastMessageAt: null,
+    lastReplyAt: null,
+    lastError: null
+};
 
 const Traffic = {
-  users: new Map(),
-  duplicates: new Map(),
-  queues: new Map(),
-  lastReply: new Map(),
-  blockedThreads: new Map(),
+    users: new Map(),
+    duplicates: new Map(),
+    queues: new Map(),
+    lastReply: new Map(),
 
-  // Conservative values.
-  maxBurst: 3,
-  burstWindow: 10000,
+    maxBurst: 3,
+    burstWindow: 10000,
+    burstCooldown: 30000,
 
-  // Temporary local cooldown after excessive incoming traffic.
-  burstCooldown: 30000,
+    duplicateWindow: 5000,
 
-  // Duplicate incoming message window.
-  duplicateWindow: 5000,
+    replyInterval: 10000,
 
-  // Minimum spacing between outgoing messages in the same thread.
-  replyInterval: 10000,
+    maxQueuePerThread: 5,
 
-  // Typing indicator duration.
-  typingMin: 700,
-  typingMax: 1600,
+    cleanupTimer: null,
 
-  // Queue protection.
-  maxQueuePerThread: 5,
+    normalize(text) {
+        return String(text || "")
+            .toLowerCase()
+            .replace(/\s+/g, " ")
+            .trim();
+    },
 
-  // Cleanup interval.
-  cleanupInterval: 30000,
-
-  start() {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-    }
-
-    this.cleanupTimer = setInterval(() => {
-      const now = Date.now();
-
-      for (const [key, data] of this.users.entries()) {
-        data.timestamps = data.timestamps.filter(
-          timestamp => now - timestamp <= this.burstWindow
-        );
-
-        if (!data.timestamps.length) {
-          this.users.delete(key);
-        }
-      }
-
-      for (const [key, timestamp] of this.duplicates.entries()) {
-        if (now - timestamp > this.duplicateWindow) {
-          this.duplicates.delete(key);
-        }
-      }
-
-      for (const [threadID, timestamp] of this.blockedThreads.entries()) {
-        if (now >= timestamp) {
-          this.blockedThreads.delete(threadID);
-        }
-      }
-
-      for (const [threadID, timestamp] of this.lastReply.entries()) {
-        if (now - timestamp > 120000) {
-          this.lastReply.delete(threadID);
-        }
-      }
-    }, this.cleanupInterval);
-
-    this.cleanupTimer.unref?.();
-  },
-
-  normalize(text) {
-    return String(text || "")
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim();
-  },
-
-  isDuplicate(threadID, senderID, body) {
-    const normalized = this.normalize(body);
-
-    if (!normalized) {
-      return false;
-    }
-
-    const key = `${threadID}:${senderID}:${normalized}`;
-
-    const now = Date.now();
-    const previous = this.duplicates.get(key);
-
-    if (previous && now - previous < this.duplicateWindow) {
-      return true;
-    }
-
-    this.duplicates.set(key, now);
-
-    return false;
-  },
-
-  isBursting(threadID, senderID) {
-    const now = Date.now();
-
-    if (this.blockedThreads.has(threadID)) {
-      const until = this.blockedThreads.get(threadID);
-
-      if (now < until) {
-        return true;
-      }
-
-      this.blockedThreads.delete(threadID);
-    }
-
-    const key = `${threadID}:${senderID}`;
-
-    let data = this.users.get(key);
-
-    if (!data) {
-      data = {
-        timestamps: []
-      };
-
-      this.users.set(key, data);
-    }
-
-    data.timestamps = data.timestamps.filter(
-      timestamp => now - timestamp <= this.burstWindow
-    );
-
-    data.timestamps.push(now);
-
-    if (data.timestamps.length > this.maxBurst) {
-      this.blockedThreads.set(
+    duplicateKey(
         threadID,
-        now + this.burstCooldown
-      );
+        senderID,
+        body
+    ) {
+        return [
+            threadID,
+            senderID,
+            this.normalize(body)
+        ].join(":");
+    },
 
-      data.timestamps = [];
-
-      return true;
-    }
-
-    return false;
-  },
-
-  random(min, max) {
-    return Math.floor(
-      Math.random() * (max - min + 1)
-    ) + min;
-  },
-
-  typingDuration() {
-    return this.random(
-      this.typingMin,
-      this.typingMax
-    );
-  },
-
-  responseDelay(text) {
-    const content = String(text || "");
-
-    const charsPerMinute = 260;
-
-    const base =
-      (content.length / charsPerMinute) * 60000;
-
-    const variation =
-      0.75 + Math.random() * 0.65;
-
-    const extra =
-      Math.random() * 1200;
-
-    return Math.max(
-      800,
-      Math.min(
-        12000,
-        Math.floor(base * variation + extra)
-      )
-    );
-  },
-
-  async typing(api, threadID) {
-    try {
-      if (
-        api &&
-        typeof api.sendTypingIndicator === "function"
-      ) {
-        await api.sendTypingIndicator(threadID);
-      }
-    } catch (_) {
-      // Typing indicator failure must never crash the bot.
-    }
-
-    await sleep(this.typingDuration());
-  },
-
-  getQueue(threadID) {
-    if (!this.queues.has(threadID)) {
-      this.queues.set(threadID, {
-        running: false,
-        items: []
-      });
-    }
-
-    return this.queues.get(threadID);
-  },
-
-  enqueueSend(api, message, threadID, messageID) {
-    return new Promise(resolve => {
-      const queue = this.getQueue(threadID);
-
-      if (queue.items.length >= this.maxQueuePerThread) {
-        console.log(
-          chalk.yellow(
-            `[TRAFFIC] Queue full for ${threadID}; message suppressed.`
-          )
+    isDuplicate(
+        threadID,
+        senderID,
+        body
+    ) {
+        const key = this.duplicateKey(
+            threadID,
+            senderID,
+            body
         );
 
-        resolve(false);
-        return;
-      }
+        const current = Date.now();
+        const last = this.duplicates.get(key);
 
-      queue.items.push({
+        this.duplicates.set(
+            key,
+            current
+        );
+
+        if (
+            last &&
+            current - last <
+            this.duplicateWindow
+        ) {
+            Runtime.suppressedDuplicates++;
+            return true;
+        }
+
+        return false;
+    },
+
+    isBursting(
+        threadID,
+        senderID
+    ) {
+        const key =
+            `${threadID}:${senderID}`;
+
+        const current = Date.now();
+
+        let timestamps =
+            this.users.get(key) || [];
+
+        timestamps = timestamps.filter(
+            time =>
+                current - time <
+                this.burstWindow
+        );
+
+        timestamps.push(current);
+
+        this.users.set(
+            key,
+            timestamps
+        );
+
+        if (
+            timestamps.length >
+            this.maxBurst
+        ) {
+            Runtime.suppressedBurst++;
+            return true;
+        }
+
+        return false;
+    },
+
+    getQueue(threadID) {
+        if (!this.queues.has(threadID)) {
+            this.queues.set(
+                threadID,
+                []
+            );
+        }
+
+        return this.queues.get(threadID);
+    },
+
+    enqueueSend(
         api,
         message,
         threadID,
-        messageID,
-        resolve
-      });
+        messageID
+    ) {
+        return new Promise(resolve => {
+            const queue =
+                this.getQueue(threadID);
 
-      this.processQueue(threadID);
-    });
-  },
+            if (
+                queue.length >=
+                this.maxQueuePerThread
+            ) {
+                Runtime.queueDrops++;
 
-  async processQueue(threadID) {
-    const queue = this.getQueue(threadID);
+                resolve(false);
+                return;
+            }
 
-    if (queue.running) {
-      return;
-    }
+            queue.push({
+                api,
+                message,
+                threadID,
+                messageID,
+                resolve
+            });
 
-    queue.running = true;
+            this.processQueue(
+                threadID
+            );
+        });
+    },
 
-    try {
-      while (queue.items.length) {
-        const item = queue.items.shift();
+    async processQueue(threadID) {
+        const queue =
+            this.getQueue(threadID);
 
-        if (!item) {
-          continue;
+        if (
+            queue.processing
+        ) {
+            return;
         }
+
+        queue.processing = true;
 
         try {
-          const now = Date.now();
+            while (queue.length) {
+                const item =
+                    queue.shift();
 
-          const previous =
-            this.lastReply.get(threadID) || 0;
+                const previous =
+                    this.lastReply.get(
+                        threadID
+                    ) || 0;
 
-          const elapsed = now - previous;
+                const wait =
+                    Math.max(
+                        0,
+                        this.replyInterval -
+                        (
+                            Date.now() -
+                            previous
+                        )
+                    );
 
-          if (elapsed < this.replyInterval) {
-            await sleep(
-              this.replyInterval - elapsed
-            );
-          }
+                if (wait > 0) {
+                    await sleep(wait);
+                }
 
-          const delay =
-            this.responseDelay(item.message);
+                let success = false;
 
-          await sleep(delay);
+                try {
+                    await new Promise(
+                        resolve => {
+                            item.api.sendMessage(
+                                item.message,
+                                item.threadID,
+                                () => resolve()
+                            );
+                        }
+                    );
 
-          await this.typing(
-            item.api,
-            item.threadID
-          );
+                    success = true;
 
-          try {
-            await item.api.sendMessage(
-              item.message,
-              item.threadID,
-              item.messageID
-                ? { replyToMessageID: item.messageID }
-                : undefined
-            );
+                    this.lastReply.set(
+                        threadID,
+                        Date.now()
+                    );
 
-            this.lastReply.set(
-              threadID,
-              Date.now()
-            );
+                    Runtime.sentMessages++;
+                    Runtime.lastReplyAt =
+                        new Date().toISOString();
+                } catch (error) {
+                    Runtime.lastError =
+                        error.message;
 
-            item.resolve(true);
-          } catch (sendError) {
-            console.error(
-              `[SEND ERROR] ${sendError.message}`
-            );
+                    console.error(
+                        "[SEND ERROR]",
+                        error.message
+                    );
+                }
 
-            item.resolve(false);
-          }
-
-          // Small safety gap after every send.
-          await sleep(500);
-        } catch (error) {
-          console.error(
-            `[QUEUE ERROR] ${error.message}`
-          );
-
-          item.resolve(false);
+                item.resolve(success);
+            }
+        } finally {
+            queue.processing = false;
         }
-      }
-    } finally {
-      queue.running = false;
+    },
 
-      if (!queue.items.length) {
-        this.queues.delete(threadID);
-      }
+    cleanup() {
+        const current =
+            Date.now();
+
+        for (
+            const [
+                key,
+                timestamps
+            ] of this.users
+        ) {
+            const fresh =
+                timestamps.filter(
+                    time =>
+                        current - time <
+                        this.burstWindow
+                );
+
+            if (fresh.length) {
+                this.users.set(
+                    key,
+                    fresh
+                );
+            } else {
+                this.users.delete(key);
+            }
+        }
+
+        for (
+            const [
+                key,
+                time
+            ] of this.duplicates
+        ) {
+            if (
+                current - time >
+                this.duplicateWindow
+            ) {
+                this.duplicates.delete(key);
+            }
+        }
+
+        for (
+            const [
+                threadID,
+                time
+            ] of this.lastReply
+        ) {
+            if (
+                current - time >
+                120000
+            ) {
+                this.lastReply.delete(
+                    threadID
+                );
+            }
+        }
+    },
+
+    start() {
+        this.cleanupTimer =
+            setInterval(
+                () => this.cleanup(),
+                30000
+            );
+    },
+
+    stop() {
+        if (this.cleanupTimer) {
+            clearInterval(
+                this.cleanupTimer
+            );
+
+            this.cleanupTimer = null;
+        }
     }
-  }
 };
 
 Traffic.start();
 
-// ============================================================
-// SAFE SEND
-// ============================================================
+function sleep(ms) {
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                ms
+            )
+    );
+}
 
-function safeSend(api, message, threadID, messageID) {
-  if (!api || !threadID || message == null) {
-    return Promise.resolve(false);
-  }
-
-  return Traffic.enqueueSend(
+function safeSend(
     api,
     message,
     threadID,
     messageID
-  );
+) {
+    if (
+        !api ||
+        !threadID ||
+        message == null
+    ) {
+        return Promise.resolve(false);
+    }
+
+    return Traffic.enqueueSend(
+        api,
+        message,
+        threadID,
+        messageID
+    );
 }
 
-// ============================================================
-// SLEEP
-// ============================================================
+function normalizeCommandConfig(
+    command
+) {
+    if (
+        !command ||
+        !command.config
+    ) {
+        return null;
+    }
 
-function sleep(ms) {
-  return new Promise(resolve =>
-    setTimeout(resolve, ms)
-  );
-}
+    const cfg =
+        command.config;
 
-// ============================================================
-// COMMAND LOADER
-// ============================================================
+    const name =
+        String(
+            cfg.name || ""
+        )
+        .trim()
+        .toLowerCase();
 
-function normalizeCommandConfig(command) {
-  if (!command.config) {
-    command.config = {};
-  }
+    if (!name) {
+        return null;
+    }
 
-  const cfg = command.config;
+    const aliases =
+        Array.isArray(cfg.aliases)
+            ? cfg.aliases
+                .map(x =>
+                    String(x)
+                        .trim()
+                        .toLowerCase()
+                )
+                .filter(Boolean)
+            : [];
 
-  cfg.name = String(
-    cfg.name || "unknown"
-  ).toLowerCase();
+    let role = 0;
 
-  cfg.role =
-    Number.isFinite(cfg.role)
-      ? cfg.role
-      : Number.isFinite(cfg.hasPermission)
-        ? cfg.hasPermission
-        : 0;
+    if (
+        typeof cfg.role === "number"
+    ) {
+        role = cfg.role;
+    } else if (
+        typeof cfg.hasPermission === "number"
+    ) {
+        role = cfg.hasPermission;
+    }
 
-  cfg.version =
-    cfg.version || "1.0.0";
+    return {
+        name,
 
-  cfg.hasPrefix =
-    cfg.hasPrefix !== false &&
-    cfg.usePrefix !== false;
+        aliases,
 
-  cfg.aliases = Array.isArray(cfg.aliases)
-    ? cfg.aliases
-    : [];
+        version:
+            cfg.version || "1.0.0",
 
-  cfg.aliases = cfg.aliases
-    .map(x => String(x).toLowerCase())
-    .filter(Boolean);
+        description:
+            cfg.description ||
+            "No description.",
 
-  cfg.description =
-    cfg.description || "";
+        usage:
+            cfg.usage || "",
 
-  cfg.usage =
-    cfg.usages ||
-    cfg.usage ||
-    "";
+        credits:
+            cfg.credits || "Unknown",
 
-  cfg.credits =
-    cfg.credits || "Unknown";
+        hasPrefix:
+            cfg.hasPrefix ??
+            cfg.usePrefix ??
+            true,
 
-  cfg.cooldown =
-    Number(cfg.cooldown) || 0;
+        role,
 
-  cfg.dev =
-    cfg.dev === true;
+        cooldown:
+            Number(cfg.cooldown) || 0,
 
-  return command;
+        dev:
+            Boolean(cfg.dev),
+
+        category:
+            cfg.category ||
+            "General"
+    };
 }
 
 function loadCommand(filePath) {
-  try {
-    delete require.cache[
-      require.resolve(filePath)
-    ];
+    try {
+        delete require.cache[
+            require.resolve(filePath)
+        ];
 
-    const command = require(filePath);
+        const command =
+            require(filePath);
 
-    if (!command) {
-      return;
+        const cfg =
+            normalizeCommandConfig(
+                command
+            );
+
+        if (
+            !cfg ||
+            typeof command.run !==
+            "function"
+        ) {
+            return;
+        }
+
+        const names = [
+            cfg.name,
+            ...cfg.aliases
+        ];
+
+        for (const name of names) {
+            Utils.commands.set(
+                name,
+                {
+                    ...command,
+                    config: cfg,
+                    filePath
+                }
+            );
+        }
+
+        console.log(
+            chalk.green(
+                `[COMMAND] ${cfg.name}`
+            )
+        );
+    } catch (error) {
+        console.error(
+            `[COMMAND LOAD ERROR] ${filePath}`,
+            error.message
+        );
     }
-
-    normalizeCommandConfig(command);
-
-    const cfg = command.config;
-
-    const names = [
-      cfg.name,
-      ...cfg.aliases
-    ];
-
-    const uniqueNames = [
-      ...new Set(
-        names
-          .map(x => String(x).toLowerCase())
-          .filter(Boolean)
-      )
-    ];
-
-    Utils.commands.set(
-      cfg.name,
-      {
-        ...command,
-        config: cfg,
-        aliases: uniqueNames
-      }
-    );
-
-    console.log(
-      chalk.green(
-        `[COMMAND] Loaded ${cfg.name}`
-      )
-    );
-  } catch (error) {
-    console.error(
-      chalk.red(
-        `[COMMAND ERROR] ${filePath}`
-      ),
-      error
-    );
-  }
 }
 
 function loadEvent(filePath) {
-  try {
-    delete require.cache[
-      require.resolve(filePath)
-    ];
+    try {
+        delete require.cache[
+            require.resolve(filePath)
+        ];
 
-    const event = require(filePath);
+        const event =
+            require(filePath);
 
-    if (!event) {
-      return;
+        if (
+            !event ||
+            !event.config ||
+            typeof event.handleEvent !==
+            "function"
+        ) {
+            return;
+        }
+
+        const name =
+            event.config.name ||
+            path.basename(
+                filePath,
+                ".js"
+            );
+
+        Utils.handleEvent.set(
+            name,
+            {
+                ...event,
+                filePath
+            }
+        );
+
+        console.log(
+            chalk.cyan(
+                `[EVENT] ${name}`
+            )
+        );
+    } catch (error) {
+        console.error(
+            `[EVENT LOAD ERROR] ${filePath}`,
+            error.message
+        );
     }
-
-    if (!event.config) {
-      return;
-    }
-
-    const cfg = event.config;
-
-    cfg.name = String(
-      cfg.name || path.basename(filePath, ".js")
-    ).toLowerCase();
-
-    Utils.handleEvent.set(
-      cfg.name,
-      event
-    );
-
-    console.log(
-      chalk.cyan(
-        `[EVENT] Loaded ${cfg.name}`
-      )
-    );
-  } catch (error) {
-    console.error(
-      chalk.red(
-        `[EVENT ERROR] ${filePath}`
-      ),
-      error
-    );
-  }
 }
 
 function loadScripts(directory) {
-  if (!fs.existsSync(directory)) {
-    return;
-  }
-
-  const files = fs.readdirSync(directory);
-
-  for (const file of files) {
-    const fullPath =
-      path.join(directory, file);
-
-    let stat;
-
-    try {
-      stat = fs.statSync(fullPath);
-    } catch (_) {
-      continue;
+    if (!fs.existsSync(directory)) {
+        return;
     }
 
-    if (stat.isDirectory()) {
-      loadScripts(fullPath);
-      continue;
-    }
-
-    if (!file.endsWith(".js")) {
-      continue;
-    }
-
-    try {
-      delete require.cache[
-        require.resolve(fullPath)
-      ];
-
-      const mod = require(fullPath);
-
-      if (
-        mod &&
-        mod.config &&
-        typeof mod.run === "function"
-      ) {
-        loadCommand(fullPath);
-      } else if (
-        mod &&
-        mod.config &&
-        typeof mod.handleEvent === "function"
-      ) {
-        loadEvent(fullPath);
-      } else {
-        console.log(
-          chalk.gray(
-            `[SKIP] ${file}`
-          )
+    const entries =
+        fs.readdirSync(
+            directory,
+            {
+                withFileTypes: true
+            }
         );
-      }
-    } catch (error) {
-      console.error(
-        chalk.red(
-          `[LOAD ERROR] ${file}`
-        ),
-        error.message
-      );
+
+    for (const entry of entries) {
+        const fullPath =
+            path.join(
+                directory,
+                entry.name
+            );
+
+        if (entry.isDirectory()) {
+            loadScripts(fullPath);
+            continue;
+        }
+
+        if (
+            !entry.name.endsWith(".js")
+        ) {
+            continue;
+        }
+
+        try {
+            delete require.cache[
+                require.resolve(fullPath)
+            ];
+
+            const module =
+                require(fullPath);
+
+            if (
+                module &&
+                module.config &&
+                typeof module.run ===
+                "function"
+            ) {
+                loadCommand(fullPath);
+            } else if (
+                module &&
+                module.config &&
+                typeof module.handleEvent ===
+                "function"
+            ) {
+                loadEvent(fullPath);
+            }
+        } catch (error) {
+            console.error(
+                `[SCRIPT ERROR] ${fullPath}`,
+                error.message
+            );
+        }
     }
-  }
 }
 
 loadScripts(SCRIPT_DIR);
 
-// ============================================================
-// EXPRESS SERVER
-// ============================================================
-
-const app = express();
-
-app.use(
-  express.static(
-    path.join(ROOT, "public")
-  )
-);
-
-app.use(bodyParser.json());
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  const file = path.join(
-    ROOT,
-    "public",
-    "index.html"
-  );
-
-  if (fs.existsSync(file)) {
-    return res.sendFile(file);
-  }
-
-  res.send("Bot is online.");
-});
-
-app.get(
-  "/step_by_step_guide",
-  (req, res) => {
-    const file = path.join(
-      ROOT,
-      "public",
-      "guide.html"
-    );
-
-    if (fs.existsSync(file)) {
-      return res.sendFile(file);
+function findCommand(name) {
+    if (!name) {
+        return null;
     }
 
-    res.status(404).send("Guide not found.");
-  }
-);
-
-app.get("/online_user", (req, res) => {
-  const file = path.join(
-    ROOT,
-    "public",
-    "online.html"
-  );
-
-  if (fs.existsSync(file)) {
-    return res.sendFile(file);
-  }
-
-  res.status(404).send("Online page not found.");
-});
-
-app.get("/info", (req, res) => {
-  const accounts = [];
-
-  for (const [
-    userid,
-    account
-  ] of Utils.account.entries()) {
-    accounts.push({
-      userid,
-      name: account.name || "Unknown",
-      time: account.time || 0,
-      online: account.online !== false
-    });
-  }
-
-  res.json({
-    status: "online",
-    accounts
-  });
-});
-
-app.get("/commands", (req, res) => {
-  res.json({
-    commands: [
-      ...Utils.commands.values()
-    ].map(command => ({
-      name: command.config.name,
-      aliases: command.config.aliases,
-      description:
-        command.config.description
-    })),
-
-    events: [
-      ...Utils.handleEvent.values()
-    ].map(event => ({
-      name: event.config?.name || "unknown"
-    }))
-  });
-});
-
-// ============================================================
-// LOGIN API
-// ============================================================
-
-app.post("/login", async (req, res) => {
-  try {
-    const {
-      state,
-      commands,
-      prefix,
-      admin,
-      blacklist
-    } = req.body;
-
-    if (!Array.isArray(state)) {
-      return res.status(400).json({
-        error: "state must be an array"
-      });
-    }
-
-    const validState =
-      state.some(
-        cookie =>
-          cookie &&
-          cookie.key === "c_user" &&
-          cookie.value
-      );
-
-    if (!validState) {
-      return res.status(400).json({
-        error:
-          "Invalid state: c_user cookie is required"
-      });
-    }
-
-    const result =
-      await accountLogin(
-        state,
-        commands,
-        prefix,
-        Array.isArray(admin)
-          ? admin
-          : admin
-            ? [admin]
-            : [],
-        Array.isArray(blacklist)
-          ? blacklist
-          : []
-      );
-
-    return res.json({
-      success: true,
-      result
-    });
-  } catch (error) {
-    console.error(
-      "[LOGIN ROUTE ERROR]",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-// ============================================================
-// HTTP SERVER
-// ============================================================
-
-const PORT =
-  Number(process.env.PORT) || 3000;
-
-const server = app.listen(
-  PORT,
-  () => {
-    console.log(
-      chalk.green(
-        `Server is running on port ${PORT}`
-      )
-    );
-  }
-);
-
-// ============================================================
-// ACCOUNT LOGIN
-// ============================================================
-
-const activeLogins = new Map();
-
-async function accountLogin(
-  state,
-  enableCommands = [],
-  prefix = "",
-  admin = [],
-  blacklist = []
-) {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-
-    try {
-      login(
-        {
-          appState: state
-        },
-
-        async (error, api) => {
-          if (error) {
-            console.error(
-              chalk.red(
-                "[LOGIN ERROR]"
-              ),
-              error
-            );
-
-            if (!settled) {
-              settled = true;
-              reject(error);
-            }
-
-            return;
-          }
-
-          try {
-            const userid =
-              String(
-                api.getCurrentUserID()
-              );
-
-            console.log(
-              chalk.green(
-                `[LOGIN] Account ${userid} connected`
-              )
-            );
-
-            /*
-             * Keep supplied command configuration.
-             * If nothing was supplied, enable all loaded commands.
-             */
-            if (
-              !Array.isArray(enableCommands) ||
-              enableCommands.length === 0
-            ) {
-              enableCommands = [
-                {
-                  commands:
-                    Array.from(
-                      Utils.commands.values()
-                    ).map(
-                      command =>
-                        command.config.name
-                    )
-                },
-                {
-                  handleEvent:
-                    Array.from(
-                      Utils.handleEvent.values()
-                    ).map(
-                      event =>
-                        event.config?.name
-                    )
-                }
-              ];
-            }
-
-            addThisUser(
-              userid,
-              enableCommands,
-              state,
-              prefix,
-              admin,
-              blacklist
-            );
-
-            let userInfo = {};
-
-            try {
-              userInfo =
-                await api.getUserInfo(userid);
-            } catch (infoError) {
-              console.error(
-                "[USER INFO ERROR]",
-                infoError.message
-              );
-            }
-
-            const account = {
-              userid,
-              name:
-                userInfo?.[userid]?.name ||
-                "Unknown",
-
-              time: 0,
-
-              online: true,
-
-              api
-            };
-
-            Utils.account.set(
-              userid,
-              account
-            );
-
-            /*
-             * Prevent duplicate login handlers
-             * for the same account.
-             */
-            if (
-              activeLogins.has(userid)
-            ) {
-              try {
-                clearInterval(
-                  activeLogins.get(userid)
-                    .timer
-                );
-              } catch (_) {}
-
-              activeLogins.delete(userid);
-            }
-
-            const timer =
-              setInterval(() => {
-                const current =
-                  Utils.account.get(userid);
-
-                if (current) {
-                  current.time += 1;
-                }
-              }, 1000);
-
-            timer.unref?.();
-
-            activeLogins.set(
-              userid,
-              {
-                api,
-                timer
-              }
-            );
-
-            // ====================================================
-            // FCA OPTIONS
-            // ====================================================
-
-            try {
-              api.setOptions({
-                forceLogin:
-                  config.forceLogin !== false,
-
-                listenEvents:
-                  config.listenEvents !== false,
-
-                logLevel:
-                  config.logLevel || "silent",
-
-                updatePresence:
-                  config.updatePresence !== false,
-
-                selfListen:
-                  config.selfListen === true,
-
-                userAgent:
-                  config.userAgent,
-
-                online:
-                  config.online !== false,
-
-                autoMarkDelivery:
-                  config.autoMarkDelivery === true,
-
-                autoMarkRead:
-                  config.autoMarkRead === true
-              });
-            } catch (optionsError) {
-              console.error(
-                "[OPTIONS ERROR]",
-                optionsError.message
-              );
-            }
-
-            // ====================================================
-            // MQTT LISTENER
-            // ====================================================
-
-            api.listenMqtt(
-              async (
-                listenError,
-                event
-              ) => {
-                if (listenError) {
-                  console.error(
-                    chalk.red(
-                      `[MQTT ERROR] ${userid}`
-                    ),
-                    listenError
-                  );
-
-                  return;
-                }
-
-                if (!event) {
-                  return;
-                }
-
-                try {
-                  await handleIncomingEvent(
-                    api,
-                    userid,
-                    event,
-                    prefix,
-                    enableCommands,
-                    admin,
-                    blacklist
-                  );
-                } catch (eventError) {
-                  console.error(
-                    chalk.red(
-                      "[EVENT PROCESS ERROR]"
-                    ),
-                    eventError
-                  );
-                }
-              }
-            );
-
-            if (!settled) {
-              settled = true;
-
-              resolve({
-                userid,
-                name: account.name
-              });
-            }
-          } catch (setupError) {
-            console.error(
-              chalk.red(
-                "[ACCOUNT SETUP ERROR]"
-              ),
-              setupError
-            );
-
-            if (!settled) {
-              settled = true;
-              reject(setupError);
-            }
-          }
-        }
-      );
-    } catch (loginError) {
-      console.error(
-        chalk.red(
-          "[LOGIN CALL ERROR]"
-        ),
-        loginError
-      );
-
-      if (!settled) {
-        settled = true;
-        reject(loginError);
-      }
-    }
-  });
-}
-
-// ============================================================
-// EVENT HANDLER
-// ============================================================
-
-async function handleIncomingEvent(
-  api,
-  userid,
-  event,
-  prefix,
-  enableCommands,
-  admin,
-  blacklist
-) {
-  const threadID =
-    event.threadID
-      ? String(event.threadID)
-      : "";
-
-  const senderID =
-    event.senderID
-      ? String(event.senderID)
-      : "";
-
-  const body =
-    typeof event.body === "string"
-      ? event.body.trim()
-      : "";
-
-  /*
-   * Traffic protection only applies when
-   * we have a thread and sender.
-   */
-  if (threadID && senderID) {
-    if (
-      Traffic.isDuplicate(
-        threadID,
-        senderID,
-        body
-      )
-    ) {
-      return;
-    }
-
-    if (
-      Traffic.isBursting(
-        threadID,
-        senderID
-      )
-    ) {
-      console.log(
-        chalk.yellow(
-          `[TRAFFIC] Suppressed burst in ${threadID}`
-        )
-      );
-
-      return;
-    }
-  }
-
-  // ==========================================================
-  // DATABASE
-  // ==========================================================
-
-  let database =
-    readJSON(
-      DATABASE_FILE,
-      {}
-    );
-
-  if (
-    !database ||
-    typeof database !== "object"
-  ) {
-    database = {};
-  }
-
-  if (
-    threadID &&
-    !database[threadID]
-  ) {
-    await createThread(
-      threadID,
-      api
-    );
-
-    database =
-      readJSON(
-        DATABASE_FILE,
-        {}
-      );
-  }
-
-  // ==========================================================
-  // HISTORY / ACCOUNT
-  // ==========================================================
-
-  const history =
-    readJSON(
-      HISTORY_FILE,
-      []
-    );
-
-  const currentAccount =
-    history.find(
-      item =>
-        String(item.userid) ===
-        String(userid)
-    );
-
-  const accountBlacklist =
-    new Set(
-      [
-        ...(Array.isArray(
-          blacklist
-        )
-          ? blacklist
-          : []),
-
-        ...(Array.isArray(
-          currentAccount?.blacklist
-        )
-          ? currentAccount.blacklist
-          : [])
-      ]
-        .map(String)
-    );
-
-  // ==========================================================
-  // BLACKLIST
-  // ==========================================================
-
-  if (
-    senderID &&
-    accountBlacklist.has(senderID)
-  ) {
-    return;
-  }
-
-  // ==========================================================
-  // EVENT TYPES
-  // ==========================================================
-
-  const eventType =
-    String(
-      event.type || ""
-    ).toLowerCase();
-
-  if (
-    eventType === "message" ||
-    eventType === "message_reply"
-  ) {
-    await processMessageCommand(
-      api,
-      userid,
-      event,
-      body,
-      threadID,
-      senderID,
-      prefix,
-      enableCommands,
-      admin
-    );
-  }
-
-  // ==========================================================
-  // HANDLE EVENTS
-  // ==========================================================
-
-  await processEvents(
-    api,
-    event,
-    enableCommands
-  );
-}
-
-// ============================================================
-// MESSAGE COMMAND PROCESSOR
-// ============================================================
-
-async function processMessageCommand(
-  api,
-  userid,
-  event,
-  body,
-  threadID,
-  senderID,
-  prefix,
-  enableCommands,
-  admin
-) {
-  if (!body) {
-    return;
-  }
-
-  const text =
-    body.trim();
-
-  if (!text) {
-    return;
-  }
-
-  // ==========================================================
-  // PARSE
-  // ==========================================================
-
-  const firstSpace =
-    text.indexOf(" ");
-
-  let firstWord =
-    firstSpace === -1
-      ? text
-      : text.slice(0, firstSpace);
-
-  let args =
-    firstSpace === -1
-      ? []
-      : text
-          .slice(firstSpace + 1)
-          .trim()
-          .split(/\s+/)
-          .filter(Boolean);
-
-  const lowerFirst =
-    firstWord.toLowerCase();
-
-  // ==========================================================
-  // PREFIX DETECTION
-  // ==========================================================
-
-  const configuredPrefix =
-    String(prefix || "");
-
-  let commandName = "";
-  let hasUsedPrefix = false;
-
-  const matchedCommand =
-    aliases(lowerFirst);
-
-  if (matchedCommand) {
-    commandName =
-      matchedCommand.config.name;
-  }
-
-  /*
-   * Prefix command:
-   * /help
-   *
-   * Prefixless command:
-   * help
-   */
-  if (
-    configuredPrefix &&
-    text.startsWith(configuredPrefix)
-  ) {
-    hasUsedPrefix = true;
-
-    const withoutPrefix =
-      text
-        .slice(
-          configuredPrefix.length
-        )
-        .trim();
-
-    if (!withoutPrefix) {
-      return;
-    }
-
-    const space =
-      withoutPrefix.indexOf(" ");
-
-    firstWord =
-      space === -1
-        ? withoutPrefix
-        : withoutPrefix.slice(0, space);
-
-    args =
-      space === -1
-        ? []
-        : withoutPrefix
-            .slice(space + 1)
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean);
-
-    commandName =
-      firstWord.toLowerCase();
-  } else {
-    /*
-     * Prefixless lookup.
-     */
-    const found =
-      aliases(
-        lowerFirst
-      );
-
-    if (found) {
-      commandName =
-        found.config.name;
-    }
-  }
-
-  if (!commandName) {
-    return;
-  }
-
-  const commandData =
-    aliases(commandName);
-
-  if (!commandData) {
-    return;
-  }
-
-  // ==========================================================
-  // PREFIX REQUIREMENT
-  // ==========================================================
-
-  if (
-    commandData.config.hasPrefix === false
-  ) {
-    if (hasUsedPrefix) {
-      await safeSend(
-        api,
-        "This command doesn't need a prefix.",
-        threadID,
-        event.messageID
-      );
-
-      return;
-    }
-  } else if (
-    configuredPrefix &&
-    !hasUsedPrefix
-  ) {
-    return;
-  }
-
-  // ==========================================================
-  // ENABLED COMMANDS
-  // ==========================================================
-
-  if (
-    Array.isArray(enableCommands) &&
-    enableCommands.length
-  ) {
-    const commandList =
-      enableCommands.find(
-        item =>
-          item &&
-          Array.isArray(
-            item.commands
-          )
-      );
-
-    if (
-      commandList &&
-      !commandList.commands
-        .map(String)
-        .map(x => x.toLowerCase())
-        .includes(
-          commandData.config.name
+    return Utils.commands.get(
+        String(name)
             .toLowerCase()
-        )
+            .trim()
+    ) || null;
+}
+
+function getCommandList() {
+    const unique =
+        new Map();
+
+    for (
+        const command
+        of Utils.commands.values()
     ) {
-      return;
-    }
-  }
+        const cfg =
+            command.config;
 
-  // ==========================================================
-  // DEV ONLY
-  // ==========================================================
-
-  if (commandData.config.dev) {
-    const isDev =
-      dev
-        .map(String)
-        .includes(
-          String(senderID)
-        );
-
-    if (!isDev) {
-      return;
-    }
-  }
-
-  // ==========================================================
-  // ROLE / PERMISSION
-  // ==========================================================
-
-  const role =
-    Number(
-      commandData.config.role || 0
-    );
-
-  if (role > 0) {
-    const isMaster =
-      Array.isArray(config.masterKey?.admin) &&
-      config.masterKey.admin
-        .map(String)
-        .includes(
-          String(senderID)
-        );
-
-    const isAdmin =
-      Array.isArray(admin) &&
-      admin
-        .map(String)
-        .includes(
-          String(senderID)
-        );
-
-    let isThreadAdmin = false;
-
-    if (role >= 2) {
-      try {
-        const info =
-          await api.getThreadInfo(
-            threadID
-          );
-
-        isThreadAdmin =
-          Array.isArray(
-            info?.adminIDs
-          ) &&
-          info.adminIDs
-            .some(
-              item =>
-                String(
-                  item.id ||
-                  item
-                ) ===
-                String(senderID)
+        if (
+            !unique.has(cfg.name)
+        ) {
+            unique.set(
+                cfg.name,
+                {
+                    name: cfg.name,
+                    aliases: cfg.aliases,
+                    version: cfg.version,
+                    description:
+                        cfg.description,
+                    usage: cfg.usage,
+                    credits: cfg.credits,
+                    hasPrefix:
+                        cfg.hasPrefix,
+                    role: cfg.role,
+                    cooldown:
+                        cfg.cooldown,
+                    dev: cfg.dev,
+                    category:
+                        cfg.category
+                }
             );
-      } catch (_) {
-        isThreadAdmin = false;
-      }
+        }
     }
 
-    if (
-      role >= 3 &&
-      !isMaster
+    return [
+        ...unique.values()
+    ].sort(
+        (a, b) =>
+            a.name.localeCompare(
+                b.name
+            )
+    );
+}
+
+function getHuntingState() {
+    return {
+        enabled:
+            Boolean(
+                global.huntingState
+            ),
+
+        countEnabled:
+            Boolean(
+                global.countEngineState
+            ),
+
+        replyEnabled:
+            global.huntingReplyState !==
+            false,
+
+        sending:
+            Boolean(
+                global.activeSendingState
+            ),
+
+        duplicateProtection:
+            global.huntingDuplicateState !==
+            false,
+
+        stats:
+            global.huntingStats ||
+            {},
+
+        nickname:
+            global.nicknameState ||
+            {},
+
+        nameLock:
+            global.gcNameLockState ||
+            {}
+    };
+}
+
+function getRuntime() {
+    const accounts = [];
+
+    for (
+        const account
+        of Utils.account.values()
     ) {
-      return;
+        accounts.push({
+            userid:
+                account.userid,
+
+            name:
+                account.name || "Unknown",
+
+            online:
+                Boolean(account.online),
+
+            uptime:
+                account.time || 0
+        });
     }
 
-    if (
-      role === 2 &&
-      !isAdmin &&
-      !isThreadAdmin &&
-      !isMaster
-    ) {
-      return;
-    }
+    return {
+        online:
+            accounts.some(
+                account =>
+                    account.online
+            ),
 
-    if (
-      role === 1 &&
-      !isAdmin &&
-      !isMaster
-    ) {
-      return;
-    }
-  }
+        updatedAt:
+            new Date().toISOString(),
 
-  // ==========================================================
-  // COOLDOWN
-  // ==========================================================
+        workerPid:
+            process.pid,
 
-  const cooldown =
-    Number(
-      commandData.config.cooldown || 0
+        startedAt:
+            new Date(
+                Runtime.startedAt
+            ).toISOString(),
+
+        uptime:
+            Math.floor(
+                (
+                    Date.now() -
+                    Runtime.startedAt
+                ) / 1000
+            ),
+
+        accounts,
+
+        commands:
+            getCommandList(),
+
+        events:
+            [...Utils.handleEvent.values()]
+                .map(event => ({
+                    name:
+                        event.config?.name ||
+                        "event"
+                })),
+
+        hunting:
+            getHuntingState(),
+
+        stats: {
+            receivedMessages:
+                Runtime.receivedMessages,
+
+            processedMessages:
+                Runtime.processedMessages,
+
+            sentMessages:
+                Runtime.sentMessages,
+
+            suppressedDuplicates:
+                Runtime.suppressedDuplicates,
+
+            suppressedBurst:
+                Runtime.suppressedBurst,
+
+            queueDrops:
+                Runtime.queueDrops,
+
+            commandErrors:
+                Runtime.commandErrors,
+
+            lastMessageAt:
+                Runtime.lastMessageAt,
+
+            lastReplyAt:
+                Runtime.lastReplyAt,
+
+            lastError:
+                Runtime.lastError
+        }
+    };
+}
+
+function publishRuntime() {
+    const runtime =
+        getRuntime();
+
+    writeJSON(
+        RUNTIME_FILE,
+        runtime
     );
 
-  if (cooldown > 0) {
+    if (
+        typeof process.send ===
+        "function"
+    ) {
+        try {
+            process.send({
+                type: "runtime",
+                data: runtime
+            });
+        } catch {}
+    }
+}
+
+let runtimeTimer =
+    setInterval(
+        publishRuntime,
+        5000
+    );
+
+publishRuntime();
+
+const activeLogins =
+    new Set();
+
+function getAdminIDs() {
+    const list =
+        config.masterKey &&
+        Array.isArray(
+            config.masterKey.admin
+        )
+            ? config.masterKey.admin
+            : [];
+
+    return list.map(
+        id => String(id)
+    );
+}
+
+function isAdmin(userID) {
+    return getAdminIDs()
+        .includes(
+            String(userID)
+        );
+}
+
+function getSenderID(event) {
+    return String(
+        event.senderID ||
+        event.author ||
+        event.from ||
+        ""
+    );
+}
+
+function getThreadID(event) {
+    return String(
+        event.threadID ||
+        ""
+    );
+}
+
+function getMessageID(event) {
+    return String(
+        event.messageID ||
+        ""
+    );
+}
+
+function getBody(event) {
+    return String(
+        event.body ||
+        ""
+    ).trim();
+}
+
+function checkCooldown(
+    commandName,
+    senderID,
+    cooldown
+) {
+    if (!cooldown) {
+        return false;
+    }
+
     const key =
-      `${senderID}:${commandData.config.name}`;
+        `${commandName}:${senderID}`;
 
-    const now =
-      Date.now();
+    const current =
+        Date.now();
 
-    const previous =
-      Utils.cooldowns.get(key) || 0;
+    const last =
+        Utils.cooldowns.get(
+            key
+        ) || 0;
 
     if (
-      now - previous <
-      cooldown * 1000
+        current - last <
+        cooldown * 1000
     ) {
-      return;
+        return true;
     }
 
     Utils.cooldowns.set(
-      key,
-      now
+        key,
+        current
     );
-  }
 
-  // ==========================================================
-  // COMMAND EXECUTION
-  // ==========================================================
-
-  if (
-    typeof commandData.run !==
-    "function"
-  ) {
-    return;
-  }
-
-  try {
-    await commandData.run({
-      api,
-
-      event,
-
-      args,
-
-      body,
-
-      threadID,
-
-      messageID:
-        event.messageID,
-
-      senderID,
-
-      prefix,
-
-      commands:
-        Utils.commands,
-
-      handleEvent:
-        Utils.handleEvent,
-
-      account:
-        Utils.account.get(userid),
-
-      config,
-
-      safeSend: (
-        message,
-        targetThreadID = threadID,
-        replyID = event.messageID
-      ) =>
-        safeSend(
-          api,
-          message,
-          targetThreadID,
-          replyID
-        )
-    });
-  } catch (commandError) {
-    console.error(
-      chalk.red(
-        `[COMMAND ERROR] ${commandData.config.name}`
-      ),
-      commandError
-    );
-  }
+    return false;
 }
 
-// ============================================================
-// EVENT PROCESSOR
-// ============================================================
-
-async function processEvents(
-  api,
-  event,
-  enableCommands
+async function processMessageCommand(
+    api,
+    event,
+    account
 ) {
-  if (!event) {
-    return;
-  }
+    const body =
+        getBody(event);
 
-  const enabledEvents =
-    Array.isArray(enableCommands)
-      ? enableCommands.find(
-          item =>
-            item &&
-            Array.isArray(
-              item.handleEvent
-            )
+    if (!body) {
+        return false;
+    }
+
+    const senderID =
+        getSenderID(event);
+
+    const threadID =
+        getThreadID(event);
+
+    const messageID =
+        getMessageID(event);
+
+    const prefix =
+        String(
+            config.prefix ||
+            process.env.PREFIX ||
+            ""
+        );
+
+    let commandName = "";
+    let args = [];
+
+    let hasPrefix = false;
+
+    if (
+        prefix &&
+        body.startsWith(prefix)
+    ) {
+        hasPrefix = true;
+
+        const content =
+            body
+                .slice(prefix.length)
+                .trim();
+
+        const parts =
+            content.split(/\s+/);
+
+        commandName =
+            (
+                parts.shift() ||
+                ""
+            ).toLowerCase();
+
+        args = parts;
+    } else {
+        const parts =
+            body.split(/\s+/);
+
+        commandName =
+            (
+                parts.shift() ||
+                ""
+            ).toLowerCase();
+
+        args = parts;
+    }
+
+    const command =
+        findCommand(
+            commandName
+        );
+
+    if (!command) {
+        return false;
+    }
+
+    const cfg =
+        command.config;
+
+    if (
+        cfg.hasPrefix &&
+        !hasPrefix
+    ) {
+        return false;
+    }
+
+    if (
+        cfg.dev &&
+        !isAdmin(senderID)
+    ) {
+        return false;
+    }
+
+    if (
+        cfg.role >= 2 &&
+        !isAdmin(senderID)
+    ) {
+        return false;
+    }
+
+    if (
+        checkCooldown(
+            cfg.name,
+            senderID,
+            cfg.cooldown
         )
-      : null;
+    ) {
+        return true;
+    }
 
-  for (
-    const eventHandler
-    of Utils.handleEvent.values()
-  ) {
+    Runtime.processedMessages++;
+
     try {
-      const name =
-        eventHandler.config?.name;
-
-      if (
-        enabledEvents &&
-        !enabledEvents.handleEvent
-          .map(String)
-          .map(x => x.toLowerCase())
-          .includes(
-            String(name).toLowerCase()
-          )
-      ) {
-        continue;
-      }
-
-      if (
-        typeof eventHandler.handleEvent !==
-        "function"
-      ) {
-        continue;
-      }
-
-      await eventHandler.handleEvent({
-        api,
-        event,
-        safeSend: (
-          message,
-          threadID = event.threadID,
-          messageID = event.messageID
-        ) =>
-          safeSend(
+        await command.run({
             api,
-            message,
+            event,
+
+            args,
+
+            body,
+
             threadID,
-            messageID
-          )
-      });
-    } catch (error) {
-      console.error(
-        chalk.red(
-          `[HANDLE EVENT ERROR]`
-        ),
-        error.message
-      );
-    }
-  }
-}
+            messageID,
+            senderID,
 
-// ============================================================
-// ALIAS LOOKUP
-// ============================================================
+            prefix,
 
-function aliases(command) {
-  const target =
-    String(command || "")
-      .toLowerCase()
-      .trim();
+            commands:
+                Utils.commands,
 
-  if (!target) {
-    return null;
-  }
+            handleEvent:
+                Utils.handleEvent,
 
-  for (
-    const commandData
-    of Utils.commands.values()
-  ) {
-    const names = [
-      commandData.config.name,
-      ...(commandData.config.aliases || [])
-    ]
-      .map(
-        x =>
-          String(x).toLowerCase()
-      );
+            account,
 
-    if (
-      names.includes(target)
-    ) {
-      return commandData;
-    }
-  }
+            config,
 
-  return null;
-}
+            safeSend,
 
-// ============================================================
-// CREATE THREAD
-// ============================================================
-
-async function createThread(
-  threadID,
-  api
-) {
-  if (!threadID) {
-    return null;
-  }
-
-  let database =
-    readJSON(
-      DATABASE_FILE,
-      {}
-    );
-
-  if (
-    database[threadID]
-  ) {
-    return database[threadID];
-  }
-
-  try {
-    const info =
-      await api.getThreadInfo(
-        threadID
-      );
-
-    const adminIDs =
-      Array.isArray(
-        info?.adminIDs
-      )
-        ? info.adminIDs.map(
-            item =>
-              String(
-                item.id ||
-                item
-              )
-          )
-        : [];
-
-    database[threadID] = {
-      threadID,
-      adminIDs,
-      createdAt:
-        Date.now()
-    };
-
-    writeJSON(
-      DATABASE_FILE,
-      database
-    );
-
-    return database[threadID];
-  } catch (error) {
-    console.error(
-      `[THREAD ERROR] ${threadID}`,
-      error.message
-    );
-
-    return null;
-  }
-}
-
-// ============================================================
-// ADD USER
-// ============================================================
-
-function addThisUser(
-  userid,
-  enableCommands,
-  state,
-  prefix,
-  admin,
-  blacklist = []
-) {
-  const history =
-    readJSON(
-      HISTORY_FILE,
-      []
-    );
-
-  const accountData = {
-    userid: String(userid),
-
-    prefix:
-      typeof prefix === "string"
-        ? prefix
-        : "",
-
-    admin:
-      Array.isArray(admin)
-        ? admin.map(String)
-        : [],
-
-    blacklist:
-      Array.isArray(blacklist)
-        ? blacklist.map(String)
-        : [],
-
-    enableCommands:
-      Array.isArray(enableCommands)
-        ? enableCommands
-        : [],
-
-    time: 0,
-
-    updatedAt:
-      Date.now()
-  };
-
-  const index =
-    history.findIndex(
-      item =>
-        String(item.userid) ===
-        String(userid)
-    );
-
-  if (index >= 0) {
-    history[index] = {
-      ...history[index],
-      ...accountData
-    };
-  } else {
-    history.push(accountData);
-  }
-
-  writeJSON(
-    HISTORY_FILE,
-    history
-  );
-
-  const sessionFile =
-    path.join(
-      SESSION_DIR,
-      `${userid}.json`
-    );
-
-  writeJSON(
-    sessionFile,
-    state
-  );
-}
-
-// ============================================================
-// DELETE USER
-// ============================================================
-
-function deleteThisUser(userid) {
-  const history =
-    readJSON(
-      HISTORY_FILE,
-      []
-    );
-
-  const filtered =
-    history.filter(
-      item =>
-        String(item.userid) !==
-        String(userid)
-    );
-
-  writeJSON(
-    HISTORY_FILE,
-    filtered
-  );
-
-  const sessionFile =
-    path.join(
-      SESSION_DIR,
-      `${userid}.json`
-    );
-
-  try {
-    if (
-      fs.existsSync(sessionFile)
-    ) {
-      fs.unlinkSync(
-        sessionFile
-      );
-    }
-  } catch (error) {
-    console.error(
-      "[SESSION DELETE ERROR]",
-      error.message
-    );
-  }
-
-  Utils.account.delete(
-    String(userid)
-  );
-}
-
-// ============================================================
-// MAIN
-// ============================================================
-
-async function main() {
-  console.log(
-    chalk.cyan(
-      "=========================================="
-    )
-  );
-
-  console.log(
-    chalk.cyan(
-      "       BOT STARTUP / STABILITY MODE"
-    )
-  );
-
-  console.log(
-    chalk.cyan(
-      "=========================================="
-    )
-  );
-
-  const history =
-    readJSON(
-      HISTORY_FILE,
-      []
-    );
-
-  if (
-    !Array.isArray(history) ||
-    history.length === 0
-  ) {
-    console.log(
-      chalk.yellow(
-        "[STARTUP] No saved accounts found."
-      )
-    );
-
-    return;
-  }
-
-  const sessionFiles =
-    fs.readdirSync(
-      SESSION_DIR
-    )
-      .filter(
-        file =>
-          file.endsWith(".json")
-      );
-
-  if (
-    sessionFiles.length === 0
-  ) {
-    console.log(
-      chalk.yellow(
-        "[STARTUP] No session files found."
-      )
-    );
-
-    return;
-  }
-
-  /*
-   * Sequential account startup.
-   * This avoids logging in every account simultaneously.
-   */
-  for (
-    const file
-    of sessionFiles
-  ) {
-    const userid =
-      path.basename(
-        file,
-        ".json"
-      );
-
-    const userData =
-      history.find(
-        item =>
-          String(item.userid) ===
-          String(userid)
-      );
-
-    if (!userData) {
-      console.log(
-        chalk.yellow(
-          `[STARTUP] No history for ${userid}; keeping session.`
-        )
-      );
-
-      continue;
-    }
-
-    const sessionPath =
-      path.join(
-        SESSION_DIR,
-        file
-      );
-
-    const state =
-      readJSON(
-        sessionPath,
-        null
-      );
-
-    if (
-      !Array.isArray(state) ||
-      state.length === 0
-    ) {
-      console.log(
-        chalk.yellow(
-          `[STARTUP] Invalid/empty session for ${userid}.`
-        )
-      );
-
-      continue;
-    }
-
-    try {
-      console.log(
-        chalk.blue(
-          `[STARTUP] Connecting ${userid}...`
-        )
-      );
-
-      await accountLogin(
-        state,
-        userData.enableCommands,
-        userData.prefix,
-        userData.admin,
-        userData.blacklist
-      );
-
-      console.log(
-        chalk.green(
-          `[STARTUP] ${userid} is online.`
-        )
-      );
-
-      /*
-       * Small gap before another account starts.
-       */
-      await sleep(2000);
-    } catch (error) {
-      /*
-       * IMPORTANT:
-       * Do NOT delete the session here.
-       *
-       * A temporary network/FCA error should not
-       * destroy the saved login state.
-       */
-      console.error(
-        chalk.red(
-          `[STARTUP ERROR] ${userid}`
-        ),
-        error.message
-      );
-
-      await sleep(5000);
-    }
-  }
-
-  console.log(
-    chalk.green(
-      "[STARTUP] Finished loading saved accounts."
-    )
-  );
-}
-
-// ============================================================
-// PROCESS SAFETY
-// ============================================================
-
-let shuttingDown = false;
-
-async function shutdown(signal) {
-  if (shuttingDown) {
-    return;
-  }
-
-  shuttingDown = true;
-
-  console.log(
-    chalk.yellow(
-      `[SHUTDOWN] ${signal}`
-    )
-  );
-
-  try {
-    if (Traffic.cleanupTimer) {
-      clearInterval(
-        Traffic.cleanupTimer
-      );
-    }
-
-    for (
-      const [
-        userid,
-        data
-      ]
-      of activeLogins.entries()
-    ) {
-      try {
-        if (data.timer) {
-          clearInterval(
-            data.timer
-          );
-        }
-
-        if (
-          data.api &&
-          typeof data.api.logout ===
-          "function"
-        ) {
-          /*
-           * Do not force logout.
-           *
-           * We only stop local timers.
-           */
-        }
-      } catch (_) {}
-
-      Utils.account.delete(
-        userid
-      );
-    }
-
-    activeLogins.clear();
-
-    if (server) {
-      await new Promise(resolve => {
-        server.close(() => {
-          resolve();
+            sleep
         });
 
-        setTimeout(
-          resolve,
-          5000
-        );
-      });
-    }
-  } catch (error) {
-    console.error(
-      "[SHUTDOWN ERROR]",
-      error.message
-    );
-  }
+        return true;
+    } catch (error) {
+        Runtime.commandErrors++;
+        Runtime.lastError =
+            error.message;
 
-  process.exit(0);
+        console.error(
+            `[COMMAND ERROR] ${cfg.name}:`,
+            error
+        );
+
+        return true;
+    }
+}
+
+async function processEvents(
+    api,
+    event
+) {
+    for (
+        const handler
+        of Utils.handleEvent.values()
+    ) {
+        try {
+            await handler.handleEvent({
+                api,
+                event,
+                safeSend
+            });
+        } catch (error) {
+            console.error(
+                `[EVENT ERROR] ${
+                    handler.config?.name ||
+                    "event"
+                }:`,
+                error.message
+            );
+        }
+    }
+}
+
+async function handleIncomingEvent(
+    api,
+    event,
+    account
+) {
+    if (!event) {
+        return;
+    }
+
+    const type =
+        event.type;
+
+    if (
+        type !== "message" &&
+        type !== "message_reply" &&
+        type !== "event"
+    ) {
+        return;
+    }
+
+    const threadID =
+        getThreadID(event);
+
+    const senderID =
+        getSenderID(event);
+
+    const body =
+        getBody(event);
+
+    if (!threadID) {
+        return;
+    }
+
+    Runtime.receivedMessages++;
+    Runtime.lastMessageAt =
+        new Date().toISOString();
+
+    if (
+        event.senderID ===
+        account.userid
+    ) {
+        return;
+    }
+
+    if (
+        body &&
+        Traffic.isDuplicate(
+            threadID,
+            senderID,
+            body
+        )
+    ) {
+        return;
+    }
+
+    if (
+        body &&
+        Traffic.isBursting(
+            threadID,
+            senderID
+        )
+    ) {
+        return;
+    }
+
+    let database =
+        readJSON(
+            DATABASE_FILE,
+            {}
+        );
+
+    if (!database[threadID]) {
+        database[threadID] = {
+            threadID,
+            createdAt:
+                new Date().toISOString(),
+            adminIDs: []
+        };
+
+        writeJSON(
+            DATABASE_FILE,
+            database
+        );
+    }
+
+    await processMessageCommand(
+        api,
+        event,
+        account
+    );
+
+    await processEvents(
+        api,
+        event
+    );
+
+    publishRuntime();
+}
+
+function addThisUser(
+    userid,
+    name,
+    api
+) {
+    Utils.account.set(
+        String(userid),
+        {
+            userid: String(userid),
+            name: name || "Unknown",
+            time: 0,
+            online: true,
+            api
+        }
+    );
+
+    const history =
+        readJSON(
+            HISTORY_FILE,
+            []
+        );
+
+    const exists =
+        history.some(
+            item =>
+                String(item.userid) ===
+                String(userid)
+        );
+
+    if (!exists) {
+        history.push({
+            userid: String(userid),
+            name: name || "Unknown",
+            time:
+                new Date().toISOString()
+        });
+
+        writeJSON(
+            HISTORY_FILE,
+            history
+        );
+    }
+
+    const sessionFile =
+        path.join(
+            SESSION_DIR,
+            `${userid}.json`
+        );
+
+    try {
+        const appState =
+            api.getAppState
+                ? api.getAppState()
+                : [];
+
+        writeJSON(
+            sessionFile,
+            appState
+        );
+    } catch {}
+}
+
+function accountLogin(
+    state
+) {
+    return new Promise(
+        resolve => {
+            login(
+                {
+                    appState: state
+                },
+                async (
+                    error,
+                    api
+                ) => {
+                    if (error) {
+                        console.error(
+                            "[LOGIN ERROR]",
+                            error
+                        );
+
+                        resolve(false);
+                        return;
+                    }
+
+                    try {
+                        const userid =
+                            String(
+                                api.getCurrentUserID()
+                            );
+
+                        if (
+                            activeLogins.has(
+                                userid
+                            )
+                        ) {
+                            resolve(true);
+                            return;
+                        }
+
+                        activeLogins.add(
+                            userid
+                        );
+
+                        let name =
+                            "Unknown";
+
+                        try {
+                            const info =
+                                await new Promise(
+                                    resolveInfo => {
+                                        api.getUserInfo(
+                                            userid,
+                                            (
+                                                err,
+                                                data
+                                            ) => {
+                                                if (
+                                                    err ||
+                                                    !data
+                                                ) {
+                                                    resolveInfo(
+                                                        null
+                                                    );
+                                                } else {
+                                                    resolveInfo(
+                                                        data
+                                                    );
+                                                }
+                                            }
+                                        );
+                                    }
+                                );
+
+                            if (
+                                info &&
+                                info[userid]
+                            ) {
+                                name =
+                                    info[
+                                        userid
+                                    ].name ||
+                                    name;
+                            }
+                        } catch {}
+
+                        addThisUser(
+                            userid,
+                            name,
+                            api
+                        );
+
+                        api.setOptions({
+                            listenEvents:
+                                config.listenEvents,
+
+                            selfListen:
+                                config.selfListen,
+
+                            updatePresence:
+                                config.updatePresence,
+
+                            online:
+                                config.online,
+
+                            autoMarkDelivery:
+                                config.autoMarkDelivery,
+
+                            autoMarkRead:
+                                config.autoMarkRead,
+
+                            userAgent:
+                                config.userAgent
+                        });
+
+                        const account =
+                            Utils.account.get(
+                                userid
+                            );
+
+                        api.listenMqtt(
+                            async (
+                                listenError,
+                                event
+                            ) => {
+                                if (
+                                    listenError
+                                ) {
+                                    Runtime.lastError =
+                                        listenError.message ||
+                                        String(
+                                            listenError
+                                        );
+
+                                    console.error(
+                                        "[MQTT]",
+                                        listenError
+                                    );
+
+                                    return;
+                                }
+
+                                if (
+                                    account
+                                ) {
+                                    account.time++;
+                                }
+
+                                try {
+                                    await handleIncomingEvent(
+                                        api,
+                                        event,
+                                        account
+                                    );
+                                } catch (
+                                    handlerError
+                                ) {
+                                    Runtime.lastError =
+                                        handlerError.message;
+
+                                    console.error(
+                                        "[EVENT HANDLER]",
+                                        handlerError
+                                    );
+                                }
+                            }
+                        );
+
+                        publishRuntime();
+
+                        console.log(
+                            chalk.green(
+                                `[LOGIN] ${name} (${userid})`
+                            )
+                        );
+
+                        resolve(true);
+                    } catch (loginError) {
+                        Runtime.lastError =
+                            loginError.message;
+
+                        console.error(
+                            "[ACCOUNT ERROR]",
+                            loginError
+                        );
+
+                        resolve(false);
+                    }
+                }
+            );
+        }
+    );
+}
+
+async function main() {
+    console.log(
+        chalk.cyan(
+            "======================================"
+        )
+    );
+
+    console.log(
+        chalk.cyan(
+            "        SANZU AI BOT WORKER"
+        )
+    );
+
+    console.log(
+        chalk.cyan(
+            "======================================"
+        )
+    );
+
+    console.log(
+        `[COMMANDS] ${getCommandList().length}`
+    );
+
+    console.log(
+        `[EVENTS] ${Utils.handleEvent.size}`
+    );
+
+    const history =
+        readJSON(
+            HISTORY_FILE,
+            []
+        );
+
+    const sessions =
+        fs.readdirSync(
+            SESSION_DIR
+        )
+        .filter(
+            file =>
+                file.endsWith(".json")
+        );
+
+    if (
+        sessions.length
+    ) {
+        for (
+            const file
+            of sessions
+        ) {
+            const sessionPath =
+                path.join(
+                    SESSION_DIR,
+                    file
+                );
+
+            const state =
+                readJSON(
+                    sessionPath,
+                    null
+                );
+
+            if (
+                !Array.isArray(state) ||
+                !state.length
+            ) {
+                continue;
+            }
+
+            console.log(
+                `[SESSION] Loading ${file}`
+            );
+
+            await accountLogin(
+                state
+            );
+
+            await sleep(2000);
+        }
+    } else if (
+        history.length
+    ) {
+        console.log(
+            "[SESSION] History found but no session files."
+        );
+    } else {
+        console.log(
+            "[SESSION] No saved sessions."
+        );
+    }
+
+    publishRuntime();
+
+    console.log(
+        chalk.green(
+            "[WORKER] Ready."
+        )
+    );
+}
+
+async function shutdown(
+    signal
+) {
+    console.log(
+        `[WORKER] Shutdown: ${signal}`
+    );
+
+    if (runtimeTimer) {
+        clearInterval(
+            runtimeTimer
+        );
+
+        runtimeTimer = null;
+    }
+
+    Traffic.stop();
+
+    for (
+        const account
+        of Utils.account.values()
+    ) {
+        account.online = false;
+
+        try {
+            if (
+                account.api &&
+                typeof account.api.logout ===
+                "function"
+            ) {
+                await new Promise(
+                    resolve => {
+                        account.api.logout(
+                            () => resolve()
+                        );
+                    }
+                );
+            }
+        } catch {}
+    }
+
+    publishRuntime();
+
+    setTimeout(
+        () => process.exit(0),
+        500
+    );
 }
 
 process.on(
-  "SIGTERM",
-  () => shutdown("SIGTERM")
+    "SIGINT",
+    () => shutdown("SIGINT")
 );
 
 process.on(
-  "SIGINT",
-  () => shutdown("SIGINT")
+    "SIGTERM",
+    () => shutdown("SIGTERM")
 );
 
 process.on(
-  "uncaughtException",
-  error => {
-    console.error(
-      chalk.red(
-        "[UNCAUGHT EXCEPTION]"
-      ),
-      error
-    );
+    "uncaughtException",
+    error => {
+        Runtime.lastError =
+            error.message;
 
-    /*
-     * Do not immediately exit for a normal
-     * command/event exception.
-     *
-     * The supervisor (index.js) can handle
-     * a genuine process failure if necessary.
-     */
-  }
+        console.error(
+            "[UNCAUGHT EXCEPTION]",
+            error
+        );
+
+        publishRuntime();
+
+        process.exitCode = 1;
+    }
 );
 
 process.on(
-  "unhandledRejection",
-  error => {
-    console.error(
-      chalk.red(
-        "[UNHANDLED REJECTION]"
-      ),
-      error
-    );
-  }
-);
+    "unhandledRejection",
+    error => {
+        Runtime.lastError =
+            error?.message ||
+            String(error);
 
-// ============================================================
-// START
-// ============================================================
+        console.error(
+            "[UNHANDLED REJECTION]",
+            error
+        );
+
+        publishRuntime();
+    }
+);
 
 main().catch(error => {
-  console.error(
-    chalk.red(
-      "[MAIN ERROR]"
-    ),
-    error
-  );
+    Runtime.lastError =
+        error.message;
 
-  /*
-   * Let index.js supervisor handle a genuine
-   * startup failure instead of silently continuing.
-   */
-  process.exitCode = 1;
+    console.error(
+        "[FATAL]",
+        error
+    );
+
+    publishRuntime();
+
+    process.exitCode = 1;
 });
