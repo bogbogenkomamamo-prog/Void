@@ -1,138 +1,2352 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>SANZU AI</title>
-    <meta name="description" content="Explore our AI Autobot messenger for personalized interactions and efficient task automation, enhancing your online experience.">
-    <meta property="og:image" content="https://i.imgur.com/Zvo9Wc0.jpeg">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@300;400;700&display=swap" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="/image/home.png">
+    <meta charset="UTF-8">
+
+    <title>SANZU AI — Command Center</title>
+
+    <meta
+        name="description"
+        content="SANZU AI Messenger Bot Command Center"
+    >
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#050505"
+    >
+
+    <link
+        rel="icon"
+        href="/image/home.png"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+
+            background:
+                radial-gradient(
+                    circle at top,
+                    #171717 0%,
+                    #080808 38%,
+                    #030303 100%
+                );
+
+            color: #eeeeee;
+
+            font-family:
+                "Courier Prime",
+                monospace;
+
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: "";
+
+            position: fixed;
+
+            inset: 0;
+
+            pointer-events: none;
+
+            background-image:
+                linear-gradient(
+                    rgba(255,255,255,0.015) 1px,
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(255,255,255,0.015) 1px,
+                    transparent 1px
+                );
+
+            background-size: 35px 35px;
+
+            z-index: -1;
+        }
+
+        ::selection {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .navbar {
+            background: rgba(5,5,5,0.92);
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.08);
+
+            backdrop-filter:
+                blur(15px);
+
+            box-shadow:
+                0 10px 40px
+                rgba(0,0,0,0.35);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+
+            letter-spacing: 2px;
+
+            color: #fff !important;
+        }
+
+        .navbar-brand img {
+            width: 34px;
+            height: 34px;
+
+            object-fit: cover;
+
+            margin-right: 8px;
+
+            border-radius: 8px;
+        }
+
+        .nav-link {
+            color: #999 !important;
+
+            font-size: 12px;
+
+            transition: 0.2s;
+        }
+
+        .nav-link:hover {
+            color: #fff !important;
+        }
+
+        .hero {
+            padding:
+                55px
+                15px
+                35px;
+
+            text-align: center;
+        }
+
+        .hero-logo {
+            width: 78px;
+            height: 78px;
+
+            object-fit: cover;
+
+            border-radius: 18px;
+
+            margin-bottom: 20px;
+
+            box-shadow:
+                0 0 35px
+                rgba(255,255,255,0.08);
+        }
+
+        .hero h1 {
+            font-size: 30px;
+
+            font-weight: 700;
+
+            letter-spacing: 5px;
+
+            margin: 0;
+        }
+
+        .hero p {
+            color: #777;
+
+            font-size: 11px;
+
+            margin-top: 10px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+            padding:
+                7px
+                13px;
+
+            border-radius: 50px;
+
+            background: rgba(255,255,255,0.04);
+
+            border:
+                1px solid
+                rgba(255,255,255,0.08);
+
+            color: #aaa;
+
+            font-size: 10px;
+
+            margin-top: 15px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+
+            border-radius: 50%;
+
+            background: #555;
+
+            box-shadow:
+                0 0 0 transparent;
+        }
+
+        .status-dot.online {
+            background: #39ff88;
+
+            box-shadow:
+                0 0 12px
+                rgba(57,255,136,0.8);
+        }
+
+        .status-dot.offline {
+            background: #ff4d4d;
+
+            box-shadow:
+                0 0 12px
+                rgba(255,77,77,0.5);
+        }
+
+        .container-main {
+            width: 94%;
+
+            max-width: 1250px;
+
+            margin:
+                0 auto
+                40px;
+        }
+
+        .section-title {
+            font-size: 12px;
+
+            color: #777;
+
+            letter-spacing: 2px;
+
+            margin:
+                35px
+                0
+                15px;
+
+            text-transform: uppercase;
+        }
+
+        .dashboard-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    auto-fit,
+                    minmax(170px, 1fr)
+                );
+
+            gap: 12px;
+        }
+
+        .stat-card {
+            position: relative;
+
+            overflow: hidden;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(255,255,255,0.055),
+                    rgba(255,255,255,0.018)
+                );
+
+            border:
+                1px solid
+                rgba(255,255,255,0.08);
+
+            border-radius: 14px;
+
+            padding: 20px;
+
+            min-height: 125px;
+
+            transition:
+                transform 0.2s,
+                border-color 0.2s;
+        }
+
+        .stat-card:hover {
+            transform:
+                translateY(-2px);
+
+            border-color:
+                rgba(255,255,255,0.18);
+        }
+
+        .stat-icon {
+            color: #777;
+
+            font-size: 14px;
+
+            margin-bottom: 13px;
+        }
+
+        .stat-value {
+            font-size: 25px;
+
+            font-weight: 700;
+
+            color: #fff;
+        }
+
+        .stat-label {
+            color: #666;
+
+            font-size: 9px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+
+            margin-top: 5px;
+        }
+
+        .panel {
+            background:
+                rgba(10,10,10,0.75);
+
+            border:
+                1px solid
+                rgba(255,255,255,0.08);
+
+            border-radius: 15px;
+
+            overflow: hidden;
+
+            margin-bottom: 15px;
+
+            box-shadow:
+                0 20px 50px
+                rgba(0,0,0,0.18);
+        }
+
+        .panel-header {
+            padding:
+                15px
+                18px;
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.06);
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 11px;
+
+            font-weight: 700;
+
+            letter-spacing: 1px;
+
+            color: #ddd;
+        }
+
+        .panel-subtitle {
+            color: #555;
+
+            font-size: 9px;
+        }
+
+        .panel-body {
+            padding: 18px;
+        }
+
+        .bot-card {
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            gap: 15px;
+
+            padding: 15px;
+
+            border:
+                1px solid
+                rgba(255,255,255,0.06);
+
+            border-radius: 12px;
+
+            background:
+                rgba(255,255,255,0.018);
+
+            margin-bottom: 10px;
+        }
+
+        .bot-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .bot-left {
+            display: flex;
+
+            align-items: center;
+
+            min-width: 0;
+        }
+
+        .bot-avatar {
+            width: 45px;
+            height: 45px;
+
+            border-radius: 12px;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    #222,
+                    #0c0c0c
+                );
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            margin-right: 13px;
+
+            border:
+                1px solid
+                rgba(255,255,255,0.08);
+
+            overflow: hidden;
+        }
+
+        .bot-avatar img {
+            width: 100%;
+            height: 100%;
+
+            object-fit: cover;
+        }
+
+        .bot-name {
+            font-size: 12px;
+
+            font-weight: 700;
+
+            color: #eee;
+
+            white-space: nowrap;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+        }
+
+        .bot-id {
+            font-size: 8px;
+
+            color: #555;
+
+            margin-top: 4px;
+        }
+
+        .bot-right {
+            text-align: right;
+
+            flex-shrink: 0;
+        }
+
+        .bot-online {
+            font-size: 9px;
+
+            color: #39ff88;
+
+            margin-bottom: 5px;
+        }
+
+        .bot-offline {
+            font-size: 9px;
+
+            color: #ff5555;
+
+            margin-bottom: 5px;
+        }
+
+        .uptime {
+            font-size: 11px;
+
+            color: #aaa;
+        }
+
+        .empty {
+            text-align: center;
+
+            padding: 35px 15px;
+
+            color: #555;
+
+            font-size: 10px;
+        }
+
+        .command-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    auto-fill,
+                    minmax(180px, 1fr)
+                );
+
+            gap: 8px;
+        }
+
+        .command {
+            padding: 12px;
+
+            border:
+                1px solid
+                rgba(255,255,255,0.06);
+
+            border-radius: 10px;
+
+            background:
+                rgba(255,255,255,0.018);
+        }
+
+        .command-name {
+            color: #eee;
+
+            font-size: 11px;
+
+            font-weight: 700;
+        }
+
+        .command-description {
+            color: #555;
+
+            font-size: 8px;
+
+            line-height: 1.5;
+
+            margin-top: 5px;
+        }
+
+        .command-meta {
+            display: flex;
+
+            gap: 5px;
+
+            flex-wrap: wrap;
+
+            margin-top: 8px;
+        }
+
+        .badge-mini {
+            font-size: 7px;
+
+            color: #888;
+
+            border:
+                1px solid
+                rgba(255,255,255,0.08);
+
+            border-radius: 20px;
+
+            padding:
+                3px
+                6px;
+        }
+
+        .hunting-box {
+            display: grid;
+
+            grid-template-columns:
+                repeat(
+                    auto-fit,
+                    minmax(150px, 1fr)
+                );
+
+            gap: 10px;
+        }
+
+        .hunting-item {
+            padding: 16px;
+
+            border:
+                1px solid
+                rgba(255,255,255,0.06);
+
+            border-radius: 11px;
+
+            background:
+                rgba(255,255,255,0.018);
+        }
+
+        .hunting-item span {
+            display: block;
+
+            color: #555;
+
+            font-size: 8px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+
+            margin-bottom: 7px;
+        }
+
+        .hunting-item strong {
+            font-size: 12px;
+
+            color: #ddd;
+        }
+
+        .true {
+            color: #39ff88 !important;
+        }
+
+        .false {
+            color: #777 !important;
+        }
+
+        .recovery-row {
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            padding:
+                11px
+                0;
+
+            border-bottom:
+                1px solid
+                rgba(255,255,255,0.05);
+
+            font-size: 10px;
+        }
+
+        .recovery-row:last-child {
+            border-bottom: 0;
+        }
+
+        .recovery-label {
+            color: #666;
+        }
+
+        .recovery-value {
+            color: #ddd;
+
+            font-weight: 700;
+        }
+
+        .refresh-info {
+            font-size: 8px;
+
+            color: #555;
+
+            text-align: center;
+
+            margin-top: 15px;
+        }
+
+        .btn-sanzu {
+            background:
+                rgba(255,255,255,0.06);
+
+            border:
+                1px solid
+                rgba(255,255,255,0.1);
+
+            color: #ddd;
+
+            border-radius: 8px;
+
+            font-family:
+                "Courier Prime",
+                monospace;
+
+            font-size: 9px;
+
+            padding:
+                7px
+                12px;
+
+            transition: 0.2s;
+        }
+
+        .btn-sanzu:hover {
+            background:
+                rgba(255,255,255,0.12);
+
+            color: #fff;
+        }
+
+        .footer {
+            border-top:
+                1px solid
+                rgba(255,255,255,0.06);
+
+            margin-top: 50px;
+
+            padding:
+                25px
+                15px;
+
+            text-align: center;
+
+            color: #444;
+
+            font-size: 8px;
+        }
+
+        .loading {
+            animation:
+                pulse 1.5s
+                infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.35;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 600px) {
+
+            .hero {
+                padding-top: 35px;
+            }
+
+            .hero h1 {
+                font-size: 23px;
+                letter-spacing: 3px;
+            }
+
+            .container-main {
+                width: 92%;
+            }
+
+            .bot-card {
+                align-items: flex-start;
+            }
+
+            .bot-right {
+                padding-top: 4px;
+            }
+
+            .command-grid {
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(0, 1fr)
+                    );
+            }
+
+            .command {
+                min-width: 0;
+            }
+        }
+
+    </style>
 </head>
+
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <a class="navbar-brand" href="#">
-          <img src="/image/home.png" alt="Home" style="width: 30px; height: auto;">
-        </a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav" style="margin-right: 70px;">
-            <ul class="navbar-nav">
-                <li class="nav-item active">
-                    <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> Features </a>
-                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <a class="dropdown-item" href="/step_by_step_guide">Step-by-Step Guide</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://zark-spam-share.onrender.com/">SpamShare-Tools</a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="https://my-portfolio-f9lz.onrender.com/">Developer</a>
-                    </div>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="online_user">Active</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="tos-privacy-policy">Terms and Conditions</a>
-                </li>
-            </ul>
+
+<!-- =========================================================
+     NAVBAR
+========================================================= -->
+
+<nav class="navbar navbar-expand-lg navbar-dark">
+
+    <a
+        class="navbar-brand"
+        href="/"
+    >
+        <img
+            src="/image/home.png"
+            onerror="this.style.display='none'"
+            alt="SANZU"
+        >
+
+        SANZU AI
+    </a>
+
+    <button
+        class="navbar-toggler"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarNav"
+    >
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div
+        class="collapse navbar-collapse justify-content-end"
+        id="navbarNav"
+    >
+
+        <ul class="navbar-nav">
+
+            <li class="nav-item">
+                <a
+                    class="nav-link"
+                    href="#bots"
+                >
+                    BOTS
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a
+                    class="nav-link"
+                    href="#commands"
+                >
+                    COMMANDS
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a
+                    class="nav-link"
+                    href="#hunting"
+                >
+                    HUNTING
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a
+                    class="nav-link"
+                    href="#system"
+                >
+                    SYSTEM
+                </a>
+            </li>
+
+        </ul>
+
+    </div>
+
+</nav>
+
+
+<!-- =========================================================
+     HERO
+========================================================= -->
+
+<section class="hero">
+
+    <img
+        class="hero-logo"
+        src="/image/home.png"
+        onerror="this.style.display='none'"
+        alt="SANZU AI"
+    >
+
+    <h1>
+        SANZU AI
+    </h1>
+
+    <p>
+        MESSENGER BOT COMMAND CENTER
+    </p>
+
+    <div class="status-pill">
+
+        <span
+            id="mainStatusDot"
+            class="status-dot"
+        ></span>
+
+        <span id="mainStatus">
+            CONNECTING...
+        </span>
+
+    </div>
+
+</section>
+
+
+<div class="container-main">
+
+
+<!-- =========================================================
+     STATS
+========================================================= -->
+
+<div class="section-title">
+    SYSTEM OVERVIEW
+</div>
+
+<div class="dashboard-grid">
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            <i class="fa-solid fa-robot"></i>
         </div>
-    </nav>
-    <div class="container">
-        <h1 class="col text-center" style="font-size: 20px; padding: 10px;">SANZU AI🐝</h1><p style="font-size: 10px; text-align: center;">Version: 1.0.1</p>
-        <form id="json-form">
-            <div class="row">
-                <div class="col-md-12">
-                    <textarea id="json-data" class="form-control centered-textarea center-placeholder" placeholder=""></textarea>
-                </div>
+
+        <div
+            class="stat-value"
+            id="statBots"
+        >
+            0
+        </div>
+
+        <div class="stat-label">
+            Active Bots
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            <i class="fa-solid fa-terminal"></i>
+        </div>
+
+        <div
+            class="stat-value"
+            id="statCommands"
+        >
+            0
+        </div>
+
+        <div class="stat-label">
+            Commands
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            <i class="fa-solid fa-envelope"></i>
+        </div>
+
+        <div
+            class="stat-value"
+            id="statReceived"
+        >
+            0
+        </div>
+
+        <div class="stat-label">
+            Received
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            <i class="fa-solid fa-paper-plane"></i>
+        </div>
+
+        <div
+            class="stat-value"
+            id="statSent"
+        >
+            0
+        </div>
+
+        <div class="stat-label">
+            Sent
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            <i class="fa-solid fa-filter"></i>
+        </div>
+
+        <div
+            class="stat-value"
+            id="statSuppressed"
+        >
+            0
+        </div>
+
+        <div class="stat-label">
+            Suppressed
+        </div>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon">
+            <i class="fa-solid fa-clock"></i>
+        </div>
+
+        <div
+            class="stat-value"
+            id="statUptime"
+        >
+            0s
+        </div>
+
+        <div class="stat-label">
+            Worker Uptime
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     ACTIVE BOTS
+========================================================= -->
+
+<div
+    class="section-title"
+    id="bots"
+>
+    ACTIVE BOTS
+</div>
+
+<div class="panel">
+
+    <div class="panel-header">
+
+        <div>
+
+            <div class="panel-title">
+                <i class="fa-solid fa-circle-nodes"></i>
+                CONNECTED ACCOUNTS
             </div>
-        </form>
-        <p style="margin-top: 15px; font-size: 12px; text-align: left;">Greetings! Begin by entering your cookie. Scroll down to see other features.</p>
-    </div>
 
-    <div class="container" id="listOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your commands by tapping on the respective options.</h1>
-         <button class="btn btn-primary" onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');">SELECT ALL COMMANDS</button>
-    </div>
-    
-    <div class="container" id="listOfCommandsEvent">
-        <h1 style="font-size: 12px; padding: 10px;">Please choose your event commands by tapping on the respective options.</h1>
-        <button class="btn btn-primary" onclick="selectAllEvents(); scrollToSection('prefixOfCommands');">SELECT ALL EVENTS</button>
-    </div>
-    
-    <div class="container" id="prefixOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide a prefix (optional). If you choose not to, entering "non-prefix" will be considered as your input.</h1>
-        <input type="text" id="inputOfPrefix" placeholder="@, #, /, *,.">
-    </div>
-    
-    <div class="container" id="adminOfCommands">
-        <h1 style="font-size: 12px; padding: 10px;">Please provide an uid (optional). If you choose not to, entering "default" will be considered as your input.</h1>
-        <input type="text" id="inputOfAdmin" placeholder="Admin userID">
-    </div>
-    
-    <label style="font-size: 10px; display: flex; align-items: center; padding: 22px;">
-        <input type="checkbox" id="agreeCheckbox" style="margin-right: 10px;"> Checking this box certifies that I have read, understood, and agreed to the Terms and Conditions.
-    </label>
-    
-    <div class="col text-center">
-        <button class="btn btn-primary" onclick="State()" disabled id="submitButton" style="width: 100%">Submit</button>
-    </div>
-    
-    <div id="result" class="container text-center" style="display: none; font-size: 10px;"></div>
-    
-    <br><br>
-    
-    <div>
-        <br>
-        <button id="scrollUpBtn"><i class="fa-solid fa-angles-up"></i></button>
-        <div class="footer">
-            <p>© 2025 made with love by sinzu | All rights reserved.</p>
-            <p>Time: <span id="time"></span> | Ping: <span id="ping"></span></p>
+            <div class="panel-subtitle">
+                Live Messenger worker accounts
+            </div>
+
         </div>
+
+        <button
+            class="btn-sanzu"
+            onclick="loadDashboard()"
+        >
+            <i class="fa-solid fa-rotate"></i>
+            REFRESH
+        </button>
+
     </div>
 
-      <script>
-        function scrollToSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    section.scrollIntoView({ behavior: 'smooth' });
+    <div
+        class="panel-body"
+        id="botList"
+    >
+
+        <div class="empty loading">
+            Loading bot accounts...
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     COMMANDS
+========================================================= -->
+
+<div
+    class="section-title"
+    id="commands"
+>
+    COMMAND REGISTRY
+</div>
+
+<div class="panel">
+
+    <div class="panel-header">
+
+        <div>
+
+            <div class="panel-title">
+                <i class="fa-solid fa-code"></i>
+                LOADED COMMANDS
+            </div>
+
+            <div class="panel-subtitle">
+                Commands detected from script/
+            </div>
+
+        </div>
+
+        <div
+            class="panel-subtitle"
+            id="commandCount"
+        >
+            0 commands
+        </div>
+
+    </div>
+
+    <div
+        class="panel-body"
+        id="commandList"
+    >
+
+        <div class="empty loading">
+            Loading commands...
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     HUNTING
+========================================================= -->
+
+<div
+    class="section-title"
+    id="hunting"
+>
+    HUNTING MODULE
+</div>
+
+<div class="panel">
+
+    <div class="panel-header">
+
+        <div>
+
+            <div class="panel-title">
+                <i class="fa-solid fa-crosshairs"></i>
+                HUNTING STATUS
+            </div>
+
+            <div class="panel-subtitle">
+                Live hunting runtime state
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="panel-body">
+
+        <div class="hunting-box">
+
+            <div class="hunting-item">
+
+                <span>
+                    Hunting
+                </span>
+
+                <strong
+                    id="huntEnabled"
+                >
+                    OFF
+                </strong>
+
+            </div>
+
+
+            <div class="hunting-item">
+
+                <span>
+                    Count Engine
+                </span>
+
+                <strong
+                    id="huntCount"
+                >
+                    OFF
+                </strong>
+
+            </div>
+
+
+            <div class="hunting-item">
+
+                <span>
+                    Reply
+                </span>
+
+                <strong
+                    id="huntReply"
+                >
+                    OFF
+                </strong>
+
+            </div>
+
+
+            <div class="hunting-item">
+
+                <span>
+                    Sending
+                </span>
+
+                <strong
+                    id="huntSending"
+                >
+                    OFF
+                </strong>
+
+            </div>
+
+
+            <div class="hunting-item">
+
+                <span>
+                    Duplicate Protection
+                </span>
+
+                <strong
+                    id="huntDuplicate"
+                >
+                    OFF
+                </strong>
+
+            </div>
+
+
+            <div class="hunting-item">
+
+                <span>
+                    Statistics
+                </span>
+
+                <strong
+                    id="huntStats"
+                >
+                    0
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     SYSTEM / RECOVERY
+========================================================= -->
+
+<div
+    class="section-title"
+    id="system"
+>
+    SUPERVISOR
+</div>
+
+<div class="panel">
+
+    <div class="panel-header">
+
+        <div>
+
+            <div class="panel-title">
+                <i class="fa-solid fa-shield-halved"></i>
+                PROCESS RECOVERY
+            </div>
+
+            <div class="panel-subtitle">
+                Supervisor and worker health
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="panel-body">
+
+        <div class="recovery-row">
+
+            <span class="recovery-label">
+                Supervisor PID
+            </span>
+
+            <span
+                class="recovery-value"
+                id="supervisorPid"
+            >
+                —
+            </span>
+
+        </div>
+
+
+        <div class="recovery-row">
+
+            <span class="recovery-label">
+                Worker PID
+            </span>
+
+            <span
+                class="recovery-value"
+                id="workerPid"
+            >
+                —
+            </span>
+
+        </div>
+
+
+        <div class="recovery-row">
+
+            <span class="recovery-label">
+                Worker Status
+            </span>
+
+            <span
+                class="recovery-value"
+                id="workerStatus"
+            >
+                —
+            </span>
+
+        </div>
+
+
+        <div class="recovery-row">
+
+            <span class="recovery-label">
+                Crash Count
+            </span>
+
+            <span
+                class="recovery-value"
+                id="crashCount"
+            >
+                0
+            </span>
+
+        </div>
+
+
+        <div class="recovery-row">
+
+            <span class="recovery-label">
+                Restart Delay
+            </span>
+
+            <span
+                class="recovery-value"
+                id="restartDelay"
+            >
+                0ms
+            </span>
+
+        </div>
+
+
+        <div class="recovery-row">
+
+            <span class="recovery-label">
+                Last Message
+            </span>
+
+            <span
+                class="recovery-value"
+                id="lastMessage"
+            >
+                —
+            </span>
+
+        </div>
+
+
+        <div class="recovery-row">
+
+            <span class="recovery-label">
+                Last Reply
+            </span>
+
+            <span
+                class="recovery-value"
+                id="lastReply"
+            >
+                —
+            </span>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="refresh-info">
+
+    <i class="fa-solid fa-arrows-rotate"></i>
+
+    Dashboard automatically refreshes every
+    <b>5 seconds</b>.
+
+    <br>
+
+    Last update:
+    <span id="lastUpdate">
+        —
+    </span>
+
+</div>
+
+</div>
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer class="footer">
+
+    <p>
+        © 2026 SANZU AI
+    </p>
+
+    <p>
+        Command Center ·
+        <span id="footerStatus">
+            Connecting...
+        </span>
+    </p>
+
+</footer>
+
+
+<!-- =========================================================
+     JAVASCRIPT
+========================================================= -->
+
+<script>
+
+"use strict";
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function $(id) {
+    return document.getElementById(id);
 }
 
-function selectAllCommands() {
-    scrollToSection('listOfCommandsEvent');
+
+function escapeHTML(value) {
+
+    return String(
+        value ?? ""
+    )
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-function selectAllEvents() {
-    scrollToSection('prefixOfCommands');
+
+function formatNumber(value) {
+
+    const number =
+        Number(value) || 0;
+
+    return number.toLocaleString();
 }
-      </script>
-    
-    <script src="script.js"></script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
-    <script>
-        let tracks = [
-    "https://raw.githubusercontent.com/Kaizenji/Kaizenji/main/cute-depressed.mp3"];
-     let randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-        
-        let sound = new Howl({
-          src: [randomTrack],
-          autoplay: true,
-          loop: false,
-          format: ["mp3"],
-          volume: 2.0,
-          onend: () => {},
-        });
-        
-        sound.play();
-    </script>
+
+
+function formatUptime(seconds) {
+
+    seconds =
+        Math.max(
+            0,
+            Number(seconds) || 0
+        );
+
+    const days =
+        Math.floor(
+            seconds / 86400
+        );
+
+    seconds %= 86400;
+
+    const hours =
+        Math.floor(
+            seconds / 3600
+        );
+
+    seconds %= 3600;
+
+    const minutes =
+        Math.floor(
+            seconds / 60
+        );
+
+    seconds %= 60;
+
+    const parts = [];
+
+    if (days)
+        parts.push(
+            days + "d"
+        );
+
+    if (hours)
+        parts.push(
+            hours + "h"
+        );
+
+    if (minutes)
+        parts.push(
+            minutes + "m"
+        );
+
+    parts.push(
+        seconds + "s"
+    );
+
+    return parts.join(" ");
+}
+
+
+function formatDate(value) {
+
+    if (!value) {
+        return "—";
+    }
+
+    try {
+
+        return new Date(
+            value
+        ).toLocaleString();
+
+    } catch {
+
+        return "—";
+    }
+}
+
+
+/* =========================================================
+   MAIN STATUS
+========================================================= */
+
+function setMainStatus(
+    online
+) {
+
+    const dot =
+        $("mainStatusDot");
+
+    const text =
+        $("mainStatus");
+
+    const footer =
+        $("footerStatus");
+
+    if (online) {
+
+        dot.className =
+            "status-dot online";
+
+        text.textContent =
+            "SYSTEM ONLINE";
+
+        footer.textContent =
+            "System Online";
+
+    } else {
+
+        dot.className =
+            "status-dot offline";
+
+        text.textContent =
+            "SYSTEM OFFLINE";
+
+        footer.textContent =
+            "System Offline";
+    }
+}
+
+
+/* =========================================================
+   BOT LIST
+========================================================= */
+
+function renderBots(
+    accounts
+) {
+
+    const container =
+        $("botList");
+
+    if (
+        !Array.isArray(accounts) ||
+        accounts.length === 0
+    ) {
+
+        container.innerHTML = `
+            <div class="empty">
+                <i class="fa-solid fa-robot"></i>
+                <br><br>
+                No active bot accounts.
+            </div>
+        `;
+
+        $("statBots").textContent =
+            "0";
+
+        return;
+    }
+
+
+    let active =
+        0;
+
+
+    container.innerHTML =
+        accounts.map(
+            account => {
+
+                const online =
+                    Boolean(
+                        account.online
+                    );
+
+                if (online) {
+                    active++;
+                }
+
+                const name =
+                    escapeHTML(
+                        account.name ||
+                        "Unknown"
+                    );
+
+                const userid =
+                    escapeHTML(
+                        account.userid ||
+                        "Unknown"
+                    );
+
+                const uptime =
+                    formatUptime(
+                        account.uptime ||
+                        account.time ||
+                        0
+                    );
+
+                return `
+
+                    <div class="bot-card">
+
+                        <div class="bot-left">
+
+                            <div class="bot-avatar">
+
+                                <img
+                                    src="/image/home.png"
+                                    onerror="
+                                        this.style.display='none';
+                                        this.parentElement.innerHTML='<i class=\\'fa-solid fa-robot\\'></i>';
+                                    "
+                                    alt=""
+                                >
+
+                            </div>
+
+                            <div>
+
+                                <div class="bot-name">
+                                    ${name}
+                                </div>
+
+                                <div class="bot-id">
+                                    UID:
+                                    ${userid}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="bot-right">
+
+                            <div class="${
+                                online
+                                    ? "bot-online"
+                                    : "bot-offline"
+                            }">
+
+                                <span
+                                    class="status-dot ${
+                                        online
+                                            ? "online"
+                                            : "offline"
+                                    }"
+                                    style="
+                                        display:inline-block;
+                                        margin-right:5px;
+                                    "
+                                ></span>
+
+                                ${
+                                    online
+                                        ? "ONLINE"
+                                        : "OFFLINE"
+                                }
+
+                            </div>
+
+                            <div class="uptime">
+
+                                <i class="fa-solid fa-clock"></i>
+
+                                ${uptime}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                `;
+            }
+        ).join("");
+
+
+    $("statBots").textContent =
+        active;
+}
+
+
+/* =========================================================
+   COMMAND LIST
+========================================================= */
+
+function renderCommands(
+    commands
+) {
+
+    const container =
+        $("commandList");
+
+    if (
+        !Array.isArray(commands) ||
+        commands.length === 0
+    ) {
+
+        container.innerHTML = `
+            <div class="empty">
+                <i class="fa-solid fa-terminal"></i>
+                <br><br>
+                No commands loaded.
+            </div>
+        `;
+
+        $("statCommands").textContent =
+            "0";
+
+        $("commandCount").textContent =
+            "0 commands";
+
+        return;
+    }
+
+
+    $("statCommands").textContent =
+        commands.length;
+
+    $("commandCount").textContent =
+        `${commands.length} commands`;
+
+
+    container.innerHTML = `
+
+        <div class="command-grid">
+
+            ${
+                commands.map(
+                    command => {
+
+                        const name =
+                            escapeHTML(
+                                command.name
+                            );
+
+                        const description =
+                            escapeHTML(
+                                command.description ||
+                                "No description."
+                            );
+
+                        const category =
+                            escapeHTML(
+                                command.category ||
+                                "General"
+                            );
+
+                        const version =
+                            escapeHTML(
+                                command.version ||
+                                "1.0.0"
+                            );
+
+                        const aliases =
+                            Array.isArray(
+                                command.aliases
+                            )
+                                ? command.aliases
+                                    .slice(0, 4)
+                                    .map(
+                                        escapeHTML
+                                    )
+                                    .join(", ")
+                                : "";
+
+                        return `
+
+                            <div class="command">
+
+                                <div class="command-name">
+
+                                    <i class="fa-solid fa-terminal"></i>
+
+                                    ${name}
+
+                                </div>
+
+                                <div class="command-description">
+
+                                    ${description}
+
+                                </div>
+
+                                <div class="command-meta">
+
+                                    <span class="badge-mini">
+                                        ${category}
+                                    </span>
+
+                                    <span class="badge-mini">
+                                        v${version}
+                                    </span>
+
+                                    ${
+                                        aliases
+                                            ? `
+                                                <span class="badge-mini">
+                                                    ${aliases}
+                                                </span>
+                                              `
+                                            : ""
+                                    }
+
+                                </div>
+
+                            </div>
+                        `;
+                    }
+                ).join("")
+            }
+
+        </div>
+    `;
+}
+
+
+/* =========================================================
+   HUNTING
+========================================================= */
+
+function renderHunting(
+    hunting
+) {
+
+    hunting =
+        hunting || {};
+
+
+    const enabled =
+        Boolean(
+            hunting.enabled
+        );
+
+    const count =
+        Boolean(
+            hunting.countEnabled
+        );
+
+    const reply =
+        Boolean(
+            hunting.replyEnabled
+        );
+
+    const sending =
+        Boolean(
+            hunting.sending
+        );
+
+    const duplicate =
+        Boolean(
+            hunting.duplicateProtection
+        );
+
+
+    setBoolean(
+        "huntEnabled",
+        enabled
+    );
+
+    setBoolean(
+        "huntCount",
+        count
+    );
+
+    setBoolean(
+        "huntReply",
+        reply
+    );
+
+    setBoolean(
+        "huntSending",
+        sending
+    );
+
+    setBoolean(
+        "huntDuplicate",
+        duplicate
+    );
+
+
+    const stats =
+        hunting.stats || {};
+
+
+    let statsValue = 0;
+
+
+    if (
+        typeof stats ===
+        "number"
+    ) {
+
+        statsValue =
+            stats;
+
+    } else if (
+        typeof stats ===
+        "object"
+    ) {
+
+        statsValue =
+            stats.total ||
+            stats.count ||
+            stats.messages ||
+            0;
+    }
+
+
+    $("huntStats").textContent =
+        formatNumber(
+            statsValue
+        );
+}
+
+
+function setBoolean(
+    id,
+    value
+) {
+
+    const element =
+        $(id);
+
+    element.textContent =
+        value
+            ? "ON"
+            : "OFF";
+
+    element.className =
+        value
+            ? "true"
+            : "false";
+}
+
+
+/* =========================================================
+   SYSTEM
+========================================================= */
+
+function renderSystem(
+    data
+) {
+
+    const supervisor =
+        data.supervisor ||
+        {};
+
+    const recovery =
+        data.recovery ||
+        {};
+
+    const worker =
+        data.worker ||
+        {};
+
+    const stats =
+        worker.stats ||
+        {};
+
+
+    $("supervisorPid")
+        .textContent =
+        supervisor.pid ||
+        "—";
+
+
+    $("workerPid")
+        .textContent =
+        worker.workerPid ||
+        "—";
+
+
+    const workerOnline =
+        Boolean(
+            worker.online
+        );
+
+
+    $("workerStatus")
+        .textContent =
+        workerOnline
+            ? "ONLINE"
+            : "OFFLINE";
+
+
+    $("workerStatus")
+        .className =
+        workerOnline
+            ? "recovery-value true"
+            : "recovery-value false";
+
+
+    $("crashCount")
+        .textContent =
+        formatNumber(
+            recovery.crashCount
+        );
+
+
+    $("restartDelay")
+        .textContent =
+        `${
+            Number(
+                recovery.restartDelay
+            ) || 0
+        }ms`;
+
+
+    $("lastMessage")
+        .textContent =
+        formatDate(
+            stats.lastMessageAt
+        );
+
+
+    $("lastReply")
+        .textContent =
+        formatDate(
+            stats.lastReplyAt
+        );
+
+
+    $("statUptime")
+        .textContent =
+        formatUptime(
+            worker.uptime
+        );
+
+
+    $("statReceived")
+        .textContent =
+        formatNumber(
+            stats.receivedMessages
+        );
+
+
+    $("statSent")
+        .textContent =
+        formatNumber(
+            stats.sentMessages
+        );
+
+
+    const suppressed =
+        (
+            Number(
+                stats.suppressedDuplicates
+            ) || 0
+        ) +
+        (
+            Number(
+                stats.suppressedBurst
+            ) || 0
+        );
+
+
+    $("statSuppressed")
+        .textContent =
+        formatNumber(
+            suppressed
+        );
+}
+
+
+/* =========================================================
+   DASHBOARD API
+========================================================= */
+
+async function fetchJSON(
+    url
+) {
+
+    const response =
+        await fetch(
+            url,
+            {
+                method: "GET",
+                cache: "no-store",
+
+                headers: {
+                    "Accept":
+                        "application/json"
+                }
+            }
+        );
+
+    if (!response.ok) {
+        throw new Error(
+            `HTTP ${response.status}`
+        );
+    }
+
+    return response.json();
+}
+
+
+/* =========================================================
+   LOAD DASHBOARD
+========================================================= */
+
+async function loadDashboard() {
+
+    try {
+
+        const status =
+            await fetchJSON(
+                "/api/status"
+            );
+
+
+        if (
+            !status ||
+            status.ok !== true
+        ) {
+            throw new Error(
+                "Invalid API response."
+            );
+        }
+
+
+        const worker =
+            status.worker ||
+            {};
+
+
+        setMainStatus(
+            Boolean(
+                worker.online
+            )
+        );
+
+
+        renderSystem(
+            status
+        );
+
+
+        renderBots(
+            worker.accounts ||
+            []
+        );
+
+
+        renderCommands(
+            worker.commands ||
+            []
+        );
+
+
+        renderHunting(
+            worker.hunting ||
+            {}
+        );
+
+
+        $("lastUpdate")
+            .textContent =
+            new Date()
+                .toLocaleTimeString();
+
+
+    } catch (error) {
+
+        console.error(
+            "Dashboard error:",
+            error
+        );
+
+
+        setMainStatus(
+            false
+        );
+
+
+        $("lastUpdate")
+            .textContent =
+            "Connection error";
+
+
+        $("workerStatus")
+            .textContent =
+            "UNREACHABLE";
+
+
+        $("workerStatus")
+            .className =
+            "recovery-value false";
+    }
+}
+
+
+/* =========================================================
+   INITIAL LOAD
+========================================================= */
+
+loadDashboard();
+
+
+/* =========================================================
+   AUTO REFRESH
+========================================================= */
+
+setInterval(
+    loadDashboard,
+    5000
+);
+
+
+/* =========================================================
+   LIVE CLOCK
+========================================================= */
+
+setInterval(
+    () => {
+
+        const now =
+            new Date();
+
+        const element =
+            $("lastUpdate");
+
+        if (
+            element &&
+            element.textContent !==
+            "Connection error"
+        ) {
+
+            element.textContent =
+                now.toLocaleTimeString();
+        }
+
+    },
+    1000
+);
+
+</script>
+
+
+<!-- =========================================================
+     BOOTSTRAP
+========================================================= -->
+
+<script
+    src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+></script>
+
+<script
+    src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
+></script>
+
+<script
+    src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+></script>
+
 </body>
-   </html>
+    </html>
