@@ -1,16 +1,29 @@
-Body {
+body {
     min-height: 100vh;
     position: relative;
     padding: 20px;
-    background-color: #080202;
+    background-color: #0e0e0e;
     font-family: 'Courier Prime', sans-serif;
-    color: #ffcccc;
+    color: #fff;
     opacity: 0;
     animation: fadeInContent 1.2s forwards ease-in-out;
 }
 
 body::before {
-    content: none;
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('https://i.gifer.com/2YcW.gif');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    z-index: -1;
+    opacity: 0;
+    animation: fadeInBackground 1.8s forwards ease-in-out;
 }
 
 @keyframes fadeInContent {
@@ -22,57 +35,59 @@ body::before {
     }
 }
 
+@keyframes fadeInBackground {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
 .container {
-    background-image: none;
+    background-image: url('');
     background-size: cover;
     background-repeat: no-repeat;
-    background-color: rgba(20, 5, 5, 0.95);
-    border: 1px solid rgba(255, 0, 0, 0.25);
+    background-color: rgba(26, 26, 26, 0.8);
     border-radius: 10px;
-    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.2), 0 6px 6px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
     padding: 20px;
     margin-top: 20px;
     margin-bottom: 10px;
 }
 
+
 h1 {
-    color: #ff3333;
-    text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+    color: #fff;
 }
 
 label {
-    color: #ff9999;
+    color: #ccc;
 }
 
 .navbar {
-  background-color: rgba(20, 5, 5, 0.95);
+  background-color: rgba(26, 26, 26, 0.8);
   color: #fff;
-  border: 1px solid rgba(255, 0, 0, 0.3);
   border-radius: 10px;
 }
 
 .navbar a {
-  color: #ff9999;
+  color: #fff;
 }
 
 .navbar a:hover {
-  color: #ff3333;
+  color: gray;
 }
 
 .navbar-brand {
-    color: #ff3333 !important;
-    text-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
+    color: #000;
 }
 
 .navbar-toggler-icon {
-   background-color: rgba(40, 10, 10, 0.8);
+   background-color: rgba(26, 26, 26, 0.8);
 }
-
 .dropdown-menu {
-  background-color: #1a0505;
-  border: 1px solid #ff3333;
+  background-color: #222;
 }
-
 .centered-textarea {
     display: block;
     margin: 0 auto;
@@ -80,29 +95,26 @@ label {
     min-height: 150px;
     padding: 10px;
     box-sizing: border-box;
-    border: 1px solid #771111;
+    border: 1px solid #555;
     border-radius: 10px;
     resize: none;
     color: #fff;
-    background-color: #120303;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #b30000, #4d0000);
-    border: 1px solid #ff3333;
+    background: linear-gradient(135deg, #8e44ad, #3498db);
     border-radius: 15px;
     font-size: 14px;
     color: #fff;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #ff0000, #800000);
+    background-color: #0056b3;
     border: 1px solid #ff8800;
-    box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
 }
 
 .success-message {
-    color: #00ff66;
+    color: green;
     margin-top: 10px;
     font-size: 12px;
 }
@@ -113,8 +125,7 @@ label {
     font-size: 12px;
     color: #b5b5b5;
     position: relative;
-    background-color: rgba(20, 5, 5, 0.95);
-    border-top: 1px solid rgba(255, 0, 0, 0.2);
+    background-color: rgba(26, 26, 26, 0.8);
     width: 115%;
     margin-left: -30px;
     margin-bottom: -20px;
@@ -125,7 +136,7 @@ label {
 }
 
 .footer a {
-  color: #ff9999;
+  color: #999999;
   text-decoration: none;
   transition: color 0.3s;
 }
@@ -148,19 +159,18 @@ label {
     margin-top: 20px;
     border-radius: 10px;
     font-size: 10px;
-    color: #ffcccc;
+    color: #fff;
 }
 
 .center-placeholder::placeholder {
     text-align: center;
-    color: #884444;
+    color: #ccc;
 }
 
 .custom-swal {
-  background-color: #1a0505;
+  background-color: #222;
   color: #fff;
   font-size: 14px;
-  border: 1px solid #ff3333;
 }
 
 .form-check {
@@ -169,27 +179,22 @@ label {
     padding: 10px;
     width: 90%;
     align-items: center;
-    border: 1px solid #661111;
+    border: 1px solid #555;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #140505;
-    color: #ffcccc !important;
+    background-color: #1a1a1a;
     font-size: 15px;
 }
 
-.form-check label, .form-check span {
-    color: #ffcccc !important;
-}
-
 .form-check:hover {
-    background-color: #260a0a; 
-    border-color: #ff3333; 
+    background-color: #222; 
+    border-color: #777; 
 }
 
 .form-check-input {
     margin-right: 10px; 
-    opacity: 1 !important;
+    opacity: 0;
 }
 
 .disable {
@@ -199,19 +204,20 @@ label {
 #inputOfPrefix, #inputOfAdmin {
     padding: 10px;
     width: 90%;
-    border: 1px solid #661111;
+    border: 1px solid #555;
     border-radius: 8px;
     cursor: pointer;
     transition: background-color 0.3s ease, border-color 0.3s ease; 
-    background-color: #140505;
+    background-color: #1a1a1a;
     color: #fff;
     font-size: 15px;
 }
 
 #json-data {
-    background-image: none;
+    background-image: url('https://i.gifer.com/YQgT.gif');
+    background-size: cover;
     color: #fff;
-    background-color: #120303;
+    background-repeat: no-repeat;
 }
 
 #listOfCommands, #listOfCommandsEvent, #prefixOfCommands, #adminOfCommands {
@@ -219,7 +225,7 @@ label {
 }
 
 #listOfCommands:not(.modal), #listOfCommandsEvent:not(.modal), #prefixOfCommands:not(.modal), #adminOfCommands:not(.modal) {
-    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.23);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
 }
 
 .container h1 {
@@ -227,8 +233,7 @@ label {
     display: inline-block;
     padding: 10px 20px;
     margin-bottom: 20px;
-    background-color: #1a0505;
-    border: 1px solid #551111;
+    background-color: #222;
     border-radius: 8px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3), 0 6px 6px rgba(0, 0, 0, 0.23);
 }
@@ -247,7 +252,7 @@ label {
 
 .container ul li::before {
     content: '\2022';
-    color: #ff3333;
+    color: #007bff;
     font-weight: bold;
     display: inline-block;
     width: 1em;
@@ -262,22 +267,15 @@ label {
     .container h1 {
         font-size: 18px;
     }
-}
-
 #scrollUpBtn {
   position: fixed;
   margin-bottom: 70px; 
   right: 20px;
   padding: 15px 30px;
   font-size: 14px;
-  background-color: #4d0000;
+  background-color: #555;
   color: white;
-  border: 1px solid #ff3333;
+  border: none;
   border-radius: 8px;
   cursor: pointer;
   display: none;
-}
-
-#scrollUpBtn:hover {
-  background-color: #ff0000;
-}
