@@ -10,20 +10,7 @@ Body {
 }
 
 body::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: url('https://i.gifer.com/2YcW.gif');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-    z-index: -1;
-    opacity: 0;
-    animation: fadeInBackground 1.8s forwards ease-in-out;
+    content: none;
 }
 
 @keyframes fadeInContent {
@@ -35,31 +22,22 @@ body::before {
     }
 }
 
-@keyframes fadeInBackground {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
 .container {
-    background-image: url('');
+    background-image: none;
     background-size: cover;
     background-repeat: no-repeat;
-    background-color: rgba(20, 5, 5, 0.9);
-    border: 1px solid rgba(255, 0, 0, 0.2);
+    background-color: rgba(20, 5, 5, 0.95);
+    border: 1px solid rgba(255, 0, 0, 0.25);
     border-radius: 10px;
-    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 20px rgba(255, 0, 0, 0.2), 0 6px 6px rgba(0, 0, 0, 0.5);
     padding: 20px;
     margin-top: 20px;
     margin-bottom: 10px;
 }
 
-
 h1 {
     color: #ff3333;
-    text-shadow: 0 0 8px rgba(255, 0, 0, 0.4);
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
 }
 
 label {
@@ -67,7 +45,7 @@ label {
 }
 
 .navbar {
-  background-color: rgba(20, 5, 5, 0.9);
+  background-color: rgba(20, 5, 5, 0.95);
   color: #fff;
   border: 1px solid rgba(255, 0, 0, 0.3);
   border-radius: 10px;
@@ -82,16 +60,19 @@ label {
 }
 
 .navbar-brand {
-    color: #ff3333;
+    color: #ff3333 !important;
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.6);
 }
 
 .navbar-toggler-icon {
    background-color: rgba(40, 10, 10, 0.8);
 }
+
 .dropdown-menu {
   background-color: #1a0505;
   border: 1px solid #ff3333;
 }
+
 .centered-textarea {
     display: block;
     margin: 0 auto;
@@ -132,7 +113,7 @@ label {
     font-size: 12px;
     color: #b5b5b5;
     position: relative;
-    background-color: rgba(20, 5, 5, 0.9);
+    background-color: rgba(20, 5, 5, 0.95);
     border-top: 1px solid rgba(255, 0, 0, 0.2);
     width: 115%;
     margin-left: -30px;
@@ -208,7 +189,7 @@ label {
 
 .form-check-input {
     margin-right: 10px; 
-    opacity: 1 !important; /* Nilagyan ng 1 para lumabas nang malinaw ang checkbox at hindi maitago */
+    opacity: 1 !important;
 }
 
 .disable {
@@ -228,10 +209,8 @@ label {
 }
 
 #json-data {
-    background-image: url('https://i.gifer.com/YQgT.gif');
-    background-size: cover;
+    background-image: none;
     color: #fff;
-    background-repeat: no-repeat;
     background-color: #120303;
 }
 
