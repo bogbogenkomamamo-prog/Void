@@ -5,12 +5,19 @@
 
     <title>NULLFIED</title>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#050505">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#050505"
+    >
 
     <meta
         name="description"
-        content="NULLFIED Messenger Automation Dashboard"
+        content="NULLFIED Messenger Automation Control Center"
     >
 
     <meta
@@ -30,16 +37,22 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     >
 
-    <!-- Fonts -->
+    <!-- Font -->
     <link
         href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
         rel="stylesheet"
     >
 
     <!-- Main CSS -->
-    <link rel="stylesheet" href="styles.css">
+    <link
+        rel="stylesheet"
+        href="styles.css"
+    >
 
-    <link rel="icon" href="/image/home.png">
+    <link
+        rel="icon"
+        href="/image/home.png"
+    >
 </head>
 
 <body>
@@ -50,13 +63,18 @@
 
 <div class="noise"></div>
 
+
 <!-- =========================================================
      NAVBAR
 ========================================================= -->
 
 <nav class="navbar navbar-expand-lg navbar-dark null-navbar">
 
-    <a class="navbar-brand null-brand" href="/">
+    <a
+        class="navbar-brand null-brand"
+        href="/"
+    >
+
         <img
             src="/image/home.png"
             alt="NULLFIED"
@@ -64,16 +82,24 @@
         >
 
         <span>NULLFIED</span>
+
     </a>
+
 
     <button
         class="navbar-toggler"
         type="button"
         data-toggle="collapse"
         data-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
     >
+
         <span class="navbar-toggler-icon"></span>
+
     </button>
+
 
     <div
         class="collapse navbar-collapse justify-content-end"
@@ -83,11 +109,19 @@
         <ul class="navbar-nav">
 
             <li class="nav-item active">
-                <a class="nav-link" href="/">
+
+                <a
+                    class="nav-link"
+                    href="/"
+                >
+
                     <i class="fa-solid fa-house"></i>
                     Home
+
                 </a>
+
             </li>
+
 
             <li class="nav-item dropdown">
 
@@ -97,10 +131,15 @@
                     id="navbarDropdown"
                     role="button"
                     data-toggle="dropdown"
+                    aria-haspopup="true"
+                    aria-expanded="false"
                 >
+
                     <i class="fa-solid fa-layer-group"></i>
                     Features
+
                 </a>
+
 
                 <div
                     class="dropdown-menu dropdown-menu-right null-dropdown"
@@ -111,11 +150,15 @@
                         class="dropdown-item"
                         href="/step_by_step_guide"
                     >
+
                         <i class="fa-solid fa-book"></i>
                         Step-by-Step Guide
+
                     </a>
 
+
                     <div class="dropdown-divider"></div>
+
 
                     <a
                         class="dropdown-item"
@@ -123,11 +166,15 @@
                         target="_blank"
                         rel="noopener noreferrer"
                     >
+
                         <i class="fa-solid fa-toolbox"></i>
                         SpamShare Tools
+
                     </a>
 
+
                     <div class="dropdown-divider"></div>
+
 
                     <a
                         class="dropdown-item"
@@ -135,26 +182,44 @@
                         target="_blank"
                         rel="noopener noreferrer"
                     >
+
                         <i class="fa-solid fa-code"></i>
                         Developer
+
                     </a>
 
                 </div>
 
             </li>
 
-            <li class="nav-item">
-                <a class="nav-link" href="/online_user">
-                    <i class="fa-solid fa-signal"></i>
-                    Active
-                </a>
-            </li>
 
             <li class="nav-item">
-                <a class="nav-link" href="/tos-privacy-policy">
+
+                <a
+                    class="nav-link"
+                    href="/online_user"
+                >
+
+                    <i class="fa-solid fa-signal"></i>
+                    Active
+
+                </a>
+
+            </li>
+
+
+            <li class="nav-item">
+
+                <a
+                    class="nav-link"
+                    href="/tos-privacy-policy"
+                >
+
                     <i class="fa-solid fa-file-shield"></i>
                     Terms
+
                 </a>
+
             </li>
 
         </ul>
@@ -170,32 +235,48 @@
 
 <main class="null-main">
 
-    <!-- HERO -->
+
+    <!-- =====================================================
+         HERO
+    ====================================================== -->
 
     <section class="null-hero">
 
         <div class="status-line">
+
             <span class="status-dot"></span>
+
             SYSTEM ONLINE
+
         </div>
 
+
         <h1 class="null-title">
+
             NULL<span>FIED</span>
+
         </h1>
 
+
         <p class="null-subtitle">
+
             MESSENGER AUTOMATION CONTROL CENTER
+
         </p>
 
+
         <div class="version">
+
             VERSION 1.0.1
+
         </div>
 
     </section>
 
 
+
     <!-- =====================================================
-         LOGIN / COOKIE
+         AUTHENTICATION
     ====================================================== -->
 
     <section class="null-card">
@@ -203,15 +284,22 @@
         <div class="card-header-null">
 
             <div class="header-icon">
+
                 <i class="fa-solid fa-key"></i>
+
             </div>
 
+
             <div>
-                <h2>Authentication</h2>
+
+                <h2>
+                    Authentication
+                </h2>
 
                 <p>
                     Enter your Messenger session data
                 </p>
+
             </div>
 
         </div>
@@ -220,9 +308,13 @@
         <div class="field-group">
 
             <label for="json-data">
+
                 <i class="fa-solid fa-terminal"></i>
+
                 C3C / COOKIE / APPSTATE
+
             </label>
+
 
             <textarea
                 id="json-data"
@@ -232,14 +324,19 @@
                 spellcheck="false"
             ></textarea>
 
+
             <div class="field-hint">
+
                 <i class="fa-solid fa-circle-info"></i>
+
                 Keep your session data private.
+
             </div>
 
         </div>
 
     </section>
+
 
 
     <!-- =====================================================
@@ -254,26 +351,82 @@
         <div class="card-header-null">
 
             <div class="header-icon">
+
                 <i class="fa-solid fa-terminal"></i>
+
             </div>
 
+
             <div>
-                <h2>Commands</h2>
+
+                <h2>
+                    Commands
+                </h2>
 
                 <p>
                     Select the commands available to the bot
                 </p>
+
             </div>
 
         </div>
 
 
-        <!-- script.js may populate this area -->
+        <!--
+            IMPORTANT:
+            Hunting is already included here.
+            Existing script.js can still populate
+            additional commands into this container.
+        -->
 
         <div
             id="commandsContainer"
             class="commands-container"
-        ></div>
+        >
+
+
+            <!-- =================================================
+                 HUNTING
+            ================================================== -->
+
+            <label
+                class="command-item"
+                for="command-hunting"
+            >
+
+                <input
+                    type="checkbox"
+                    name="commands"
+                    value="hunting"
+                    id="command-hunting"
+                    data-command="hunting"
+                >
+
+
+                <span class="command-check"></span>
+
+
+                <span class="command-info">
+
+                    <strong>
+                        hunting
+                    </strong>
+
+                    <small>
+                        Hunting / Count / GC interaction
+                    </small>
+
+                </span>
+
+
+                <span class="command-status">
+                    READY
+                </span>
+
+            </label>
+
+
+        </div>
 
 
         <button
@@ -291,6 +444,7 @@
     </section>
 
 
+
     <!-- =====================================================
          EVENT COMMANDS
     ====================================================== -->
@@ -303,15 +457,22 @@
         <div class="card-header-null">
 
             <div class="header-icon">
+
                 <i class="fa-solid fa-bolt"></i>
+
             </div>
 
+
             <div>
-                <h2>Event Handlers</h2>
+
+                <h2>
+                    Event Handlers
+                </h2>
 
                 <p>
                     Select automatic event commands
                 </p>
+
             </div>
 
         </div>
@@ -338,6 +499,7 @@
     </section>
 
 
+
     <!-- =====================================================
          PREFIX
     ====================================================== -->
@@ -350,15 +512,22 @@
         <div class="card-header-null">
 
             <div class="header-icon">
+
                 <i class="fa-solid fa-hashtag"></i>
+
             </div>
 
+
             <div>
-                <h2>Command Prefix</h2>
+
+                <h2>
+                    Command Prefix
+                </h2>
 
                 <p>
                     Optional command prefix
                 </p>
+
             </div>
 
         </div>
@@ -367,8 +536,11 @@
         <div class="field-group">
 
             <label for="inputOfPrefix">
+
                 PREFIX
+
             </label>
+
 
             <input
                 type="text"
@@ -378,13 +550,19 @@
                 autocomplete="off"
             >
 
+
             <div class="field-hint">
-                Enter <b>non-prefix</b> if commands should work without a prefix.
+
+                Enter
+                <b>non-prefix</b>
+                if commands should work without a prefix.
+
             </div>
 
         </div>
 
     </section>
+
 
 
     <!-- =====================================================
@@ -399,15 +577,22 @@
         <div class="card-header-null">
 
             <div class="header-icon">
+
                 <i class="fa-solid fa-user-shield"></i>
+
             </div>
 
+
             <div>
-                <h2>Administrator</h2>
+
+                <h2>
+                    Administrator
+                </h2>
 
                 <p>
                     Configure the bot administrator UID
                 </p>
+
             </div>
 
         </div>
@@ -416,8 +601,11 @@
         <div class="field-group">
 
             <label for="inputOfAdmin">
+
                 ADMIN USER ID
+
             </label>
+
 
             <input
                 type="text"
@@ -427,13 +615,19 @@
                 autocomplete="off"
             >
 
+
             <div class="field-hint">
-                Enter <b>default</b> to use the configured default administrator.
+
+                Enter
+                <b>default</b>
+                to use the configured administrator.
+
             </div>
 
         </div>
 
     </section>
+
 
 
     <!-- =====================================================
@@ -452,11 +646,14 @@
                 id="agreeCheckbox"
             >
 
+
             <span class="checkmark"></span>
+
 
             <span class="check-text">
 
                 I have read, understood, and agree to the
+
                 <a href="/tos-privacy-policy">
                     Terms and Conditions
                 </a>.
@@ -466,6 +663,7 @@
         </label>
 
     </section>
+
 
 
     <!-- =====================================================
@@ -483,8 +681,11 @@
         >
 
             <span class="submit-icon">
+
                 <i class="fa-solid fa-power-off"></i>
+
             </span>
+
 
             <span>
                 INITIALIZE BOT
@@ -495,30 +696,36 @@
     </section>
 
 
+
     <!-- =====================================================
          RESULT
     ====================================================== -->
 
     <div
         id="result"
-        class="result-box"
+        class="container text-center result-box"
         style="display:none;"
     ></div>
 
 
+
     <!-- =====================================================
-         SYSTEM INFO
+         SYSTEM STATUS
     ====================================================== -->
 
     <section class="system-panel">
 
         <div class="system-title">
+
             <i class="fa-solid fa-microchip"></i>
+
             SYSTEM STATUS
+
         </div>
 
 
         <div class="system-grid">
+
 
             <div class="system-item">
 
@@ -526,9 +733,13 @@
                     STATUS
                 </span>
 
+
                 <span class="system-value">
+
                     <span class="status-dot"></span>
+
                     READY
+
                 </span>
 
             </div>
@@ -539,6 +750,7 @@
                 <span class="system-label">
                     CONNECTION
                 </span>
+
 
                 <span
                     class="system-value"
@@ -556,6 +768,7 @@
                     TIME
                 </span>
 
+
                 <span
                     class="system-value"
                     id="time"
@@ -572,6 +785,7 @@
                     PING
                 </span>
 
+
                 <span
                     class="system-value"
                     id="ping"
@@ -585,8 +799,8 @@
 
     </section>
 
-
 </main>
+
 
 
 <!-- =========================================================
@@ -604,6 +818,7 @@
 </button>
 
 
+
 <!-- =========================================================
      FOOTER
 ========================================================= -->
@@ -614,9 +829,11 @@
         NULLFIED
     </div>
 
+
     <p>
         Messenger Automation Control Center
     </p>
+
 
     <p>
         © 2026 NULLFIED · made by sinzu
@@ -625,154 +842,249 @@
 </footer>
 
 
+
 <!-- =========================================================
-     SCRIPTS
+     PAGE FUNCTIONS
 ========================================================= -->
 
 <script>
 
 function scrollToSection(sectionId) {
 
-    const section = document.getElementById(sectionId);
+    const section =
+        document.getElementById(sectionId);
 
-    if (!section) return;
+    if (!section) {
+        return;
+    }
 
     section.scrollIntoView({
         behavior: "smooth",
         block: "start"
     });
+
 }
+
 
 
 function selectAllCommands() {
 
-    /*
-     * Keep compatibility with the existing script.js.
-     * If script.js provides its own command-selection logic,
-     * it will continue to work.
-     */
-
-    const boxes = document.querySelectorAll(
-        '#commandsContainer input[type="checkbox"], #listOfCommands input[type="checkbox"]'
-    );
-
-    boxes.forEach(box => {
-        box.checked = true;
-        box.dispatchEvent(
-            new Event("change", { bubbles: true })
+    const boxes =
+        document.querySelectorAll(
+            '#commandsContainer input[type="checkbox"]'
         );
+
+
+    boxes.forEach(function(box) {
+
+        box.checked = true;
+
+        box.dispatchEvent(
+            new Event(
+                "change",
+                {
+                    bubbles: true
+                }
+            )
+        );
+
     });
 
 }
+
 
 
 function selectAllEvents() {
 
-    const boxes = document.querySelectorAll(
-        '#eventsContainer input[type="checkbox"], #listOfCommandsEvent input[type="checkbox"]'
-    );
-
-    boxes.forEach(box => {
-        box.checked = true;
-        box.dispatchEvent(
-            new Event("change", { bubbles: true })
+    const boxes =
+        document.querySelectorAll(
+            '#eventsContainer input[type="checkbox"]'
         );
+
+
+    boxes.forEach(function(box) {
+
+        box.checked = true;
+
+        box.dispatchEvent(
+            new Event(
+                "change",
+                {
+                    bubbles: true
+                }
+            )
+        );
+
     });
 
 }
+
 
 
 /* =========================================================
    TERMS CHECKBOX
 ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
 
-    const checkbox = document.getElementById("agreeCheckbox");
-    const submit = document.getElementById("submitButton");
-
-    if (checkbox && submit) {
-
-        checkbox.addEventListener("change", () => {
-
-            submit.disabled = !checkbox.checked;
-
-        });
-
-    }
+        const checkbox =
+            document.getElementById(
+                "agreeCheckbox"
+            );
 
 
-    /* Scroll button */
+        const submit =
+            document.getElementById(
+                "submitButton"
+            );
 
-    const scrollBtn = document.getElementById("scrollUpBtn");
 
-    if (scrollBtn) {
+        if (checkbox && submit) {
 
-        window.addEventListener("scroll", () => {
+            checkbox.addEventListener(
+                "change",
+                function() {
 
-            if (window.scrollY > 350) {
-                scrollBtn.classList.add("show");
-            } else {
-                scrollBtn.classList.remove("show");
+                    submit.disabled =
+                        !checkbox.checked;
+
+                }
+            );
+
+        }
+
+
+
+        /* =================================================
+           SCROLL BUTTON
+        ================================================= */
+
+        const scrollBtn =
+            document.getElementById(
+                "scrollUpBtn"
+            );
+
+
+        if (scrollBtn) {
+
+            window.addEventListener(
+                "scroll",
+                function() {
+
+                    if (window.scrollY > 350) {
+
+                        scrollBtn.classList.add(
+                            "show"
+                        );
+
+                    } else {
+
+                        scrollBtn.classList.remove(
+                            "show"
+                        );
+
+                    }
+
+                }
+            );
+
+
+            scrollBtn.addEventListener(
+                "click",
+                function() {
+
+                    window.scrollTo({
+                        top: 0,
+                        behavior: "smooth"
+                    });
+
+                }
+            );
+
+        }
+
+
+
+        /* =================================================
+           TIME
+        ================================================= */
+
+        function updateTime() {
+
+            const timeElement =
+                document.getElementById(
+                    "time"
+                );
+
+
+            if (!timeElement) {
+                return;
             }
 
-        });
+
+            const now =
+                new Date();
 
 
-        scrollBtn.addEventListener("click", () => {
+            timeElement.textContent =
+                now.toLocaleTimeString();
 
-            window.scrollTo({
-                top: 0,
-                behavior: "smooth"
-            });
+        }
 
-        });
+
+        updateTime();
+
+        setInterval(
+            updateTime,
+            1000
+        );
+
+
+
+        /* =================================================
+           CONNECTION
+        ================================================= */
+
+        const connection =
+            document.getElementById(
+                "connectionStatus"
+            );
+
+
+        function updateConnection() {
+
+            if (!connection) {
+                return;
+            }
+
+
+            connection.textContent =
+                navigator.onLine
+                    ? "ONLINE"
+                    : "OFFLINE";
+
+        }
+
+
+        updateConnection();
+
+
+        window.addEventListener(
+            "online",
+            updateConnection
+        );
+
+
+        window.addEventListener(
+            "offline",
+            updateConnection
+        );
 
     }
+);
 
-
-    /* Time */
-
-    function updateTime() {
-
-        const timeElement = document.getElementById("time");
-
-        if (!timeElement) return;
-
-        const now = new Date();
-
-        timeElement.textContent =
-            now.toLocaleTimeString();
-
-    }
-
-    updateTime();
-
-    setInterval(updateTime, 1000);
-
-
-    /* Simple connection check */
-
-    const connection = document.getElementById(
-        "connectionStatus"
-    );
-
-    if (connection) {
-
-        connection.textContent =
-            navigator.onLine ? "ONLINE" : "OFFLINE";
-
-        window.addEventListener("online", () => {
-            connection.textContent = "ONLINE";
-        });
-
-        window.addEventListener("offline", () => {
-            connection.textContent = "OFFLINE";
-        });
-
-    }
-
-});
 
 
 /* =========================================================
@@ -782,11 +1094,19 @@ document.addEventListener("DOMContentLoaded", () => {
 async function updatePing() {
 
     const pingElement =
-        document.getElementById("ping");
+        document.getElementById(
+            "ping"
+        );
 
-    if (!pingElement) return;
 
-    const start = performance.now();
+    if (!pingElement) {
+        return;
+    }
+
+
+    const start =
+        performance.now();
+
 
     try {
 
@@ -798,11 +1118,16 @@ async function updatePing() {
             }
         );
 
+
         const ping =
-            Math.round(performance.now() - start);
+            Math.round(
+                performance.now() - start
+            );
+
 
         pingElement.textContent =
             ping + " ms";
+
 
     } catch (error) {
 
@@ -816,37 +1141,76 @@ async function updatePing() {
 
 updatePing();
 
-setInterval(updatePing, 10000);
+
+setInterval(
+    updatePing,
+    10000
+);
 
 </script>
 
 
-<!-- Existing project logic -->
+
+<!-- =========================================================
+     EXISTING SCRIPT.JS
+========================================================= -->
+
 <script src="script.js"></script>
 
 
-<!-- Bootstrap -->
-<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<!-- =========================================================
+     BOOTSTRAP
+========================================================= -->
 
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-
-<!-- Font Awesome -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+<script
+    src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+></script>
 
 
-<!-- SweetAlert -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script
+    src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"
+></script>
 
 
-<!-- Howler -->
-<script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
+<script
+    src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+></script>
+
 
 
 <!-- =========================================================
-     BACKGROUND MUSIC
+     FONT AWESOME
+========================================================= -->
+
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"
+></script>
+
+
+
+<!-- =========================================================
+     SWEETALERT
+========================================================= -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/sweetalert2@11"
+></script>
+
+
+
+<!-- =========================================================
+     HOWLER
+========================================================= -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"
+></script>
+
+
+
+<!-- =========================================================
+     MUSIC
 ========================================================= -->
 
 <script>
@@ -855,34 +1219,53 @@ const tracks = [
     "https://raw.githubusercontent.com/Kaizenji/Kaizenji/main/cute-depressed.mp3"
 ];
 
+
 const randomTrack =
-    tracks[Math.floor(Math.random() * tracks.length)];
+    tracks[
+        Math.floor(
+            Math.random() * tracks.length
+        )
+    ];
 
 
-const sound = new Howl({
-
-    src: [randomTrack],
-
-    autoplay: true,
-
-    loop: false,
-
-    format: ["mp3"],
-
-    volume: 0.35,
-
-    onend: function () {}
-
-});
+let sound;
 
 
 try {
+
+    sound = new Howl({
+
+        src: [
+            randomTrack
+        ],
+
+        autoplay: true,
+
+        loop: false,
+
+        format: [
+            "mp3"
+        ],
+
+        volume: 0.35,
+
+        onend: function() {}
+
+    });
+
+
     sound.play();
+
 } catch (error) {
-    console.log("Audio autoplay blocked.");
+
+    console.log(
+        "Audio autoplay blocked."
+    );
+
 }
 
 </script>
 
+
 </body>
-            </html>
+    </html>
