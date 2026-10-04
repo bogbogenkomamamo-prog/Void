@@ -7,6 +7,7 @@ const chalk = require('chalk');
 const bodyParser = require('body-parser');
 const script = path.join(__dirname, 'script');
 const cron = require('node-cron');
+
 const config = fs.existsSync('./data') && fs.existsSync('./data/config.json') ? JSON.parse(fs.readFileSync('./data/config.json', 'utf8')) : createConfig();
 const dev = fs.existsSync('./dev.json') ? JSON.parse(fs.readFileSync('./dev.json')) : [];
 
@@ -21,6 +22,9 @@ if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
 if (!fs.existsSync('./data/history.json')) fs.writeFileSync('./data/history.json', '[]', 'utf-8');
 if (!fs.existsSync('./data/session')) fs.mkdirSync('./data/session', { recursive: true });
 if (!fs.existsSync('./data/database.json')) fs.writeFileSync('./data/database.json', '[]', 'utf-8');
+
+// Helper function para sa anti-ban human-like delay
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // COMMAND LOADER
 fs.readdirSync(script).forEach((file) => {
@@ -224,15 +228,17 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
         return;
       }
 
+      // I-apply ang anti-ban options sa FCA
       api.setOptions({
         listenEvents: config[0].fcaOption.listenEvents,
         logLevel: config[0].fcaOption.logLevel,
-        updatePresence: config[0].fcaOption.updatePresence,
-        selfListen: config[0].fcaOption.selfListen,
+        updatePresence: false, // Naka-false para hindi masyadong mag-ping sa Facebook server
+        selfListen: false,     // Naka-false para maiwasan ang loop/spam detection sa sariling chat
         forceLogin: config[0].fcaOption.forceLogin,
-        online: config[0].fcaOption.online,
-        autoMarkDelivery: config[0].fcaOption.autoMarkDelivery,
-        autoMarkRead: config[0].fcaOption.autoMarkRead,
+        online: true,
+        autoMarkDelivery: false,
+        autoMarkRead: false,
+        userAgent: config[0].fcaOption.userAgent
       });
 
       try {
@@ -255,13 +261,17 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
             }
             
             try {
+              // Magdagdag ng random human-like delay (1.5 hanggang 3 segundo) bago mag-execute
+              const randomDelay = Math.floor(Math.random() * 1500) + 1500;
+              await sleep(randomDelay);
+
               await targetCmd.run({ api, event, args, prefix, admin, blacklist, Utils });
             } catch (err) {
               console.error(err);
             }
           }
 
-          // Trigger handleEvent (para sa halimaw mimicker at background scripts)
+          // Trigger handleEvent para sa background scripts
           for (const handleObj of Utils.handleEvent.values()) {
             try {
               if (handleObj.handleEvent) {
@@ -337,7 +347,18 @@ async function main() {
 function createConfig() {
   const config = [{
     masterKey: { admin: [], devMode: false, database: false, restartTime: 15 },
-    fcaOption: { forceLogin: true, listenEvents: true, logLevel: "silent", updatePresence: true, selfListen: true, userAgent: "Mozilla/5.0", online: true, autoMarkDelivery: false, autoMarkRead: false }
+    fcaOption: { 
+      forceLogin: true, 
+      listenEvents: true, 
+      logLevel: "silent", 
+      updatePresence: false, 
+      selfListen: false, 
+      // Matatag na Mobile User-Agent para magmukhang Android Phone ang ginagamit ng bot
+      userAgent: "Mozilla/5.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36", 
+      online: true, 
+      autoMarkDelivery: false, 
+      autoMarkRead: false 
+    }
   }];
   const dataFolder = './data';
   if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder);
