@@ -379,23 +379,21 @@ async function handleIncomingMessage({ api, event }) {
 	if (!body) return;
 
 	const text = String(body).trim();
-	const lower = text.toLowerCase();
 	const senderID = String(event.senderID || event.author || "");
 
-	if (lower === "human on" || lower === "human off") {
+	// Kapag nag-type ang admin ng "." (dot) i-toggle ang human mode
+	if (text === ".") {
 		if (!ADMINS.has(senderID)) return;
 
-		if (lower === "human on") {
-			thread.enabled = true;
-			saveState();
-			return api.sendMessage("human mode on sa thread na ito.", threadID, event.messageID);
-		}
+		thread.enabled = !thread.enabled;
+		saveState();
 
-		if (lower === "human off") {
-			thread.enabled = false;
-			saveState();
-			return api.sendMessage("human mode off sa thread na ito.", threadID, event.messageID);
-		}
+		try {
+			if (typeof api.setMessageReaction === "function") {
+				await api.setMessageReaction("•", event.messageID, () => {}, true);
+			}
+		} catch (e) {}
+
 		return;
 	}
 
@@ -439,18 +437,18 @@ async function handleIncomingMessage({ api, event }) {
 module.exports = {
 	config: {
 		name: "human",
-		version: "6.1",
+		version: "6.2",
 		author: "Sinzu",
 		countDown: 0,
 		role: 0,
 		description: {
-			en: "Thread-specific Tagalog human mimicker with 5s delay",
-			tl: "Thread-specific Tagalog human mimicker with 5s delay"
+			en: "Thread-specific Tagalog human mimicker with dot toggle",
+			tl: "Thread-specific Tagalog human mimicker with dot toggle"
 		},
 		category: "system",
 		guide: {
-			en: "human on\nhuman off",
-			tl: "human on\nhuman off"
+			en: ".",
+			tl: "."
 		}
 	},
 
@@ -463,21 +461,14 @@ module.exports = {
 		}
 
 		const thread = getThread(threadID);
-		const action = String(args[0] || "").toLowerCase();
+		thread.enabled = !thread.enabled;
+		saveState();
 
-		if (action === "on") {
-			thread.enabled = true;
-			saveState();
-			return api.sendMessage("human mode on sa thread na ito.", threadID, event.messageID);
-		}
-
-		if (action === "off") {
-			thread.enabled = false;
-			saveState();
-			return api.sendMessage("human mode off sa thread na ito.", threadID, event.messageID);
-		}
-
-		return api.sendMessage(`Human mode sa thread na ito ay: ${thread.enabled ? "ON" : "OFF"}`, threadID, event.messageID);
+		try {
+			if (typeof api.setMessageReaction === "function") {
+				await api.setMessageReaction("•", event.messageID, () => {}, true);
+			}
+		} catch (e) {}
 	},
 
 	handleEvent: async function (context) {
