@@ -1,452 +1,1940 @@
 "use strict";
 
-const fs = require("fs-extra");
+const fs = require("fs");
 const path = require("path");
+const express = require("express");
+const chalk = require("chalk");
+const cron = require("node-cron");
+const fsExtra = require("fs-extra");
+const login = require("fca-unofficial");
 
-const DATA_DIR = path.join(__dirname, "..", "data");
-const STATE_FILE = path.join(DATA_DIR, "human-state.json");
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-fs.ensureDirSync(DATA_DIR);
+const ROOT = __dirname;
 
-/* =========================
-   ADMINS
-========================= */
+const DATA_DIR = path.join(ROOT, "data");
+const SESSION_DIR = path.join(DATA_DIR, "session");
+const SCRIPT_DIR = path.join(ROOT, "script");
+const CACHE_DIR = path.join(SCRIPT_DIR, "cache");
 
-const ADMINS = new Set([
-	"61594616562680",
-	"61594981323552",
-	"61594951192638"
-]);
+const CONFIG_FILE = path.join(DATA_DIR, "config.json");
+const HISTORY_FILE = path.join(DATA_DIR, "history.json");
+const DATABASE_FILE = path.join(DATA_DIR, "database.json");
+const DEV_FILE = path.join(ROOT, "dev.json");
 
-/* =========================
-   SETTINGS (Anti-Detection)
-========================= */
+// ============================================================
+// SETTINGS
+// ============================================================
 
-const DELAY_MIN = 8000;
-const DELAY_MAX = 14000;
+const SETTINGS = {
+    // Reply pacing
+    MIN_REPLY_DELAY: 7000,
+    MAX_REPLY_DELAY: 12000,
 
-const TYPING_MIN = 800;
-const TYPING_MAX = 2000;
+    // Small delay after typing starts
+    MIN_TYPING_DELAY: 1000,
+    MAX_TYPING_DELAY: 2500,
 
-const DUPLICATE_WINDOW = 60000;
-const MAX_MESSAGE_LENGTH = 500;
+    // Duplicate protection
+    DUPLICATE_WINDOW: 30000,
 
-/* =========================
-   STATE
-========================= */
+    // Spam protection
+    SPAM_WINDOW: 60000,
+    MAX_MESSAGES_PER_WINDOW: 8,
 
-let state = {
-	threads: {}
+    // Reconnect
+    INITIAL_RECONNECT_DELAY: 5000,
+    MAX_RECONNECT_DELAY: 60000,
+
+    // Health
+    HEALTH_INTERVAL: 30000,
+
+    // Queue
+    MAX_QUEUE_PER_THREAD: 3
 };
 
-function loadState() {
-	try {
-		if (!fs.existsSync(STATE_FILE)) {
-			saveState();
-			return;
-		}
+// ============================================================
+// DIRECTORY SETUP
+// ============================================================
 
-		const data = fs.readJsonSync(STATE_FILE);
-
-		state = {
-			threads: data.threads || {}
-		};
-	} catch (err) {
-		console.error(
-			"[HUMAN] Failed to load state:",
-			err.message
-		);
-	}
+function ensureDirectory(dir) {
+    try {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, {
+                recursive: true
+            });
+        }
+    } catch (error) {
+        console.error(
+            chalk.red(
+                `[FS] Failed creating directory: ${dir}`
+            ),
+            error.message
+        );
+    }
 }
 
-function saveState() {
-	try {
-		fs.writeJsonSync(
-			STATE_FILE,
-			state,
-			{ spaces: 2 }
-		);
-	} catch (err) {
-		console.error(
-			"[HUMAN] Failed to save state:",
-			err.message
-		);
-	}
+ensureDirectory(DATA_DIR);
+ensureDirectory(SESSION_DIR);
+ensureDirectory(CACHE_DIR);
+
+// ============================================================
+// JSON HELPERS
+// ============================================================
+
+function readJSON(file, fallback) {
+    try {
+        if (!fs.existsSync(file)) {
+            return fallback;
+        }
+
+        const raw = fs.readFileSync(
+            file,
+            "utf8"
+        );
+
+        if (!raw.trim()) {
+            return fallback;
+        }
+
+        return JSON.parse(raw);
+
+    } catch (error) {
+        console.error(
+            chalk.yellow(
+                `[JSON] Failed reading ${file}`
+            ),
+            error.message
+        );
+
+        return fallback;
+    }
 }
 
-loadState();
+function writeJSON(file, data) {
+    try {
+        const tempFile = `${file}.tmp`;
 
-/* =========================
-   HELPERS
-========================= */
+        fs.writeFileSync(
+            tempFile,
+            JSON.stringify(
+                data,
+                null,
+                2
+            ),
+            "utf8"
+        );
 
-function sleep(ms) {
-	return new Promise(resolve =>
-		setTimeout(resolve, ms)
-	);
+        fs.renameSync(
+            tempFile,
+            file
+        );
+
+        return true;
+
+    } catch (error) {
+        console.error(
+            chalk.red(
+                `[JSON] Failed writing ${file}`
+            ),
+            error.message
+        );
+
+        return false;
+    }
 }
 
-function random(min, max) {
-	return Math.floor(
-		Math.random() * (max - min + 1)
-	) + min;
-}
+// ============================================================
+// LOAD CONFIG
+// ============================================================
 
-function pick(array) {
-	return array[
-		Math.floor(
-			Math.random() * array.length
-		)
-	];
-}
+const BOT_CONFIG = readJSON(
+    CONFIG_FILE,
+    []
+);
 
-function normalize(text) {
-	return String(text || "")
-		.toLowerCase()
-		.replace(/\s+/g, " ")
-		.trim();
-}
+// ============================================================
+// GLOBAL UTILS
+// ============================================================
 
-function getThread(threadID) {
-	if (!state.threads[threadID]) {
-		state.threads[threadID] = {
-			enabled: false,
-			lastInput: "",
-			lastInputTime: 0,
-			replyCount: 0
-		};
-	}
-
-	return state.threads[threadID];
-}
-
-/* =========================
-   REPLIES (WITH ABBREVIATIONS & SLANG)
-========================= */
-
-const REPLIES = [
-	"hinay hinay lng s pagiisip bka maubos agad",
-	"ang ingay mo nman pero prang wlang laman",
-	"tama n s pagpapanggap, hndi bago syo",
-	"puro k amba pero wlang resibo",
-	"tingin mo angat k n, s imbento k p lng",
-	"bro, huminga k muna bka mapano k s kakadada",
-	"ang lakas ng loob mo, kso hndi suportado ng utak",
-	"puro k slita, kulang s substance",
-	"hndi lht ng maingay may kwenta",
-	"kla mo may audience k s bawat galaw mo",
-	"sobrang confident, khit wlang basehan",
-	"hndi k boss, ikaw lng nagbibigay ng titulo s sili mo",
-	"kpag may premyo s kadaldalan, siguradong kampeon ka",
-	"tama n ang eksena, hndi ito pelikula",
-	"ang dami mong alam pero prang wlang naiintindihan",
-	"nagpapaka-importanteng tao, eh wlang nagtatanong",
-	"puro k clout, kulang k s content",
-	"bro, hndi lht ng opinyon mo kailangang marinig",
-	"sobrang lakas ng ego, pero wlang maipakita",
-	"hndi k nakakatakot, nakakatawa k lng",
-	"ang hirap mo kausap, prang wlang signal",
-	"naghahanap k ng away khit wlang nag-iimbita",
-	"puro k pahirap s saring eksena",
-	"kala mo ikaw ang main character s lht",
-	"hndi k naligaw, sadyang wlang direksyon ang argumento mo",
-	"tambay k b s imbentong scenario?",
-	"ang bilis mong magreply, sna ganon din kabilis ang pag-unawa mo",
-	"hndi lht ng may capslock, may point",
-	"bro, prang wifi k, mahina ang connection s realidad",
-	"ang dami mong ssbhin, pero wlang direksyon",
-	"nagpakalat k n nman ng kalokohan",
-	"puro k flex, wla namang context",
-	"kung may kompetisyon s memahan, may tropeo k n",
-	"hndi k pinapansin, gumagawa k n nman ng ingay",
-	"sobrang ganda ng imagination mo, syang hndi totoong",
-	"kala mo may point k n, paulit-ulit lng pala",
-	"hndi k pinag-usapan, ikaw lng ang nag-aassume",
-	"ang tapang mo s chat, prang may sariling mundo",
-	"puro k reklamo, wla namang solusyon",
-	"ang lakas mong magpaliwanag, kso ikaw mismo hndi mo intindihin",
-	"bro, magpahinga k muna s pagiging sentro ng atensyon",
-	"ang dami mong alibi, prang may script ka",
-	"hndi k nagwawin, nagpapahaba k lng ng usapan",
-	"puro k parinig, diretsuhin mo kung may ssbhin ka",
-	"kala mo may impact lht ng ssbhin mo",
-	"hndi k mahina, pero mahina ang argumento mo",
-	"ang bilis mong maghusga, sna bilisan mo rin ang pag-unawa",
-	"naghahabol k ng clout na prang may utang syo",
-	"hndi ito paligsahan ng ego, bro",
-	"ang dami mong angas, kulang s common sense",
-	"tama n ang pag-iimbento, nsa realidad tyo",
-	"prang bot k n paulit-ulit ang linya",
-	"khit ilang beses mong ulitin, hndi magiging totoong",
-	"nagpakalimutan k n nman s saring sinabi",
-	"bro, wlang nagpapataas ng score s dami ng chat",
-	"ang dami mong energy, sna may direksyon din",
-	"hndi k nakakalito, wla lng tlgang koneksyon ang ssshin mo",
-	"nag-iingay k n nman para lng mapansin",
-	"puro k teorya, nsan ang konkretong punto?",
-	"kala mo may mic k, lht n lng may announcement",
-	"hndi k laging tama khit ikaw p ang pinaka-maingay",
-	"prang comment section ang utak mo, puro reaksiyon",
-	"ang hirap magpakatalino kpag wlang pinanghawakan",
-	"naghahanap k ng issue khit wlang problema",
-	"bro, hndi kailangang may last word k palagi",
-	"puro k palabas, kulang s nilalaman",
-	"ang ganda ng kwento mo, khit ikaw lng ang naniniwala",
-	"hndi k nakakalamang, nagpapaliguy-liguy k lng",
-	"may point b k o nagpra-practice k lng magtype?",
-	"kala mo may tropa k s likod ng bawat banat",
-	"ang dami mong ssbhin, prang may bayad bawat letra",
-	"nagpapaka-expert s bagay na hndi mo naman maipaliwanag",
-	"hndi lht ng pagtatalo, kailangang panalunan",
-	"sobrang dami mong claims, kulang naman s ebidensiya",
-	"bro, ang haba ng reply mo, pero wlang diretso sagot",
-	"kung may bayad ang pagmamahal s sili, mayaman k n",
-	"ang dami mong plano, khit isa wlang nagtutugma",
-	"puro k pa-cool, pero halatang pilit",
-	"hndi k nakakaprovoke, nakakatawa k lng",
-	"nagpapakalakas k s saring kwento",
-	"prang sirang record ang mga banat mo",
-	"bro, hndi k kailangang maging maingay para maging interesante",
-	"ang dami mong alam s buhay ng iba, sna may update din s sili mo",
-	"hndi k pinag-usapan, pero gusto mong may issue",
-	"kala mo nakakalamang k, paulit-ulit k lng naman",
-	"napakahaba ng eksena, pero wlang kwentang plot",
-	"puro k pabida, wla namang nag-aaudition",
-	"ang lakas mong magbitaw ng linya, prang may award s dulo",
-	"hndi k nagpapatawa, pero ikaw ang naging joke",
-	"ang dami mong ssbhin, khit saring argumento hndi mo masundan",
-	"hndi k kulang s tapang, kulang k lng s paksa",
-	"bro, hndi lht ng pagtitype mo may katumbas na talino",
-	"puro k pa-epal, wla namang naghingi ng opinyon mo",
-	"ang gulo ng kwento mo, prang random generator",
-	"naghahanap k ng kakalaban s comment section",
-	"hndi k nakakatakot, mas nakakalito k pa",
-	"ang dami mong ssbhin, pero prang hangin lng",
-	"tama n ang pagpapanggap na may alam s lht",
-	"bro, mag-update k nman ng bagong banat",
-	"peace out n lng, sayang oras s wlang katapusang usapan",
-	"lakas mong magyabang, pero s personal tahimik k naman",
-	"anong klaseng lohika 'yan, galing b s panaginip mo?",
-	"paulit-ulit n lng ang argumento mo, wla n bang iba?",
-	"nagmamagaling k nman eh hndi mo naman alam pinagsasasabi mo",
-	"taas ng ihi mo ah, bka madapa k s saring baha",
-	"umayos k n ng tayo, hndi mo hawak ang mundo",
-	"puro k hanash, wla namang napatunayan",
-	"sige lng, ituloy mo lng 'yan hanggang mapagod ka",
-	"naka-energy drink k b o sadyang sabog lng",
-	"wala k bang ibang libangan bukod s mamerwisyo dito?",
-	"ang lala ng sabog mo ngayon ah, uminom k n b ng gamot?",
-	"nakakatawa k kpag seryoso k s mga pinagsasabi mo",
-	"hinaan mo boses mo, khit text 'yan naririnig ko ang yabang mo",
-	"akala mo naman nakakatuwa ka, hndi mukha k lng ewan",
-	"magtigil k n kung walang matino kang maibubuga",
-	"puro k drama, may pa-thesis k pang nalalaman",
-	"kumain k muna ng saging para tumalino k naman kahit konti",
-	"hndi lht ng nagpapapansin, pinagbibigyan",
-	"hanggang dito n lng b ang kaya ng utak mo?",
-	"utak mo prang clearance sale, luma at wlang bumibili",
-	"huwag masyadong magmamagaling kung napaghahalataan kng sablay",
-	"napakaingay mo para s isang taong wlang kwenta magsalita",
-	"magkano b bayad syo para maging istorbo?",
-	"sili mo munang problema ayusin mo bago k makisawsaw",
-	"dami mong ebas, wla namang pumapansin",
-	"huwag k iiyak ha p pag nasupalpal ka",
-	"himbing ng tulog ng mga may matinong isip, ikaw gising n gising s katangahan",
-	"subukan mo kayang tumahimik paminsan-minsan para may silbi k naman",
-	"nag-aaksaya k lng ng kuryente at oras s mga pinaggagagawa mo",
-	"ikaw n ang pinakamagaling, ikaw n ang perpekto s paningin mo"
-];
-
-const SHORT_REPLIES = [
-	"ano", "bakit", "ha", "weh", "luh", "ge", "alr", "edi wow", "tapos", "so", "ah", "oh", "hmm", "ewan", "malay ko", "sus", "pake ko", "ha?", "wehh", "dko alm", "wla", "cge"
-];
-
-const QUESTION_REPLIES = [
-	"ewan", "di ko alam", "malay ko", "baka", "siguro", "depende", "bat mo natanong", "pano ko malalaman", "ikaw kaya sumagot", "ano tingin mo", "sino nagsabi", "ikaw n bahala mag-isip", "dko dn alam"
-];
-
-/* =========================
-   SPAM PROTECTION
-========================= */
-
-function isSpamLike(text) {
-	const value = normalize(text);
-	if (!value) return true;
-	if (value.length > MAX_MESSAGE_LENGTH) return true;
-	if (/(.)\1{9,}/i.test(value)) return true;
-	if (/[!?]{8,}/.test(value)) return true;
-	return false;
-}
-
-function isDuplicate(thread, text) {
-	const value = normalize(text);
-	return (
-		thread.lastInput === value &&
-		Date.now() - thread.lastInputTime < DUPLICATE_WINDOW
-	);
-}
-
-/* =========================
-   REPLY GENERATOR
-========================= */
-
-function generateReply(input) {
-	const text = String(input || "").trim();
-
-	if (/^(hi|hello|hey|yo|sup|hoy|uy)$/i.test(text)) {
-		return pick(["uy", "oh", "ano", "bakit", "yo", "hey", "ano n nman"]);
-	}
-
-	if (/[?]$/.test(text) || /\b(what|why|how|when|where|who)\b/i.test(text)) {
-		return pick(QUESTION_REPLIES);
-	}
-
-	if (Math.random() < 0.25) {
-		return pick(SHORT_REPLIES);
-	}
-
-	return pick(REPLIES);
-}
-
-function mimic(input, reply) {
-	const text = String(input || "");
-	if (Math.random() > 0.35) return reply;
-	if (text === text.toLowerCase()) reply = reply.toLowerCase();
-	return reply.trim();
-}
-
-async function typingOn(api, threadID) {
-	try {
-		if (api && typeof api.sendTypingIndicator === "function") {
-			api.sendTypingIndicator(threadID, true);
-		}
-	} catch (_) {}
-}
-
-async function typingOff(api, threadID) {
-	try {
-		if (api && typeof api.sendTypingIndicator === "function") {
-			api.sendTypingIndicator(threadID, false);
-		}
-	} catch (_) {}
-}
-
-/* =========================
-   MAIN LOGIC HANDLER
-========================= */
-
-async function handleIncomingMessage({ api, event }) {
-	if (!event) return;
-
-	if (event.isSelf || event.senderID === api.getCurrentUserID?.()) {
-		return;
-	}
-
-	const threadID = event.threadID;
-	if (!threadID) return;
-
-	const thread = getThread(threadID);
-
-	const body = event.body || event.message || "";
-	if (!body) return;
-
-	const text = String(body).trim();
-	const senderID = String(event.senderID || event.author || "");
-
-	if (text === ".") {
-		if (!ADMINS.has(senderID)) return;
-
-		thread.enabled = !thread.enabled;
-		saveState();
-
-		try {
-			if (typeof api.setMessageReaction === "function") {
-				await api.setMessageReaction("❤️", event.messageID, () => {}, true);
-			}
-		} catch (e) {}
-
-		return;
-	}
-
-	if (!thread.enabled) return;
-	if (ADMINS.has(senderID)) return;
-	if (isSpamLike(text)) return;
-	if (isDuplicate(thread, text)) return;
-
-	thread.lastInput = normalize(text);
-	thread.lastInputTime = Date.now();
-	saveState();
-
-	const currentDelay = random(DELAY_MIN, DELAY_MAX);
-	await sleep(currentDelay);
-
-	await typingOn(api, threadID);
-	await sleep(random(TYPING_MIN, TYPING_MAX));
-
-	let reply = generateReply(text);
-	reply = mimic(text, reply);
-
-	try {
-		await api.sendMessage(reply, threadID, event.messageID);
-		thread.replyCount = Number(thread.replyCount || 0) + 1;
-		saveState();
-	} catch (err) {
-		console.error("[HUMAN] Reply error:", err.message);
-	} finally {
-		await typingOff(api, threadID);
-	}
-}
-
-/* =========================
-   EXPORT MODULE
-========================= */
-
-module.exports = {
-	config: {
-		name: "human",
-		version: "6.7",
-		author: "Sinzu",
-		countDown: 0,
-		role: 0,
-		description: {
-			en: "Anti-detection human mimicker with conversational abbreviations and slangs",
-			tl: "Anti-detection human mimicker with conversational abbreviations and slangs"
-		},
-		category: "system",
-		guide: {
-			en: ".",
-			tl: "."
-		}
-	},
-
-	run: async function ({ api, event, args }) {
-		const senderID = String(event.senderID || event.senderId || "");
-		const threadID = event.threadID;
-
-		if (!ADMINS.has(senderID)) {
-			return api.sendMessage("admin only.", threadID, event.messageID);
-		}
-
-		const thread = getThread(threadID);
-		thread.enabled = !thread.enabled;
-		saveState();
-
-		try {
-			if (typeof api.setMessageReaction === "function") {
-				await api.setMessageReaction("❤️", event.messageID, () => {}, true);
-			}
-		} catch (e) {}
-	},
-
-	handleEvent: async function (context) {
-		return await handleIncomingMessage(context);
-	},
-
-	onChat: async function (context) {
-		return await handleIncomingMessage(context);
-	},
-
-	onMessage: async function (context) {
-		return await handleIncomingMessage(context);
-	}
+const Utils = {
+    commands: new Map(),
+    handleEvent: new Map(),
+    account: new Map(),
+    cooldowns: new Map(),
+    connections: new Map(),
+    reconnecting: new Set()
 };
+
+// ============================================================
+// HUMAN HANDLER
+// ============================================================
+
+class HumanHandler {
+    constructor() {
+        this.lastMessages = new Map();
+
+        this.userMessages = new Map();
+
+        this.processingThreads = new Set();
+
+        this.replyQueues = new Map();
+
+        this.messageHashes = new Map();
+    }
+
+    sleep(ms) {
+        return new Promise(
+            resolve => setTimeout(
+                resolve,
+                ms
+            )
+        );
+    }
+
+    random(min, max) {
+        return Math.floor(
+            Math.random() *
+            (max - min + 1)
+        ) + min;
+    }
+
+    randomReplyDelay() {
+        return this.random(
+            SETTINGS.MIN_REPLY_DELAY,
+            SETTINGS.MAX_REPLY_DELAY
+        );
+    }
+
+    randomTypingDelay() {
+        return this.random(
+            SETTINGS.MIN_TYPING_DELAY,
+            SETTINGS.MAX_TYPING_DELAY
+        );
+    }
+
+    hash(value) {
+        let hash = 0;
+
+        const text =
+            String(value || "");
+
+        for (
+            let i = 0;
+            i < text.length;
+            i++
+        ) {
+            hash =
+                ((hash << 5) - hash) +
+                text.charCodeAt(i);
+
+            hash |= 0;
+        }
+
+        return String(hash);
+    }
+
+    getMessageKey(event) {
+        if (!event) {
+            return null;
+        }
+
+        const threadID =
+            event.threadID || "";
+
+        const senderID =
+            event.senderID || "";
+
+        const body =
+            event.body || "";
+
+        if (!body) {
+            return null;
+        }
+
+        return [
+            threadID,
+            senderID,
+            this.hash(body)
+        ].join(":");
+    }
+
+    isDuplicate(event) {
+        const key =
+            this.getMessageKey(event);
+
+        if (!key) {
+            return false;
+        }
+
+        const now =
+            Date.now();
+
+        const previous =
+            this.lastMessages.get(key);
+
+        if (
+            previous &&
+            now - previous <
+            SETTINGS.DUPLICATE_WINDOW
+        ) {
+            return true;
+        }
+
+        this.lastMessages.set(
+            key,
+            now
+        );
+
+        this.cleanupMap(
+            this.lastMessages,
+            SETTINGS.DUPLICATE_WINDOW
+        );
+
+        return false;
+    }
+
+    isSpam(event) {
+        if (!event) {
+            return false;
+        }
+
+        const senderID =
+            event.senderID;
+
+        if (!senderID) {
+            return false;
+        }
+
+        const now =
+            Date.now();
+
+        let messages =
+            this.userMessages.get(
+                senderID
+            ) || [];
+
+        messages =
+            messages.filter(
+                timestamp =>
+                    now - timestamp <
+                    SETTINGS.SPAM_WINDOW
+            );
+
+        messages.push(now);
+
+        this.userMessages.set(
+            senderID,
+            messages
+        );
+
+        return (
+            messages.length >
+            SETTINGS.MAX_MESSAGES_PER_WINDOW
+        );
+    }
+
+    cleanupMap(
+        map,
+        lifetime
+    ) {
+        const now =
+            Date.now();
+
+        for (
+            const [
+                key,
+                timestamp
+            ] of map.entries()
+        ) {
+            if (
+                now - timestamp >
+                lifetime
+            ) {
+                map.delete(key);
+            }
+        }
+    }
+
+    async waitBeforeReply() {
+        const delay =
+            this.randomReplyDelay();
+
+        await this.sleep(
+            delay
+        );
+
+        return delay;
+    }
+
+    async sendTyping(
+        api,
+        threadID
+    ) {
+        if (
+            !api ||
+            !threadID
+        ) {
+            return;
+        }
+
+        try {
+            if (
+                typeof api.sendTypingIndicator ===
+                "function"
+            ) {
+                await new Promise(
+                    resolve => {
+                        try {
+                            api.sendTypingIndicator(
+                                threadID,
+                                () => resolve()
+                            );
+                        } catch (error) {
+                            resolve();
+                        }
+                    }
+                );
+            }
+        } catch (error) {
+            // Typing failure should never kill the bot.
+        }
+    }
+
+    async prepareReply(
+        api,
+        event
+    ) {
+        if (!event) {
+            return false;
+        }
+
+        if (
+            this.isDuplicate(event)
+        ) {
+            return false;
+        }
+
+        if (
+            this.isSpam(event)
+        ) {
+            return false;
+        }
+
+        const threadID =
+            event.threadID;
+
+        if (!threadID) {
+            return false;
+        }
+
+        if (
+            this.processingThreads.has(
+                threadID
+            )
+        ) {
+            return false;
+        }
+
+        this.processingThreads.add(
+            threadID
+        );
+
+        try {
+            await this.waitBeforeReply();
+
+            await this.sendTyping(
+                api,
+                threadID
+            );
+
+            await this.sleep(
+                this.randomTypingDelay()
+            );
+
+            return true;
+
+        } catch (error) {
+            this.finish(event);
+
+            return false;
+        }
+    }
+
+    finish(event) {
+        if (
+            !event ||
+            !event.threadID
+        ) {
+            return;
+        }
+
+        this.processingThreads.delete(
+            event.threadID
+        );
+    }
+
+    async safeReply(
+        api,
+        event,
+        message
+    ) {
+        if (
+            !api ||
+            !event ||
+            !message
+        ) {
+            return false;
+        }
+
+        const allowed =
+            await this.prepareReply(
+                api,
+                event
+            );
+
+        if (!allowed) {
+            return false;
+        }
+
+        try {
+            await new Promise(
+                (
+                    resolve,
+                    reject
+                ) => {
+                    api.sendMessage(
+                        message,
+                        event.threadID,
+                        error => {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                resolve();
+                            }
+                        }
+                    );
+                }
+            );
+
+            this.finish(event);
+
+            return true;
+
+        } catch (error) {
+            this.finish(event);
+
+            console.error(
+                chalk.red(
+                    "[SAFE REPLY ERROR]"
+                ),
+                error.message ||
+                error
+            );
+
+            return false;
+        }
+    }
+
+    addToQueue(
+        threadID,
+        task
+    ) {
+        if (!threadID) {
+            return;
+        }
+
+        let queue =
+            this.replyQueues.get(
+                threadID
+            );
+
+        if (!queue) {
+            queue = [];
+
+            this.replyQueues.set(
+                threadID,
+                queue
+            );
+        }
+
+        if (
+            queue.length >=
+            SETTINGS.MAX_QUEUE_PER_THREAD
+        ) {
+            return;
+        }
+
+        queue.push(task);
+
+        this.processQueue(
+            threadID
+        );
+    }
+
+    async processQueue(
+        threadID
+    ) {
+        const queue =
+            this.replyQueues.get(
+                threadID
+            );
+
+        if (
+            !queue ||
+            queue.length === 0
+        ) {
+            return;
+        }
+
+        if (
+            this.processingThreads.has(
+                `queue:${threadID}`
+            )
+        ) {
+            return;
+        }
+
+        this.processingThreads.add(
+            `queue:${threadID}`
+        );
+
+        try {
+            while (
+                queue.length > 0
+            ) {
+                const task =
+                    queue.shift();
+
+                if (
+                    typeof task !==
+                    "function"
+                ) {
+                    continue;
+                }
+
+                try {
+                    await task();
+                } catch (error) {
+                    console.error(
+                        chalk.red(
+                            "[QUEUE ERROR]"
+                        ),
+                        error.message
+                    );
+                }
+            }
+
+        } finally {
+            this.processingThreads.delete(
+                `queue:${threadID}`
+            );
+
+            if (
+                queue.length === 0
+            ) {
+                this.replyQueues.delete(
+                    threadID
+                );
+            }
+        }
+    }
+
+    getStats() {
+        return {
+            duplicateCache:
+                this.lastMessages.size,
+
+            trackedUsers:
+                this.userMessages.size,
+
+            activeThreads:
+                this.processingThreads.size,
+
+            queuedThreads:
+                this.replyQueues.size
+        };
+    }
+}
+
+const humanHandler =
+    new HumanHandler();
+
+// ============================================================
+// COMMAND LOADER
+// ============================================================
+
+function normalizeAliases(value) {
+    if (
+        Array.isArray(value)
+    ) {
+        return [
+            ...value
+        ];
+    }
+
+    if (
+        typeof value === "string" &&
+        value.length > 0
+    ) {
+        return [
+            value
+        ];
+    }
+
+    return [];
+}
+
+function installCommand(
+    filePath
+) {
+    try {
+        delete require.cache[
+            require.resolve(
+                filePath
+            )
+        ];
+
+        const loaded =
+            require(filePath);
+
+        if (
+            !loaded ||
+            !loaded.config
+        ) {
+            return;
+        }
+
+        const rawConfig =
+            loaded.config;
+
+        const name =
+            rawConfig.name ||
+            rawConfig.Name ||
+            path.basename(
+                filePath,
+                ".js"
+            );
+
+        const aliases =
+            normalizeAliases(
+                rawConfig.aliases ||
+                rawConfig.Aliases
+            );
+
+        const lowerName =
+            String(
+                name
+            ).toLowerCase();
+
+        if (
+            !aliases.includes(
+                lowerName
+            )
+        ) {
+            aliases.push(
+                lowerName
+            );
+        }
+
+        const commandData = {
+            name,
+
+            role:
+                rawConfig.role ??
+                rawConfig.hasPermission ??
+                0,
+
+            run:
+                loaded.run,
+
+            aliases,
+
+            description:
+                rawConfig.description ||
+                "",
+
+            usage:
+                rawConfig.usage ||
+                "",
+
+            version:
+                rawConfig.version ||
+                "1.0.0",
+
+            hasPrefix:
+                rawConfig.hasPrefix !==
+                undefined
+                    ? rawConfig.hasPrefix
+                    : true,
+
+            credits:
+                rawConfig.credits ||
+                "",
+
+            cooldown:
+                Number(
+                    rawConfig.cooldown ||
+                    0
+                ),
+
+            dev:
+                Boolean(
+                    rawConfig.dev
+                )
+        };
+
+        if (
+            typeof loaded.run ===
+            "function"
+        ) {
+            Utils.commands.set(
+                aliases,
+                commandData
+            );
+        }
+
+        if (
+            typeof loaded.handleEvent ===
+            "function"
+        ) {
+            Utils.handleEvent.set(
+                aliases,
+                {
+                    ...commandData,
+
+                    handleEvent:
+                        loaded.handleEvent
+                }
+            );
+        }
+
+        console.log(
+            chalk.green(
+                `[COMMAND] Loaded: ${name}`
+            )
+        );
+
+    } catch (error) {
+        console.error(
+            chalk.red(
+                `[COMMAND] Failed loading ${filePath}:`
+            ),
+            error.message
+        );
+    }
+}
+
+function loadCommands() {
+    if (
+        !fs.existsSync(
+            SCRIPT_DIR
+        )
+    ) {
+        console.log(
+            chalk.yellow(
+                "[COMMAND] Script directory does not exist."
+            )
+        );
+
+        return;
+    }
+
+    const files =
+        fs.readdirSync(
+            SCRIPT_DIR
+        );
+
+    for (
+        const file of files
+    ) {
+        const fullPath =
+            path.join(
+                SCRIPT_DIR,
+                file
+            );
+
+        let stats;
+
+        try {
+            stats =
+                fs.statSync(
+                    fullPath
+                );
+        } catch (error) {
+            continue;
+        }
+
+        if (
+            stats.isDirectory()
+        ) {
+            let children;
+
+            try {
+                children =
+                    fs.readdirSync(
+                        fullPath
+                    );
+            } catch (error) {
+                continue;
+            }
+
+            for (
+                const child
+                of children
+            ) {
+                if (
+                    child.endsWith(
+                        ".js"
+                    )
+                ) {
+                    installCommand(
+                        path.join(
+                            fullPath,
+                            child
+                        )
+                    );
+                }
+            }
+
+        } else if (
+            stats.isFile() &&
+            file.endsWith(".js")
+        ) {
+            installCommand(
+                fullPath
+            );
+        }
+    }
+}
+
+loadCommands();
+
+// ============================================================
+// EXPRESS
+// ============================================================
+
+app.use(
+    express.static(
+        path.join(
+            ROOT,
+            "public"
+        )
+    )
+);
+
+app.use(
+    express.json({
+        limit: "10mb"
+    })
+);
+
+// ============================================================
+// HEALTH
+// ============================================================
+
+app.get(
+    "/health",
+    (req, res) => {
+        res.json({
+            status: "online",
+
+            uptime:
+                process.uptime(),
+
+            accounts:
+                Utils.account.size,
+
+            commands:
+                Utils.commands.size,
+
+            connections:
+                Utils.connections.size,
+
+            reconnecting:
+                Utils.reconnecting.size,
+
+            human:
+                humanHandler.getStats(),
+
+            timestamp:
+                new Date().toISOString()
+        });
+    }
+);
+
+// ============================================================
+// INFO
+// ============================================================
+
+app.get(
+    "/info",
+    (req, res) => {
+        const data =
+            Array.from(
+                Utils.account.values()
+            ).map(
+                account => ({
+                    name:
+                        account.name ||
+                        "Unknown",
+
+                    profileUrl:
+                        account.profileUrl ||
+                        "",
+
+                    thumbSrc:
+                        account.thumbSrc ||
+                        "",
+
+                    time:
+                        Number(
+                            account.time ||
+                            0
+                        )
+                })
+            );
+
+        res.json(data);
+    }
+);
+
+// ============================================================
+// RECONNECT MANAGER
+// ============================================================
+
+const reconnectTimers =
+    new Map();
+
+const reconnectAttempts =
+    new Map();
+
+function getReconnectDelay(
+    userId
+) {
+    const attempts =
+        reconnectAttempts.get(
+            userId
+        ) || 0;
+
+    const exponential =
+        SETTINGS.INITIAL_RECONNECT_DELAY *
+        Math.pow(
+            2,
+            Math.min(
+                attempts,
+                5
+            )
+        );
+
+    const delay =
+        Math.min(
+            exponential,
+            SETTINGS.MAX_RECONNECT_DELAY
+        );
+
+    // Small jitter
+    const jitter =
+        Math.floor(
+            Math.random() *
+            1500
+        );
+
+    return delay + jitter;
+}
+
+function reconnectAccount(
+    state,
+    userId
+) {
+    if (!state) {
+        return;
+    }
+
+    if (
+        reconnectTimers.has(
+            userId
+        )
+    ) {
+        return;
+    }
+
+    if (
+        Utils.reconnecting.has(
+            userId
+        )
+    ) {
+        return;
+    }
+
+    Utils.reconnecting.add(
+        userId
+    );
+
+    const attempts =
+        (
+            reconnectAttempts.get(
+                userId
+            ) || 0
+        ) + 1;
+
+    reconnectAttempts.set(
+        userId,
+        attempts
+    );
+
+    const delay =
+        getReconnectDelay(
+            userId
+        );
+
+    console.log(
+        chalk.yellow(
+            `[RECONNECT] ${userId} retry #${attempts} in ${delay}ms`
+        )
+    );
+
+    const timer =
+        setTimeout(
+            () => {
+                reconnectTimers.delete(
+                    userId
+                );
+
+                Utils.reconnecting.delete(
+                    userId
+                );
+
+                try {
+                    accountLogin(
+                        state,
+                        userId,
+                        false
+                    );
+
+                } catch (error) {
+                    console.error(
+                        chalk.red(
+                            `[RECONNECT ERROR] ${userId}:`
+                        ),
+                        error.message
+                    );
+
+                    reconnectAccount(
+                        state,
+                        userId
+                    );
+                }
+            },
+            delay
+        );
+
+    reconnectTimers.set(
+        userId,
+        timer
+    );
+}
+
+function resetReconnectAttempts(
+    userId
+) {
+    reconnectAttempts.delete(
+        userId
+    );
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+function accountLogin(
+    state,
+    userId,
+    saveToDisk = true
+) {
+    if (
+        !state ||
+        typeof state !==
+        "object"
+    ) {
+        console.error(
+            chalk.red(
+                `[LOGIN] Invalid appState for ${userId}`
+            )
+        );
+
+        return;
+    }
+
+    const fcaOption =
+        BOT_CONFIG[0]?.fcaOption ||
+        {
+            forceLogin: true,
+
+            listenEvents: true,
+
+            logLevel: "silent",
+
+            updatePresence: true,
+
+            selfListen: true
+        };
+
+    // ========================================================
+    // SAVE SESSION
+    // ========================================================
+
+    if (saveToDisk) {
+        try {
+            const sessionFile =
+                path.join(
+                    SESSION_DIR,
+                    `${userId}.json`
+                );
+
+            fs.writeFileSync(
+                sessionFile,
+                JSON.stringify(
+                    state,
+                    null,
+                    2
+                ),
+                "utf8"
+            );
+
+        } catch (error) {
+            console.error(
+                chalk.red(
+                    `[SESSION] Failed to save session for ${userId}:`
+                ),
+                error.message
+            );
+        }
+    }
+
+    // ========================================================
+    // LOGIN
+    // ========================================================
+
+    try {
+        login(
+            {
+                appState:
+                    state
+            },
+
+            fcaOption,
+
+            async (
+                err,
+                api
+            ) => {
+                if (err) {
+                    console.error(
+                        chalk.red(
+                            `[LOGIN] Failed for user ${userId}:`
+                        ),
+                        err.error ||
+                        err
+                    );
+
+                    Utils.account.delete(
+                        userId
+                    );
+
+                    Utils.connections.delete(
+                        userId
+                    );
+
+                    reconnectAccount(
+                        state,
+                        userId
+                    );
+
+                    return;
+                }
+
+                resetReconnectAttempts(
+                    userId
+                );
+
+                console.log(
+                    chalk.green(
+                        `[LOGIN] Successfully logged in for ID: ${userId}`
+                    )
+                );
+
+                // =============================================
+                // GET ACCOUNT INFO
+                // =============================================
+
+                try {
+                    const userInfo =
+                        await new Promise(
+                            resolve => {
+                                api.getUserInfo(
+                                    userId,
+
+                                    (
+                                        infoError,
+                                        ret
+                                    ) => {
+                                        if (
+                                            infoError ||
+                                            !ret ||
+                                            !ret[userId]
+                                        ) {
+                                            resolve({
+                                                name:
+                                                    "User",
+
+                                                profileUrl:
+                                                    "",
+
+                                                thumbSrc:
+                                                    ""
+                                            });
+
+                                            return;
+                                        }
+
+                                        resolve({
+                                            name:
+                                                ret[userId].name ||
+                                                "User",
+
+                                            profileUrl:
+                                                ret[userId].profileUrl ||
+                                                "",
+
+                                            thumbSrc:
+                                                ret[userId].thumbSrc ||
+                                                ""
+                                        });
+                                    }
+                                );
+                            }
+                        );
+
+                    Utils.account.set(
+                        userId,
+                        {
+                            api,
+
+                            ...userInfo,
+
+                            time:
+                                Date.now()
+                        }
+                    );
+
+                    Utils.connections.set(
+                        userId,
+                        {
+                            api,
+
+                            state,
+
+                            connectedAt:
+                                Date.now()
+                        }
+                    );
+
+                    console.log(
+                        chalk.green(
+                            `[ACCOUNT] ${userInfo.name} is ready.`
+                        )
+                    );
+
+                } catch (error) {
+                    console.error(
+                        chalk.red(
+                            "[SETUP ERROR]"
+                        ),
+                        error.message
+                    );
+                }
+
+                // =============================================
+                // LISTENER
+                // =============================================
+
+                try {
+                    api.listenMqtt(
+                        (
+                            listenerError,
+                            event
+                        ) => {
+                            // =================================
+                            // CONNECTION ERROR
+                            // =================================
+
+                            if (
+                                listenerError
+                            ) {
+                                console.error(
+                                    chalk.red(
+                                        `[LISTENER ERROR] ${userId}:`
+                                    ),
+                                    listenerError.error ||
+                                    listenerError
+                                );
+
+                                Utils.account.delete(
+                                    userId
+                                );
+
+                                Utils.connections.delete(
+                                    userId
+                                );
+
+                                reconnectAccount(
+                                    state,
+                                    userId
+                                );
+
+                                return;
+                            }
+
+                            if (!event) {
+                                return;
+                            }
+
+                            // =================================
+                            // DUPLICATE PROTECTION
+                            // =================================
+
+                            if (
+                                humanHandler.isDuplicate(
+                                    event
+                                )
+                            ) {
+                                return;
+                            }
+
+                            // =================================
+                            // SPAM PROTECTION
+                            // =================================
+
+                            if (
+                                humanHandler.isSpam(
+                                    event
+                                )
+                            ) {
+                                return;
+                            }
+
+                            // =================================
+                            // UPDATE ACCOUNT ACTIVITY
+                            // =================================
+
+                            const account =
+                                Utils.account.get(
+                                    userId
+                                );
+
+                            if (account) {
+                                account.time =
+                                    Date.now();
+
+                                Utils.account.set(
+                                    userId,
+                                    account
+                                );
+                            }
+
+                            // =================================
+                            // RUN EVENT COMMANDS
+                            // =================================
+
+                            for (
+                                const cmd
+                                of Utils.handleEvent.values()
+                            ) {
+                                try {
+
+                                    const context = {
+                                        api,
+
+                                        event,
+
+                                        humanHandler,
+
+                                        accountID:
+                                            userId,
+
+                                        utils:
+                                            Utils
+                                    };
+
+                                    if (
+                                        typeof cmd.handleEvent ===
+                                        "function"
+                                    ) {
+                                        Promise.resolve(
+                                            cmd.handleEvent(
+                                                context
+                                            )
+                                        ).catch(
+                                            error => {
+                                                console.error(
+                                                    chalk.red(
+                                                        "[HANDLE EVENT ERROR]"
+                                                    ),
+                                                    error.message ||
+                                                    error
+                                                );
+                                            }
+                                        );
+                                    }
+
+                                    if (
+                                        typeof cmd.onChat ===
+                                        "function"
+                                    ) {
+                                        Promise.resolve(
+                                            cmd.onChat(
+                                                context
+                                            )
+                                        ).catch(
+                                            error => {
+                                                console.error(
+                                                    chalk.red(
+                                                        "[ON CHAT ERROR]"
+                                                    ),
+                                                    error.message ||
+                                                    error
+                                                );
+                                            }
+                                        );
+                                    }
+
+                                } catch (error) {
+                                    console.error(
+                                        chalk.red(
+                                            "[EVENT ERROR]"
+                                        ),
+                                        error.message ||
+                                        error
+                                    );
+                                }
+                            }
+                        }
+                    );
+
+                } catch (error) {
+                    console.error(
+                        chalk.red(
+                            `[LISTENER START ERROR] ${userId}:`
+                        ),
+                        error.message
+                    );
+
+                    reconnectAccount(
+                        state,
+                        userId
+                    );
+                }
+            }
+        );
+
+    } catch (error) {
+        console.error(
+            chalk.red(
+                `[LOGIN EXCEPTION] ${userId}:`
+            ),
+            error.message
+        );
+
+        reconnectAccount(
+            state,
+            userId
+        );
+    }
+}
+
+// ============================================================
+// LOGIN ROUTE
+// ============================================================
+
+app.post(
+    "/login",
+    async (
+        req,
+        res
+    ) => {
+        try {
+            const {
+                appState,
+                userid
+            } = req.body;
+
+            if (!appState) {
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+
+                        message:
+                            "Missing appState"
+                    });
+            }
+
+            const uid =
+                userid ||
+                "default";
+
+            accountLogin(
+                appState,
+                uid,
+                true
+            );
+
+            return res.json({
+                success: true,
+
+                message:
+                    "Login process initiated and session saved."
+            });
+
+        } catch (error) {
+            console.error(
+                chalk.red(
+                    "[LOGIN ROUTE ERROR]"
+                ),
+                error.message
+            );
+
+            return res
+                .status(500)
+                .json({
+                    success: false,
+
+                    message:
+                        "Internal server error"
+                });
+        }
+    }
+);
+
+// ============================================================
+// GLOBAL ERROR PROTECTION
+// ============================================================
+
+process.on(
+    "uncaughtException",
+    error => {
+        console.error(
+            chalk.red(
+                "[UNCAUGHT EXCEPTION]"
+            ),
+            error.stack ||
+            error.message ||
+            error
+        );
+
+        /*
+         * Do not process.exit().
+         *
+         * The bot remains alive and existing
+         * connections continue running whenever
+         * the error is recoverable.
+         */
+    }
+);
+
+process.on(
+    "unhandledRejection",
+    reason => {
+        console.error(
+            chalk.red(
+                "[UNHANDLED REJECTION]"
+            ),
+            reason
+        );
+    }
+);
+
+// ============================================================
+// PROCESS SIGNALS
+// ============================================================
+
+process.on(
+    "SIGTERM",
+    () => {
+        console.log(
+            chalk.yellow(
+                "[SYSTEM] SIGTERM received."
+            )
+        );
+
+        /*
+         * Let the hosting platform terminate
+         * the process normally.
+         */
+    }
+);
+
+process.on(
+    "SIGINT",
+    () => {
+        console.log(
+            chalk.yellow(
+                "[SYSTEM] SIGINT received."
+            )
+        );
+    }
+);
+
+// ============================================================
+// PERIODIC CLEANUP
+// ============================================================
+
+setInterval(
+    () => {
+        try {
+            humanHandler.cleanupMap(
+                humanHandler.lastMessages,
+                SETTINGS.DUPLICATE_WINDOW
+            );
+
+            const now =
+                Date.now();
+
+            for (
+                const [
+                    senderID,
+                    timestamps
+                ]
+                of humanHandler.userMessages.entries()
+            ) {
+                const recent =
+                    timestamps.filter(
+                        timestamp =>
+                            now - timestamp <
+                            SETTINGS.SPAM_WINDOW
+                    );
+
+                if (
+                    recent.length === 0
+                ) {
+                    humanHandler.userMessages.delete(
+                        senderID
+                    );
+                } else {
+                    humanHandler.userMessages.set(
+                        senderID,
+                        recent
+                    );
+                }
+            }
+
+        } catch (error) {
+            console.error(
+                chalk.red(
+                    "[CLEANUP ERROR]"
+                ),
+                error.message
+            );
+        }
+    },
+    SETTINGS.HEALTH_INTERVAL
+);
+
+// ============================================================
+// SERVER
+// ============================================================
+
+const server =
+    app.listen(
+        PORT,
+        () => {
+            console.log(
+                chalk.green(
+                    `Server is running on port ${PORT}`
+                )
+            );
+
+            console.log(
+                chalk.cyan(
+                    "=========================================="
+                )
+            );
+
+            console.log(
+                chalk.cyan(
+                    "       AUTO.JS ONLINE"
+                )
+            );
+
+            console.log(
+                chalk.cyan(
+                    "       Human Handler: ENABLED"
+                )
+            );
+
+            console.log(
+                chalk.cyan(
+                    "       Reconnect System: ENABLED"
+                )
+            );
+
+            console.log(
+                chalk.cyan(
+                    "       Long-Run Protection: ENABLED"
+                )
+            );
+
+            console.log(
+                chalk.cyan(
+                    "=========================================="
+                )
+            );
+        }
+    );
+
+// ============================================================
+// AUTO LOAD SAVED SESSIONS
+// ============================================================
+
+async function main() {
+    console.log(
+        chalk.cyan(
+            "=========================================="
+        )
+    );
+
+    console.log(
+        chalk.cyan(
+            "       BOT STARTING & CHECKING SESSIONS"
+        )
+    );
+
+    console.log(
+        chalk.cyan(
+            "=========================================="
+        )
+    );
+
+    if (
+        !fs.existsSync(
+            SESSION_DIR
+        )
+    ) {
+        console.log(
+            chalk.yellow(
+                "[SESSION] No session directory."
+            )
+        );
+
+        return;
+    }
+
+    let files;
+
+    try {
+        files =
+            fs.readdirSync(
+                SESSION_DIR
+            );
+    } catch (error) {
+        console.error(
+            chalk.red(
+                "[SESSION] Cannot read session directory:"
+            ),
+            error.message
+        );
+
+        return;
+    }
+
+    const sessionFiles =
+        files.filter(
+            file =>
+                file.endsWith(
+                    ".json"
+                )
+        );
+
+    if (
+        sessionFiles.length === 0
+    ) {
+        console.log(
+            chalk.yellow(
+                "[SESSION] No saved accounts found."
+            )
+        );
+
+        return;
+    }
+
+    for (
+        const file
+        of sessionFiles
+    ) {
+        const userId =
+            path.basename(
+                file,
+                ".json"
+            );
+
+        const sessionPath =
+            path.join(
+                SESSION_DIR,
+                file
+            );
+
+        try {
+            const rawState =
+                fs.readFileSync(
+                    sessionPath,
+                    "utf8"
+                );
+
+            const appState =
+                JSON.parse(
+                    rawState
+                );
+
+            if (
+                appState
+            ) {
+                console.log(
+                    chalk.yellow(
+                        `[SESSION] Auto-logging in saved account: ${userId}`
+                    )
+                );
+
+                accountLogin(
+                    appState,
+                    userId,
+                    false
+                );
+            }
+
+        } catch (error) {
+            console.error(
+                chalk.red(
+                    `[SESSION] Failed to load session for ${userId}:`
+                ),
+                error.message
+            );
+        }
+    }
+}
+
+// ============================================================
+// START
+// ============================================================
+
+main().catch(
+    error => {
+        console.error(
+            chalk.red(
+                "[MAIN] Fatal startup error:"
+            ),
+            error.message
+        );
+    }
+);
