@@ -1,1185 +1,873 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!DOCTYPE html><html lang="en">
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>NULLFIED</title>
-
-    <meta
-        name="description"
-        content="NULLFIED Messenger Automation Control Center"
-    >
-
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-    >
-
-    <link
-        rel="stylesheet"
-        href="styles.css"
-    >
-
-</head>
-
-
-<body>
-
-
-<div class="background"></div>
-
-
-<header class="navbar">
-
-    <div class="brand">
-
-        <img
-            src="/image/home.png"
-            onerror="this.style.display='none'"
-            alt=""
-        >
-
-        <span>NULLFIED</span>
-
-    </div>
-
-
-    <div class="nav-status">
-
-        <span
-            class="dot"
-            id="topDot"
-        ></span>
-
-        <span id="topStatus">
-            CONNECTING
-        </span>
-
-    </div>
-
-</header>
-
-
-
-<main>
-
-
-<section class="hero">
-
-    <div class="online-badge">
-
-        <span class="dot"></span>
-
-        CONTROL CENTER ONLINE
-
-    </div>
-
-
-    <h1>
-        NULL<span>FIED</span>
-    </h1>
-
-
-    <p>
-        MESSENGER AUTOMATION CONTROL CENTER
-    </p>
-
-
-    <div class="version">
-        VERSION 1.0.1
-    </div>
-
-</section>
-
-
-
-<section class="card">
-
-    <div class="card-title">
-
-        <i class="fa-solid fa-key"></i>
-
-        <div>
-
-            <h2>
-                Authentication
-            </h2>
-
-            <small>
-                Messenger session
-            </small>
-
-        </div>
-
-    </div>
-
-
-    <label>
-        C3C / APPSTATE
-    </label>
-
-
-    <textarea
-        id="json-data"
-        placeholder="Paste your AppState / session JSON here..."
-        spellcheck="false"
-    ></textarea>
-
-
-    <small class="hint">
-
-        Session data is saved locally in
-        <code>data/config.json</code>.
-
-    </small>
-
-</section>
-
-
-
-<section class="card">
-
-    <div class="card-title">
-
-        <i class="fa-solid fa-terminal"></i>
-
-        <div>
-
-            <h2>
-                Commands
-            </h2>
-
-            <small>
-                Available command modules
-            </small>
-
-        </div>
-
-    </div>
-
-
-    <div
-        id="commandsContainer"
-        class="command-list"
-    >
-
-        <div class="loading">
-            Loading commands...
-        </div>
-
-    </div>
-
-
-    <button
-        class="secondary-btn"
-        id="selectCommands"
-    >
-
-        <i class="fa-solid fa-check-double"></i>
-
-        SELECT ALL
-
-    </button>
-
-</section>
-
-
-
-<section class="card">
-
-    <div class="card-title">
-
-        <i class="fa-solid fa-bolt"></i>
-
-        <div>
-
-            <h2>
-                Event Handlers
-            </h2>
-
-            <small>
-                Automatic event modules
-            </small>
-
-        </div>
-
-    </div>
-
-
-    <div
-        id="eventsContainer"
-        class="command-list"
-    >
-
-        <div class="empty">
-            No event handlers detected.
-        </div>
-
-    </div>
-
-
-    <button
-        class="secondary-btn"
-        id="selectEvents"
-    >
-
-        <i class="fa-solid fa-check-double"></i>
-
-        SELECT ALL
-
-    </button>
-
-</section>
-
-
-
-<section class="card">
-
-    <div class="card-title">
-
-        <i class="fa-solid fa-hashtag"></i>
-
-        <div>
-
-            <h2>
-                Prefix
-            </h2>
-
-            <small>
-                Command prefix configuration
-            </small>
-
-        </div>
-
-    </div>
-
-
-    <input
-        id="inputOfPrefix"
-        placeholder="@, #, /, *, ."
-        value="."
-    >
-
-
-    <small class="hint">
-        Use <b>non-prefix</b> if you want prefixless commands.
-    </small>
-
-</section>
-
-
-
-<section class="card">
-
-    <div class="card-title">
-
-        <i class="fa-solid fa-user-shield"></i>
-
-        <div>
-
-            <h2>
-                Administrator
-            </h2>
-
-            <small>
-                Owner / admin UID
-            </small>
-
-        </div>
-
-    </div>
-
-
-    <input
-        id="inputOfAdmin"
-        placeholder="Admin user ID"
-    >
-
-</section>
-
-
-
-<section class="card">
-
-    <label class="agreement">
-
-        <input
-            type="checkbox"
-            id="agreeCheckbox"
-        >
-
-        <span>
-
-            I have read and agree to the
-            <a href="/tos-privacy-policy">
-                Terms and Conditions
-            </a>.
-
-        </span>
-
-    </label>
-
-</section>
-
-
-
-<section class="action">
-
-    <button
-        id="submitButton"
-        disabled
-    >
-
-        <i class="fa-solid fa-power-off"></i>
-
-        INITIALIZE BOT
-
-    </button>
-
-
-    <div
-        id="result"
-        class="result"
-    ></div>
-
-</section>
-
-
-
-<section class="card status-card">
-
-    <div class="card-title">
-
-        <i class="fa-solid fa-microchip"></i>
-
-        <div>
-
-            <h2>
-                Runtime
-            </h2>
-
-            <small>
-                Worker status
-            </small>
-
-        </div>
-
-    </div>
-
-
-    <div class="stats">
-
-
-        <div class="stat">
-
-            <span>
-                STATUS
-            </span>
-
-            <strong id="runtimeStatus">
-                --
-            </strong>
-
-        </div>
-
-
-        <div class="stat">
-
-            <span>
-                PID
-            </span>
-
-            <strong id="runtimePid">
-                --
-            </strong>
-
-        </div>
-
-
-        <div class="stat">
-
-            <span>
-                UPTIME
-            </span>
-
-            <strong id="runtimeUptime">
-                --
-            </strong>
-
-        </div>
-
-
-        <div class="stat">
-
-            <span>
-                RESTARTS
-            </span>
-
-            <strong id="runtimeRestarts">
-                0
-            </strong>
-
-        </div>
-
-
-    </div>
-
-</section>
-
-
-
-<section class="card">
-
-    <div class="card-title">
-
-        <i class="fa-solid fa-crosshairs"></i>
-
-        <div>
-
-            <h2>
-                Hunting
-            </h2>
-
-            <small>
-                Command availability
-            </small>
-
-        </div>
-
-    </div>
-
-
-    <div class="hunting-status">
-
-        <span
-            class="dot"
-            id="huntingDot"
-        ></span>
-
-        <span id="huntingStatus">
-            Checking...
-        </span>
-
-    </div>
-
-</section>
-
-
-</main>
-
-
-
-<footer>
-
-    <strong>
-        NULLFIED
-    </strong>
-
-    <span>
-        Messenger Automation Control Center
-    </span>
-
-    <span>
-        © 2026 Sinzu
-    </span>
-
-</footer>
-
-
-
-<script>
-
-const commandsContainer =
-    document.getElementById(
-        "commandsContainer"
-    );
-
-
-const eventsContainer =
-    document.getElementById(
-        "eventsContainer"
-    );
-
-
-const checkbox =
-    document.getElementById(
-        "agreeCheckbox"
-    );
-
-
-const submit =
-    document.getElementById(
-        "submitButton"
-    );
-
-
-const result =
-    document.getElementById(
-        "result"
-    );
-
-
-
-let commands = [];
-
-let events = [];
-
-
-
-/* =========================================================
-   FORMAT UPTIME
-========================================================= */
-
-function formatUptime(ms) {
-
-    if (!ms || ms < 0) {
-        return "--";
+    <title>NULLFIED</title><meta name="description" content="NULLFIED Autobot Messenger">
+<meta property="og:image" content="https://i.imgur.com/Zvo9Wc0.jpeg">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@300;400;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="/image/home.png">
+
+<style>
+    * {
+        box-sizing: border-box;
     }
 
+    html {
+        scroll-behavior: smooth;
+    }
 
-    let seconds =
-        Math.floor(
-            ms / 1000
-        );
-
-
-    const days =
-        Math.floor(
-            seconds / 86400
-        );
-
-
-    seconds %= 86400;
-
-
-    const hours =
-        Math.floor(
-            seconds / 3600
-        );
-
-
-    seconds %= 3600;
-
-
-    const minutes =
-        Math.floor(
-            seconds / 60
-        );
-
-
-    seconds %= 60;
-
-
-    return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-
-}
-
-
-
-/* =========================================================
-   LOAD COMMANDS
-========================================================= */
-
-async function loadCommands() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/commands",
-                {
-                    cache: "no-store"
-                }
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+            radial-gradient(
+                circle at 50% -15%,
+                rgba(255,255,255,.08),
+                transparent 38%
+            ),
+            linear-gradient(
+                180deg,
+                #050505 0%,
+                #080808 50%,
+                #030303 100%
             );
-
-
-        const data =
-            await response.json();
-
-
-        commands =
-            data.commands || [];
-
-
-        renderCommands();
-
-
-    } catch (error) {
-
-        commandsContainer.innerHTML =
-            `<div class="error">
-                Failed to load commands.
-            </div>`;
-
+        color: #d4d4d4;
+        font-family: "Courier Prime", monospace;
+        overflow-x: hidden;
     }
 
-}
-
-
-
-/* =========================================================
-   RENDER COMMANDS
-========================================================= */
-
-function renderCommands() {
-
-    commandsContainer.innerHTML = "";
-
-
-    if (!commands.length) {
-
-        commandsContainer.innerHTML =
-            `<div class="empty">
-                No commands found in /script.
-            </div>`;
-
-        return;
-
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: .025;
+        background-image:
+            linear-gradient(
+                rgba(255,255,255,.7) 1px,
+                transparent 1px
+            ),
+            linear-gradient(
+                90deg,
+                rgba(255,255,255,.7) 1px,
+                transparent 1px
+            );
+        background-size: 35px 35px;
+        z-index: 999;
     }
 
+    /* =========================
+       NAVBAR
+       ========================= */
 
-    commands.forEach(
-        command => {
+    .navbar {
+        width: calc(100% - 28px);
+        max-width: 1100px;
+        margin: 14px auto 28px;
+        min-height: 58px;
 
-            const item =
-                document.createElement(
-                    "label"
-                );
+        background: rgba(7,7,7,.94) !important;
 
+        border: 1px solid #252525;
+        border-radius: 3px;
 
-            item.className =
-                "command-item";
+        box-shadow:
+            0 0 30px rgba(0,0,0,.7),
+            inset 0 0 15px rgba(255,255,255,.015);
+    }
 
+    .navbar-brand img {
+        width: 30px !important;
+        height: 30px;
+        object-fit: cover;
+        filter: grayscale(1);
+        opacity: .8;
+    }
 
-            item.innerHTML = `
+    .navbar-brand::after {
+        content: "NULLFIED";
+        margin-left: 9px;
+        color: #777;
+        font-size: 11px;
+        letter-spacing: 2px;
+    }
 
-                <input
-                    type="checkbox"
-                    class="command-checkbox"
-                    value="${escapeHtml(command.name)}"
-                    ${command.name === "hunting" ? "checked" : ""}
-                >
+    .nav-link {
+        color: #777 !important;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: .2s;
+    }
 
-                <div class="command-main">
+    .nav-link:hover,
+    .nav-item.active .nav-link {
+        color: #fff !important;
+    }
 
-                    <strong>
-                        ${escapeHtml(command.name)}
-                    </strong>
+    .dropdown-menu {
+        background: #090909;
+        border: 1px solid #292929;
+        border-radius: 2px;
+    }
 
-                    <small>
-                        ${escapeHtml(
-                            command.description ||
-                            "Command module"
-                        )}
-                    </small>
+    .dropdown-item {
+        color: #888;
+        font-size: 10px;
+        font-family: "Courier Prime", monospace;
+    }
+
+    .dropdown-item:hover {
+        background: #151515;
+        color: #fff;
+    }
+
+    .dropdown-divider {
+        border-top-color: #252525;
+    }
+
+    /* =========================
+       CONTAINERS
+       ========================= */
+
+    .container {
+        max-width: 1000px;
+        margin-bottom: 18px;
+    }
+
+    #listOfCommands,
+    #listOfCommandsEvent,
+    #prefixOfCommands,
+    #adminOfCommands {
+        background: rgba(8,8,8,.78);
+        border: 1px solid #202020;
+        border-left: 2px solid #555;
+        border-radius: 3px;
+        padding: 18px;
+        box-shadow:
+            inset 0 0 30px rgba(255,255,255,.012),
+            0 10px 30px rgba(0,0,0,.25);
+    }
+
+    /* =========================
+       TITLE
+       ========================= */
+
+    .container > h1.col.text-center {
+        margin-top: 35px;
+        margin-bottom: 2px;
+
+        color: #eeeeee;
+
+        font-size: 24px !important;
+        font-weight: 700;
+
+        letter-spacing: 5px;
+        text-transform: uppercase;
+
+        text-shadow:
+            0 0 12px rgba(255,255,255,.12);
+    }
+
+    .container > p {
+        color: #555;
+    }
+
+    /* =========================
+       HEADINGS
+       ========================= */
+
+    h1 {
+        color: #cfcfcf;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+
+    #listOfCommands h1,
+    #listOfCommandsEvent h1,
+    #prefixOfCommands h1,
+    #adminOfCommands h1 {
+        color: #777;
+    }
+
+    /* =========================
+       TEXTAREA / INPUT
+       ========================= */
+
+    textarea,
+    input[type="text"] {
+        width: 100%;
+
+        background: #050505 !important;
+        color: #ddd !important;
+
+        border: 1px solid #292929 !important;
+        border-radius: 2px !important;
+
+        outline: none !important;
+
+        font-family: "Courier Prime", monospace;
+
+        transition:
+            border-color .2s,
+            box-shadow .2s;
+    }
+
+    textarea {
+        min-height: 135px;
+        resize: vertical;
+        padding: 14px;
+    }
+
+    input[type="text"] {
+        padding: 12px;
+    }
+
+    textarea:focus,
+    input[type="text"]:focus {
+        border-color: #666 !important;
+
+        box-shadow:
+            0 0 15px rgba(255,255,255,.045) !important;
+    }
+
+    textarea::placeholder,
+    input::placeholder {
+        color: #3d3d3d !important;
+    }
+
+    /* =========================
+       BUTTONS
+       ========================= */
+
+    .btn-primary {
+        background: #0b0b0b !important;
+        border: 1px solid #353535 !important;
+
+        color: #aaa !important;
+
+        border-radius: 2px !important;
+
+        font-family: "Courier Prime", monospace;
+        font-size: 10px;
+
+        letter-spacing: 1px;
+
+        transition:
+            .2s;
+    }
+
+    .btn-primary:hover {
+        background: #ededed !important;
+        border-color: #fff !important;
+        color: #050505 !important;
+
+        box-shadow:
+            0 0 20px rgba(255,255,255,.1);
+    }
+
+    .btn-primary:active {
+        transform: scale(.98);
+    }
+
+    .btn-primary:disabled {
+        opacity: .35;
+    }
+
+    /* =========================
+       CHECKBOX
+       ========================= */
+
+    #agreeCheckbox {
+        appearance: none;
+
+        width: 15px;
+        height: 15px;
+
+        background: #050505;
+
+        border: 1px solid #444;
+
+        cursor: pointer;
+
+        position: relative;
+    }
+
+    #agreeCheckbox:checked {
+        background: #ddd;
+        border-color: #ddd;
+    }
+
+    #agreeCheckbox:checked::after {
+        content: "✓";
+
+        position: absolute;
+
+        color: #000;
+
+        font-size: 11px;
+
+        left: 2px;
+        top: -2px;
+    }
+
+    label {
+        color: #666;
+    }
+
+    /* =========================
+       RESULT
+       ========================= */
+
+    #result {
+        background: #080808;
+
+        border: 1px solid #242424;
+
+        border-radius: 2px;
+
+        padding: 16px;
+
+        color: #aaa;
+
+        box-shadow:
+            inset 0 0 25px rgba(255,255,255,.01);
+    }
+
+    /* =========================
+       SCROLL UP
+       ========================= */
+
+    #scrollUpBtn {
+        position: fixed;
+
+        right: 18px;
+        bottom: 18px;
+
+        width: 42px;
+        height: 42px;
+
+        background: #080808;
+
+        border: 1px solid #333;
+
+        color: #888;
+
+        border-radius: 2px;
+
+        cursor: pointer;
+
+        z-index: 1000;
+
+        transition: .2s;
+    }
+
+    #scrollUpBtn:hover {
+        color: #fff;
+
+        border-color: #777;
+
+        box-shadow:
+            0 0 18px rgba(255,255,255,.08);
+    }
+
+    /* =========================
+       FOOTER
+       ========================= */
+
+    .footer {
+        width: 100%;
+
+        margin-top: 45px;
+
+        padding: 30px 15px;
+
+        text-align: center;
+
+        background: #050505;
+
+        border-top: 1px solid #1d1d1d;
+
+        color: #444;
+
+        font-size: 9px;
+
+        letter-spacing: 1px;
+    }
+
+    .footer p {
+        margin: 5px 0;
+    }
+
+    /* =========================
+       MOBILE
+       ========================= */
+
+    @media (max-width: 768px) {
+
+        .navbar {
+            width: calc(100% - 20px);
+        }
+
+        .navbar-collapse {
+            margin-right: 0 !important;
+        }
+
+        .container {
+            width: calc(100% - 20px);
+        }
+
+        .container > h1.col.text-center {
+            font-size: 19px !important;
+            letter-spacing: 4px;
+        }
+
+        #listOfCommands,
+        #listOfCommandsEvent,
+        #prefixOfCommands,
+        #adminOfCommands {
+            padding: 14px;
+        }
+
+    }
+</style>
+
+</head><body><!-- =========================
+     NAVIGATION
+     ========================= -->
+
+<nav class="navbar navbar-expand-lg navbar-dark">
+
+    <a class="navbar-brand" href="#">
+        <img src="/image/home.png" alt="Home">
+    </a>
+
+    <button
+        class="navbar-toggler"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarNav"
+        aria-controls="navbarNav"
+        aria-expanded="false"
+        aria-label="Toggle navigation">
+
+        <span class="navbar-toggler-icon"></span>
+
+    </button>
+
+    <div
+        class="collapse navbar-collapse justify-content-end"
+        id="navbarNav"
+        style="margin-right: 70px;">
+
+        <ul class="navbar-nav">
+
+            <li class="nav-item active">
+
+                <a class="nav-link" href="/">
+                    Home
+                    <span class="sr-only">(current)</span>
+                </a>
+
+            </li>
+
+            <li class="nav-item dropdown">
+
+                <a
+                    class="nav-link dropdown-toggle"
+                    href="#"
+                    id="navbarDropdown"
+                    role="button"
+                    data-toggle="dropdown"
+                    aria-haspopup="true"
+                    aria-expanded="false">
+
+                    Features
+
+                </a>
+
+                <div
+                    class="dropdown-menu"
+                    aria-labelledby="navbarDropdown">
+
+                    <a
+                        class="dropdown-item"
+                        href="/step_by_step_guide">
+
+                        Step-by-Step Guide
+
+                    </a>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a
+                        class="dropdown-item"
+                        href="https://zark-spam-share.onrender.com/">
+
+                        SpamShare-Tools
+
+                    </a>
+
+                    <div class="dropdown-divider"></div>
+
+                    <a
+                        class="dropdown-item"
+                        href="https://my-portfolio-f9lz.onrender.com/">
+
+                        Developer
+
+                    </a>
 
                 </div>
 
-                <span class="ready">
-                    READY
-                </span>
+            </li>
 
-            `;
+            <li class="nav-item">
+
+                <a
+                    class="nav-link"
+                    href="online_user">
+
+                    Active
+
+                </a>
+
+            </li>
+
+            <li class="nav-item">
+
+                <a
+                    class="nav-link"
+                    href="tos-privacy-policy">
+
+                    Terms and Conditions
+
+                </a>
+
+            </li>
+
+        </ul>
+
+    </div>
+
+</nav>
 
 
-            commandsContainer.appendChild(
-                item
-            );
+<!-- =========================
+     MAIN
+     ========================= -->
 
-        }
-    );
+<div class="container">
 
-}
+    <h1
+        class="col text-center"
+        style="font-size: 20px; padding: 10px;">
+
+        NULLFIED
+
+    </h1>
+
+    <p
+        style="
+            font-size: 10px;
+            text-align: center;
+            letter-spacing: 2px;
+        ">
+
+        VERSION: 1.0.1 // SYSTEM READY
+
+    </p>
+
+    <form id="json-form">
+
+        <div class="row">
+
+            <div class="col-md-12">
+
+                <textarea
+                    id="json-data"
+                    class="form-control centered-textarea center-placeholder"
+                    placeholder=""></textarea>
+
+            </div>
+
+        </div>
+
+    </form>
+
+    <p
+        style="
+            margin-top: 15px;
+            font-size: 12px;
+            text-align: left;
+        ">
+
+        Greetings! Begin by entering your cookie.
+        Scroll down to see other features.
+
+    </p>
+
+</div>
 
 
+<!-- =========================
+     COMMANDS
+     ========================= -->
 
-/* =========================================================
-   ESCAPE HTML
-========================================================= */
+<div
+    class="container"
+    id="listOfCommands">
 
-function escapeHtml(value) {
+    <h1 style="font-size: 12px; padding: 10px;">
 
-    return String(value)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
+        Please choose your commands by tapping
+        on the respective options.
+
+    </h1>
+
+    <button
+        class="btn btn-primary"
+        onclick="selectAllCommands(); scrollToSection('listOfCommandsEvent');">
+
+        SELECT ALL COMMANDS
+
+    </button>
+
+</div>
+
+
+<!-- =========================
+     EVENTS
+     ========================= -->
+
+<div
+    class="container"
+    id="listOfCommandsEvent">
+
+    <h1 style="font-size: 12px; padding: 10px;">
+
+        Please choose your event commands by tapping
+        on the respective options.
+
+    </h1>
+
+    <button
+        class="btn btn-primary"
+        onclick="selectAllEvents(); scrollToSection('prefixOfCommands');">
+
+        SELECT ALL EVENTS
+
+    </button>
+
+</div>
+
+
+<!-- =========================
+     PREFIX
+     ========================= -->
+
+<div
+    class="container"
+    id="prefixOfCommands">
+
+    <h1 style="font-size: 12px; padding: 10px;">
+
+        Please provide a prefix (optional).
+        If you choose not to, entering "non-prefix"
+        will be considered as your input.
+
+    </h1>
+
+    <input
+        type="text"
+        id="inputOfPrefix"
+        placeholder="@, #, /, *, .">
+
+</div>
+
+
+<!-- =========================
+     ADMIN
+     ========================= -->
+
+<div
+    class="container"
+    id="adminOfCommands">
+
+    <h1 style="font-size: 12px; padding: 10px;">
+
+        Please provide an uid (optional).
+        If you choose not to, entering "default"
+        will be considered as your input.
+
+    </h1>
+
+    <input
+        type="text"
+        id="inputOfAdmin"
+        placeholder="Admin userID">
+
+</div>
+
+
+<!-- =========================
+     TERMS
+     ========================= -->
+
+<label
+    style="
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        padding: 22px;
+    ">
+
+    <input
+        type="checkbox"
+        id="agreeCheckbox"
+        style="margin-right: 10px;">
+
+    Checking this box certifies that I have read,
+    understood, and agreed to the Terms and Conditions.
+
+</label>
+
+
+<!-- =========================
+     SUBMIT
+     ========================= -->
+
+<div class="col text-center">
+
+    <button
+        class="btn btn-primary"
+        onclick="State()"
+        disabled
+        id="submitButton"
+        style="width: 100%">
+
+        Submit
+
+    </button>
+
+</div>
+
+
+<!-- =========================
+     RESULT
+     ========================= -->
+
+<div
+    id="result"
+    class="container text-center"
+    style="
+        display: none;
+        font-size: 10px;
+    ">
+</div>
+
+
+<br><br>
+
+
+<!-- =========================
+     FOOTER
+     ========================= -->
+
+<div>
+
+    <br>
+
+    <button id="scrollUpBtn">
+
+        <i class="fa-solid fa-angles-up"></i>
+
+    </button>
+
+    <div class="footer">
+
+        <p>
+            © 2025 NULLFIED | All rights reserved.
+        </p>
+
+        <p>
+            Time:
+            <span id="time"></span>
+
+            |
+
+            Ping:
+            <span id="ping"></span>
+        </p>
+
+    </div>
+
+</div>
+
+
+<!-- =========================
+     EXISTING FUNCTIONS
+     ========================= -->
+
+<script>
+
+    function scrollToSection(sectionId) {
+
+        const section =
+            document.getElementById(sectionId);
+
+        section.scrollIntoView({
+            behavior: 'smooth'
+        });
+
+    }
+
+    function selectAllCommands() {
+
+        scrollToSection(
+            'listOfCommandsEvent'
         );
 
-}
-
-
-
-/* =========================================================
-   SELECT COMMANDS
-========================================================= */
-
-document
-    .getElementById(
-        "selectCommands"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            document
-                .querySelectorAll(
-                    ".command-checkbox"
-                )
-                .forEach(
-                    box => {
-                        box.checked = true;
-                    }
-                );
-
-        }
-    );
-
-
-
-/* =========================================================
-   SELECT EVENTS
-========================================================= */
-
-document
-    .getElementById(
-        "selectEvents"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            document
-                .querySelectorAll(
-                    ".event-checkbox"
-                )
-                .forEach(
-                    box => {
-                        box.checked = true;
-                    }
-                );
-
-        }
-    );
-
-
-
-/* =========================================================
-   TERMS
-========================================================= */
-
-checkbox.addEventListener(
-    "change",
-    () => {
-
-        submit.disabled =
-            !checkbox.checked;
-
-    }
-);
-
-
-
-/* =========================================================
-   SUBMIT
-========================================================= */
-
-submit.addEventListener(
-    "click",
-    async () => {
-
-        submit.disabled = true;
-
-
-        result.className =
-            "result loading-result";
-
-
-        result.textContent =
-            "Saving configuration...";
-
-
-        const selectedCommands =
-            Array.from(
-                document.querySelectorAll(
-                    ".command-checkbox:checked"
-                )
-            )
-            .map(
-                box =>
-                    box.value
-            );
-
-
-        const selectedEvents =
-            Array.from(
-                document.querySelectorAll(
-                    ".event-checkbox:checked"
-                )
-            )
-            .map(
-                box =>
-                    box.value
-            );
-
-
-        let session = null;
-
-
-        const raw =
-            document
-                .getElementById(
-                    "json-data"
-                )
-                .value
-                .trim();
-
-
-        if (raw) {
-
-            try {
-
-                session =
-                    JSON.parse(
-                        raw
-                    );
-
-            } catch {
-
-                result.className =
-                    "result error";
-
-                result.textContent =
-                    "Invalid JSON session data.";
-
-                submit.disabled =
-                    false;
-
-                return;
-
-            }
-
-        }
-
-
-        const payload = {
-
-            prefix:
-                document
-                    .getElementById(
-                        "inputOfPrefix"
-                    )
-                    .value
-                    .trim(),
-
-            admin:
-                document
-                    .getElementById(
-                        "inputOfAdmin"
-                    )
-                    .value
-                    .trim(),
-
-            selectedCommands,
-
-            selectedEvents,
-
-            session,
-
-            enabled: true
-
-        };
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "/api/config",
-                    {
-                        method: "POST",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body:
-                            JSON.stringify(
-                                payload
-                            )
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!data.ok) {
-                throw new Error(
-                    data.error ||
-                    "Failed."
-                );
-            }
-
-
-            result.className =
-                "result success";
-
-
-            result.textContent =
-                "Configuration saved. Worker restarting...";
-
-
-            setTimeout(
-                updateStatus,
-                1000
-            );
-
-
-        } catch (error) {
-
-            result.className =
-                "result error";
-
-
-            result.textContent =
-                error.message;
-
-
-        }
-
-
-        submit.disabled =
-            !checkbox.checked;
-
-    }
-);
-
-
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-async function updateStatus() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/status",
-                {
-                    cache: "no-store"
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        const status =
-            data.status ||
-            "unknown";
-
-
-        document
-            .getElementById(
-                "runtimeStatus"
-            )
-            .textContent =
-                status.toUpperCase();
-
-
-        document
-            .getElementById(
-                "runtimePid"
-            )
-            .textContent =
-                data.pid || "--";
-
-
-        document
-            .getElementById(
-                "runtimeUptime"
-            )
-            .textContent =
-                formatUptime(
-                    data.uptime
-                );
-
-
-        document
-            .getElementById(
-                "runtimeRestarts"
-            )
-            .textContent =
-                data.restarts || 0;
-
-
-        document
-            .getElementById(
-                "topStatus"
-            )
-            .textContent =
-                status.toUpperCase();
-
-
-        const topDot =
-            document.getElementById(
-                "topDot"
-            );
-
-
-        if (
-            status === "online"
-        ) {
-
-            topDot.classList.add(
-                "active"
-            );
-
-        } else {
-
-            topDot.classList.remove(
-                "active"
-            );
-
-        }
-
-
-    } catch {
-
-        document
-            .getElementById(
-                "runtimeStatus"
-            )
-            .textContent =
-                "OFFLINE";
-
     }
 
-}
+    function selectAllEvents() {
 
-
-
-/* =========================================================
-   HUNTING STATUS
-========================================================= */
-
-async function updateHunting() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/hunting",
-                {
-                    cache: "no-store"
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        const available =
-            data.hunting &&
-            data.hunting.available;
-
-
-        document
-            .getElementById(
-                "huntingStatus"
-            )
-            .textContent =
-                available
-                    ? "HUNTING AVAILABLE"
-                    : "HUNTING NOT FOUND";
-
-
-        const dot =
-            document.getElementById(
-                "huntingDot"
-            );
-
-
-        if (available) {
-
-            dot.classList.add(
-                "active"
-            );
-
-        } else {
-
-            dot.classList.remove(
-                "active"
-            );
-
-        }
-
-
-    } catch {
-
-        document
-            .getElementById(
-                "huntingStatus"
-            )
-            .textContent =
-                "CHECK FAILED";
+        scrollToSection(
+            'prefixOfCommands'
+        );
 
     }
-
-}
-
-
-
-loadCommands();
-
-updateStatus();
-
-updateHunting();
-
-
-setInterval(
-    updateStatus,
-    3000
-);
-
-
-setInterval(
-    updateHunting,
-    5000
-);
 
 </script>
 
 
-</body>
+<!-- =========================
+     EXISTING SCRIPT
+     ========================= -->
 
+<script src="script.js"></script>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+<!--
+    MUSIC REMOVED.
+    HOWLER.JS REMOVED.
+    NO AUTOPLAY MUSIC.
+-->
+
+</body>
 </html>
