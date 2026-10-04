@@ -2,9 +2,9 @@
   "name": "auto-messenger-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "auto.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node auto.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
