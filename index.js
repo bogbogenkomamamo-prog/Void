@@ -1,638 +1,405 @@
 "use strict";
 
-const fs = require("fs-extra");
-const path = require("path");
-const express = require("express");
 const { spawn } = require("child_process");
+const path = require("path");
 
-const app = express();
+const SCRIPT_FILE = "auto.js";
+const SCRIPT_PATH = path.join(__dirname, SCRIPT_FILE);
 
-const PORT = process.env.PORT || 8080;
+// ============================================================
+// CONFIG
+// ============================================================
 
-const ROOT = __dirname;
-const PUBLIC_DIR = path.join(ROOT, "public");
-const DATA_DIR = path.join(ROOT, "data");
+const CONFIG = {
+    restart: {
+        enabled: true,
 
-const CONFIG_FILE = path.join(DATA_DIR, "config.json");
-const HISTORY_FILE = path.join(DATA_DIR, "history.json");
+        // Initial restart delay
+        initialDelay: 5000,
 
-const AUTO_FILE = path.join(ROOT, "auto.js");
+        // Maximum delay between restart attempts
+        maxDelay: 5 * 60 * 1000,
 
-fs.ensureDirSync(DATA_DIR);
-fs.ensureDirSync(PUBLIC_DIR);
+        // Prevent extremely fast restart loops
+        stableAfter: 60 * 1000
+    },
 
-if (!fs.existsSync(CONFIG_FILE)) {
-    fs.writeJsonSync(
-        CONFIG_FILE,
-        {
-            prefix: ".",
-            admin: "",
-            selectedCommands: ["hunting"],
-            selectedEvents: [],
-            session: null,
-            enabled: true
-        },
-        { spaces: 2 }
-    );
-}
-
-if (!fs.existsSync(HISTORY_FILE)) {
-    fs.writeJsonSync(HISTORY_FILE, [], { spaces: 2 });
-}
-
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true, limit: "5mb" }));
-
-app.use(express.static(PUBLIC_DIR));
-
-let child = null;
-
-const startedAt = Date.now();
-
-const runtime = {
-    status: "starting",
-    restarts: 0,
-    lastError: null,
-    lastMessage: null
+    process: {
+        cwd: __dirname,
+        stdio: "inherit"
+    }
 };
 
+// ============================================================
+// STATE
+// ============================================================
 
-/* =========================================================
-   CONFIG
-========================================================= */
+let main = null;
+let stopping = false;
 
-function readConfig() {
-    try {
-        return fs.readJsonSync(CONFIG_FILE);
-    } catch {
-        return {
-            prefix: ".",
-            admin: "",
-            selectedCommands: ["hunting"],
-            selectedEvents: [],
-            session: null,
-            enabled: true
-        };
-    }
+let restartAttempt = 0;
+let restartTimer = null;
+
+let startedAt = 0;
+
+// ============================================================
+// LOGGING
+// ============================================================
+
+function timestamp() {
+    return new Date().toISOString();
 }
 
-
-function writeConfig(config) {
-    fs.writeJsonSync(
-        CONFIG_FILE,
-        config,
-        { spaces: 2 }
+function log(message) {
+    console.log(
+        `[${timestamp()}] ${message}`
     );
 }
 
-
-/* =========================================================
-   COMMAND DISCOVERY
-========================================================= */
-
-function discoverCommands() {
-
-    const scriptDir =
-        path.join(ROOT, "script");
-
-    if (!fs.existsSync(scriptDir)) {
-        return [];
-    }
-
-    const files =
-        fs.readdirSync(scriptDir)
-            .filter(file =>
-                file.endsWith(".js")
-            );
-
-    const commands = [];
-
-    for (const file of files) {
-
-        try {
-
-            const full =
-                path.join(scriptDir, file);
-
-            delete require.cache[
-                require.resolve(full)
-            ];
-
-            const mod =
-                require(full);
-
-            if (
-                mod &&
-                mod.config &&
-                mod.config.name
-            ) {
-
-                commands.push({
-                    name: String(mod.config.name),
-                    file,
-                    version:
-                        mod.config.version || "1.0.0",
-                    description:
-                        mod.config.description || "",
-                    hasPermission:
-                        mod.config.hasPermission ?? 0,
-                    usePrefix:
-                        mod.config.usePrefix !== false &&
-                        mod.config.hasPrefix !== false
-                });
-
-            }
-
-        } catch (error) {
-
-            console.error(
-                `[COMMAND] ${file}: ${error.message}`
-            );
-
-        }
-
-    }
-
-    return commands.sort(
-        (a, b) =>
-            a.name.localeCompare(b.name)
+function warn(message) {
+    console.warn(
+        `[${timestamp()}] ${message}`
     );
 }
 
+function error(message) {
+    console.error(
+        `[${timestamp()}] ${message}`
+    );
+}
 
-/* =========================================================
-   API
-========================================================= */
+// ============================================================
+// VALIDATE AUTO.JS
+// ============================================================
 
-app.get("/api/status", (req, res) => {
+function validateScript() {
+    if (!require("fs").existsSync(SCRIPT_PATH)) {
+        error(
+            `Cannot find ${SCRIPT_FILE} at ${SCRIPT_PATH}`
+        );
 
-    const config = readConfig();
-
-    res.json({
-
-        ok: true,
-
-        status: runtime.status,
-
-        uptime:
-            Date.now() - startedAt,
-
-        restarts:
-            runtime.restarts,
-
-        lastError:
-            runtime.lastError,
-
-        lastMessage:
-            runtime.lastMessage,
-
-        pid:
-            child ? child.pid : null,
-
-        config: {
-            prefix:
-                config.prefix,
-
-            admin:
-                config.admin,
-
-            selectedCommands:
-                config.selectedCommands || [],
-
-            selectedEvents:
-                config.selectedEvents || []
-        }
-
-    });
-
-});
-
-
-app.get("/api/commands", (req, res) => {
-
-    res.json({
-        ok: true,
-        commands: discoverCommands()
-    });
-
-});
-
-
-app.get("/api/accounts", (req, res) => {
-
-    res.json({
-        ok: true,
-        accounts: [
-            {
-                pid:
-                    child ? child.pid : null,
-
-                status:
-                    runtime.status,
-
-                uptime:
-                    Date.now() - startedAt
-            }
-        ]
-    });
-
-});
-
-
-app.get("/api/hunting", (req, res) => {
-
-    res.json({
-        ok: true,
-        hunting: {
-            available:
-                discoverCommands()
-                    .some(
-                        command =>
-                            command.name === "hunting"
-                    )
-        }
-    });
-
-});
-
-
-/* =========================================================
-   SAVE CONFIG / START
-========================================================= */
-
-app.post("/api/config", (req, res) => {
-
-    try {
-
-        const old =
-            readConfig();
-
-        const body =
-            req.body || {};
-
-        const config = {
-
-            ...old,
-
-            prefix:
-                typeof body.prefix === "string"
-                    ? body.prefix.trim()
-                    : old.prefix,
-
-            admin:
-                typeof body.admin === "string"
-                    ? body.admin.trim()
-                    : old.admin,
-
-            selectedCommands:
-                Array.isArray(body.selectedCommands)
-                    ? body.selectedCommands
-                    : old.selectedCommands,
-
-            selectedEvents:
-                Array.isArray(body.selectedEvents)
-                    ? body.selectedEvents
-                    : old.selectedEvents,
-
-            session:
-                body.session !== undefined
-                    ? body.session
-                    : old.session,
-
-            enabled:
-                body.enabled !== undefined
-                    ? Boolean(body.enabled)
-                    : true
-
-        };
-
-
-        writeConfig(config);
-
-
-        restartWorker();
-
-
-        res.json({
-            ok: true,
-            message: "Configuration saved."
-        });
-
-
-    } catch (error) {
-
-        res.status(500).json({
-            ok: false,
-            error: error.message
-        });
-
+        return false;
     }
 
-});
+    return true;
+}
 
+// ============================================================
+// CALCULATE RESTART DELAY
+// ============================================================
 
-/* =========================================================
-   WORKER
-========================================================= */
+function getRestartDelay() {
+    const delay =
+        CONFIG.restart.initialDelay *
+        Math.pow(
+            2,
+            Math.min(restartAttempt, 6)
+        );
 
-function startWorker() {
+    return Math.min(
+        delay,
+        CONFIG.restart.maxDelay
+    );
+}
 
-    if (child) {
+// ============================================================
+// RESET RESTART BACKOFF
+// ============================================================
+
+function markStable() {
+    setTimeout(() => {
+        if (
+            main &&
+            !main.killed &&
+            !stopping
+        ) {
+            restartAttempt = 0;
+
+            log(
+                "Main process has been stable. Restart backoff reset."
+            );
+        }
+    }, CONFIG.restart.stableAfter);
+}
+
+// ============================================================
+// START PROCESS
+// ============================================================
+
+function start() {
+    if (stopping) {
         return;
     }
 
-    if (!fs.existsSync(AUTO_FILE)) {
+    if (!validateScript()) {
+        scheduleRestart();
+        return;
+    }
 
-        runtime.status = "missing-auto-js";
-
-        console.error(
-            "[NULLFIED] auto.js not found."
+    if (
+        main &&
+        !main.killed &&
+        main.exitCode === null
+    ) {
+        warn(
+            "Main process is already running."
         );
 
         return;
     }
 
-
-    runtime.status = "starting";
-
-
-    child = spawn(
-        process.execPath,
-        [AUTO_FILE],
-        {
-            cwd: ROOT,
-
-            env: {
-                ...process.env,
-                NULLFIED_CHILD: "1"
-            },
-
-            stdio: [
-                "ignore",
-                "pipe",
-                "pipe",
-                "ipc"
-            ]
-        }
+    log(
+        `Starting ${SCRIPT_FILE}...`
     );
 
+    startedAt = Date.now();
 
-    child.stdout.on(
-        "data",
-        data => {
-
-            const text =
-                data.toString();
-
-            process.stdout.write(
-                `[AUTO] ${text}`
-            );
-
-            runtime.lastMessage =
-                text.trim();
-
-        }
-    );
-
-
-    child.stderr.on(
-        "data",
-        data => {
-
-            const text =
-                data.toString();
-
-            process.stderr.write(
-                `[AUTO ERROR] ${text}`
-            );
-
-            runtime.lastError =
-                text.trim();
-
-        }
-    );
-
-
-    child.on(
-        "message",
-        message => {
-
-            if (!message) {
-                return;
+    try {
+        main = spawn(
+            process.execPath,
+            [SCRIPT_PATH],
+            {
+                cwd: CONFIG.process.cwd,
+                stdio: CONFIG.process.stdio,
+                shell: false,
+                windowsHide: true,
+                env: {
+                    ...process.env,
+                    NODE_ENV:
+                        process.env.NODE_ENV ||
+                        "production"
+                }
             }
+        );
+    } catch (err) {
+        error(
+            `Failed to spawn ${SCRIPT_FILE}: ${err.message}`
+        );
 
-            if (message.type === "status") {
+        scheduleRestart();
 
-                runtime.status =
-                    message.status;
-
-            }
-
-            if (message.type === "error") {
-
-                runtime.lastError =
-                    message.error;
-
-            }
-
-        }
-    );
-
-
-    child.on(
-        "error",
-        error => {
-
-            runtime.lastError =
-                error.message;
-
-            runtime.status =
-                "error";
-
-        }
-    );
-
-
-    child.on(
-        "exit",
-        (code, signal) => {
-
-            child = null;
-
-            runtime.status =
-                "stopped";
-
-
-            console.log(
-                `[NULLFIED] Worker exited. code=${code} signal=${signal}`
-            );
-
-
-            if (
-                code !== 0 &&
-                runtime.status !== "stopping"
-            ) {
-
-                runtime.restarts++;
-
-                setTimeout(
-                    () => {
-
-                        if (!child) {
-                            startWorker();
-                        }
-
-                    },
-                    5000
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-function stopWorker() {
-
-    if (!child) {
         return;
     }
 
-    runtime.status =
-        "stopping";
-
-
-    try {
-        child.kill("SIGTERM");
-    } catch {}
-
-
-    setTimeout(
-        () => {
-
-            if (child) {
-
-                try {
-                    child.kill("SIGKILL");
-                } catch {}
-
-            }
-
-        },
-        5000
+    log(
+        `Main process started. PID: ${main.pid}`
     );
 
-}
+    // --------------------------------------------------------
+    // PROCESS ERROR
+    // --------------------------------------------------------
 
-
-function restartWorker() {
-
-    stopWorker();
-
-    setTimeout(
-        () => {
-
-            if (!child) {
-                startWorker();
-            }
-
-        },
-        1500
-    );
-
-}
-
-
-/* =========================================================
-   HEALTH
-========================================================= */
-
-app.get("/health", (req, res) => {
-
-    res.json({
-        ok: true,
-        service: "NULLFIED",
-        worker:
-            runtime.status
-    });
-
-});
-
-
-/* =========================================================
-   SERVER
-========================================================= */
-
-const server =
-    app.listen(
-        PORT,
-        () => {
-
-            console.log(
-                "========================================"
+    main.on(
+        "error",
+        (err) => {
+            error(
+                `Main process error: ${err.message}`
             );
-
-            console.log(
-                "        NULLFIED CONTROL CENTER"
-            );
-
-            console.log(
-                "========================================"
-            );
-
-            console.log(
-                `Dashboard: http://localhost:${PORT}`
-            );
-
-            console.log(
-                "Worker: starting..."
-            );
-
-            startWorker();
-
         }
     );
 
+    // --------------------------------------------------------
+    // PROCESS CLOSE
+    // --------------------------------------------------------
 
-/* =========================================================
-   SHUTDOWN
-========================================================= */
+    main.on(
+        "close",
+        (exitCode, signal) => {
+            const runtime =
+                Date.now() - startedAt;
 
-function shutdown() {
+            log(
+                `Main process closed. ` +
+                `exitCode=${exitCode}, signal=${signal || "none"}`
+            );
 
-    console.log(
-        "\n[NULLFIED] Shutting down..."
+            main = null;
+
+            if (stopping) {
+                return;
+            }
+
+            // A process that stayed alive for a while
+            // is considered stable. Don't keep increasing
+            // the restart delay forever.
+            if (
+                runtime >=
+                CONFIG.restart.stableAfter
+            ) {
+                restartAttempt = 0;
+            }
+
+            if (
+                !CONFIG.restart.enabled
+            ) {
+                warn(
+                    "Automatic restart is disabled."
+                );
+
+                return;
+            }
+
+            scheduleRestart();
+        }
     );
 
-    runtime.status =
-        "stopping";
-
-    stopWorker();
-
-    setTimeout(
-        () => {
-
-            try {
-                server.close();
-            } catch {}
-
-            process.exit(0);
-
-        },
-        1000
-    );
-
+    markStable();
 }
 
+// ============================================================
+// RESTART SCHEDULER
+// ============================================================
+
+function scheduleRestart() {
+    if (stopping) {
+        return;
+    }
+
+    if (restartTimer) {
+        return;
+    }
+
+    const delay =
+        getRestartDelay();
+
+    restartAttempt++;
+
+    warn(
+        `Restarting ${SCRIPT_FILE} in ` +
+        `${Math.ceil(delay / 1000)} seconds ` +
+        `(attempt ${restartAttempt})...`
+    );
+
+    restartTimer = setTimeout(() => {
+        restartTimer = null;
+
+        if (stopping) {
+            return;
+        }
+
+        start();
+
+    }, delay);
+}
+
+// ============================================================
+// MANUAL STOP
+// ============================================================
+
+function stop(signal = "SIGTERM") {
+    if (stopping) {
+        return;
+    }
+
+    stopping = true;
+
+    if (restartTimer) {
+        clearTimeout(restartTimer);
+        restartTimer = null;
+    }
+
+    if (
+        main &&
+        !main.killed &&
+        main.exitCode === null
+    ) {
+        log(
+            `Stopping main process with ${signal}...`
+        );
+
+        try {
+            main.kill(signal);
+        } catch (err) {
+            error(
+                `Failed to stop process: ${err.message}`
+            );
+        }
+
+        // Safety timeout
+        setTimeout(() => {
+            if (
+                main &&
+                !main.killed &&
+                main.exitCode === null
+            ) {
+                warn(
+                    "Process did not stop gracefully. Sending SIGKILL..."
+                );
+
+                try {
+                    main.kill("SIGKILL");
+                } catch {}
+            }
+        }, 10000);
+
+    } else {
+        process.exit(0);
+    }
+}
+
+// ============================================================
+// SIGNAL HANDLERS
+// ============================================================
 
 process.on(
     "SIGINT",
-    shutdown
+    () => {
+        log("SIGINT received.");
+        stop("SIGINT");
+    }
 );
 
 process.on(
     "SIGTERM",
-    shutdown
+    () => {
+        log("SIGTERM received.");
+        stop("SIGTERM");
+    }
 );
+
+// ============================================================
+// UNHANDLED ERRORS IN WRAPPER
+// ============================================================
+
+process.on(
+    "uncaughtException",
+    (err) => {
+        error(
+            `Wrapper uncaught exception: ${
+                err.stack || err.message
+            }`
+        );
+
+        // Don't immediately kill the wrapper.
+        // auto.js has its own error handling.
+    }
+);
+
+process.on(
+    "unhandledRejection",
+    (reason) => {
+        error(
+            `Wrapper unhandled rejection: ${
+                reason?.stack || reason
+            }`
+        );
+    }
+);
+
+// ============================================================
+// START
+// ============================================================
+
+log(
+    "=========================================="
+);
+
+log(
+    "        PROCESS SUPERVISOR ONLINE"
+);
+
+log(
+    "=========================================="
+);
+
+start();
