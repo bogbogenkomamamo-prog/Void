@@ -5,11 +5,11 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "20.0.0",
+  version: "21.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Prefixless Tarantadong Halimaw auto-reply system",
+  description: "Prefixless Tarantadong Halimaw - every message auto reply",
   usage: "Send '.' to toggle ON/OFF",
   credits: "sinzu",
   cooldown: 1
@@ -25,7 +25,7 @@ const ADMIN_IDS = new Set([
 ]);
 
 // =====================================================
-// FILE CONFIG
+// CONFIG FILE
 // =====================================================
 
 const DATA_PATH = path.join(
@@ -37,17 +37,17 @@ const DATA_PATH = path.join(
 // SETTINGS
 // =====================================================
 
-const REPLY_COOLDOWN = 10000; // 10 seconds
-const TYPING_TIME = 10000;    // 10 seconds
-const RECENT_LIMIT = 40;
+// Bawat message may sariling 10-second delay.
+const REPLY_DELAY = 10000;
+
+// Ilang previous replies ang iiwasang ulitin sa isang thread.
+const RECENT_REPLY_LIMIT = 50;
 
 // =====================================================
 // RUNTIME MEMORY
 // =====================================================
 
-const threadCooldowns = new Map();
 const recentReplies = new Map();
-const pendingReplies = new Map();
 
 // =====================================================
 // REPLY POOL
@@ -55,10 +55,7 @@ const pendingReplies = new Map();
 
 const ALL_REPLIES = [
 
-  // =========================
   // SHORT
-  // =========================
-
   "edi wow",
   "sabi mo e",
   "tapos?",
@@ -117,10 +114,7 @@ const ALL_REPLIES = [
   "puro ka salita",
   "sana all",
 
-  // =========================
   // PANGBARA
-  // =========================
-
   "iyak na",
   "pikon ka?",
   "galit?",
@@ -157,10 +151,7 @@ const ALL_REPLIES = [
   "palpak",
   "epic fail",
 
-  // =========================
   // CALL OUT
-  // =========================
-
   "uy",
   "oy",
   "psst",
@@ -181,10 +172,7 @@ const ALL_REPLIES = [
   "tropa",
   "repapips",
 
-  // =========================
   // MEDIUM
-  // =========================
-
   "ano bang point mo",
   "saan mo naman napulot yan",
   "anong pinaglalaban mo ngayon",
@@ -219,10 +207,7 @@ const ALL_REPLIES = [
   "pinag-isipan mo pa talaga yan",
   "ayan na naman yung confidence",
 
-  // =========================
-  // LOGIC / SOURCE
-  // =========================
-
+  // LOGIC
   "confidence lang kulang sa evidence",
   "may resibo ka ba",
   "saan ang source",
@@ -250,10 +235,7 @@ const ALL_REPLIES = [
   "hindi ka boss, ikaw lang nagbibigay ng titulo sa sarili mo",
   "ang lakas mong magbitaw ng linya parang may award sa dulo",
 
-  // =========================
-  // EXTRA BARAGULAN
-  // =========================
-
+  // EXTRA
   "bro ano yan",
   "ano bang trip mo",
   "may bago ka bang script",
@@ -305,10 +287,7 @@ const ALL_REPLIES = [
   "sobra na",
   "tapos na dapat",
 
-  // =========================
   // INTERNET STYLE
-  // =========================
-
   "skill issue",
   "reading comprehension check",
   "comprehension left the chat",
@@ -343,10 +322,7 @@ const ALL_REPLIES = [
   "effort: sobra",
   "result: questionable",
 
-  // =========================
-  // PROOF / EVIDENCE
-  // =========================
-
+  // PROOF
   "ang tapang mo naman",
   "ang lakas ng loob",
   "pero saan ang proof",
@@ -371,10 +347,7 @@ const ALL_REPLIES = [
   "nice excuse",
   "classic excuse",
 
-  // =========================
-  // GC / CHAT
-  // =========================
-
+  // GC
   "expected",
   "predictable",
   "very original",
@@ -424,10 +397,7 @@ const ALL_REPLIES = [
   "who invited the essay",
   "why is there a dissertation",
 
-  // =========================
-  // SCHOOL / SPEECH JOKES
-  // =========================
-
+  // SCHOOL / SPEECH
   "thesis defense na ba",
   "oral recitation ba to",
   "may reporting?",
@@ -459,10 +429,7 @@ const ALL_REPLIES = [
   "keep going",
   "don't let me stop you",
 
-  // =========================
-  // POINTLESS MESSAGE
-  // =========================
-
+  // POINTLESS
   "sige lang",
   "tuloy mo lang",
   "ituloy mo",
@@ -498,10 +465,7 @@ const ALL_REPLIES = [
   "common sense went missing",
   "context went missing",
 
-  // =========================
-  // EXTRA TAGALOG
-  // =========================
-
+  // TAGALOG
   "eto nanaman tayo",
   "round two",
   "round three",
@@ -563,10 +527,7 @@ const ALL_REPLIES = [
   "sure last?",
   "promise?",
 
-  // =========================
-  // AWARD / LORE
-  // =========================
-
+  // LORE
   "sige ikaw na huling magmessage",
   "ikaw na winner",
   "congratulations",
@@ -613,17 +574,14 @@ const ALL_REPLIES = [
   "side lore",
   "unnecessary lore",
   "deep lore for no reason",
+
+  // RANDOM
   "why do we know this",
   "why was this necessary",
   "why did you type that",
   "why did you send that",
   "why are we here",
   "how did we get here",
-
-  // =========================
-  // RANDOM
-  // =========================
-
   "what happened",
   "what is happening",
   "ano nangyayari",
@@ -650,10 +608,7 @@ const ALL_REPLIES = [
   "evidence please",
   "thank you",
 
-  // =========================
-  // FINAL EXTRA POOL
-  // =========================
-
+  // MORE
   "ang lalim naman ng problema mo",
   "ang simple lang ng usapan ginawa mong saga",
   "parang may championship sa reply",
@@ -746,6 +701,7 @@ const ALL_REPLIES = [
   "done?",
   "end?",
   "next?"
+
 ];
 
 // =====================================================
@@ -779,7 +735,7 @@ function loadConfig() {
   } catch (error) {
 
     console.error(
-      "[HALIMAW] Config error:",
+      "[HALIMAW] Failed to load config:",
       error.message
     );
 
@@ -811,7 +767,7 @@ function saveConfig(data) {
   } catch (error) {
 
     console.error(
-      "[HALIMAW] Save error:",
+      "[HALIMAW] Failed to save config:",
       error.message
     );
 
@@ -838,7 +794,7 @@ function getRandomReply(threadID) {
 
   let previous =
     recentReplies.get(
-      threadID
+      String(threadID)
     ) || [];
 
   let available =
@@ -852,6 +808,7 @@ function getRandomReply(threadID) {
   ) {
 
     previous = [];
+
     available = ALL_REPLIES;
 
   }
@@ -868,13 +825,15 @@ function getRandomReply(threadID) {
 
   if (
     previous.length >
-    RECENT_LIMIT
+    RECENT_REPLY_LIMIT
   ) {
+
     previous.shift();
+
   }
 
   recentReplies.set(
-    threadID,
+    String(threadID),
     previous
   );
 
@@ -882,7 +841,7 @@ function getRandomReply(threadID) {
 }
 
 // =====================================================
-// TYPING START
+// START TYPING
 // =====================================================
 
 function startTyping(
@@ -931,7 +890,7 @@ function startTyping(
 }
 
 // =====================================================
-// TYPING STOP
+// STOP TYPING
 // =====================================================
 
 function stopTyping(
@@ -961,7 +920,7 @@ function stopTyping(
 }
 
 // =====================================================
-// TOGGLE
+// DOT TOGGLE
 // =====================================================
 
 async function toggleThread({
@@ -991,9 +950,9 @@ async function toggleThread({
       id
     );
 
-  // =========================
+  // =================================================
   // ON
-  // =========================
+  // =================================================
 
   if (index === -1) {
 
@@ -1003,7 +962,6 @@ async function toggleThread({
 
     saveConfig(config);
 
-    // HEART
     try {
 
       if (
@@ -1022,12 +980,16 @@ async function toggleThread({
 
     } catch (e) {}
 
+    console.log(
+      `[HALIMAW] ON: ${id}`
+    );
+
     return;
   }
 
-  // =========================
+  // =================================================
   // OFF
-  // =========================
+  // =================================================
 
   config.activeThreads.splice(
     index,
@@ -1036,7 +998,6 @@ async function toggleThread({
 
   saveConfig(config);
 
-  // HEART
   try {
 
     if (
@@ -1055,10 +1016,14 @@ async function toggleThread({
 
   } catch (e) {}
 
+  console.log(
+    `[HALIMAW] OFF: ${id}`
+  );
+
 }
 
 // =====================================================
-// EVENT HANDLER
+// MAIN EVENT HANDLER
 // =====================================================
 
 module.exports.handleEvent =
@@ -1074,12 +1039,15 @@ async function ({
     messageID
   } = event;
 
-  // NO MESSAGE
+  // IGNORE EMPTY
   if (!body) {
     return;
   }
 
-  // IGNORE BOT
+  // =================================================
+  // IGNORE BOT'S OWN MESSAGE
+  // =================================================
+
   let botID = null;
 
   try {
@@ -1094,7 +1062,9 @@ async function ({
     String(senderID) ===
     String(botID)
   ) {
+
     return;
+
   }
 
   const text =
@@ -1104,7 +1074,7 @@ async function ({
     loadConfig();
 
   // =================================================
-  // DOT ONLY
+  // DOT TOGGLE
   // =================================================
 
   if (
@@ -1121,13 +1091,15 @@ async function ({
   }
 
   // =================================================
-  // IGNORE OTHER DOT COMBINATIONS
+  // IGNORE "..", "...", ETC.
   // =================================================
 
   if (
     /^\.+$/.test(text)
   ) {
+
     return;
+
   }
 
   // =================================================
@@ -1139,56 +1111,22 @@ async function ({
       String(threadID)
     )
   ) {
+
     return;
+
   }
 
   // =================================================
-  // COOLDOWN
-  // =================================================
-
-  const now =
-    Date.now();
-
-  const last =
-    threadCooldowns.get(
-      String(threadID)
-    ) || 0;
-
-  if (
-    now - last <
-    REPLY_COOLDOWN
-  ) {
-    return;
-  }
-
-  // =================================================
-  // PREVENT MULTIPLE QUEUED REPLIES
-  // =================================================
-
-  if (
-    pendingReplies.has(
-      String(threadID)
-    )
-  ) {
-    return;
-  }
-
-  threadCooldowns.set(
-    String(threadID),
-    now
-  );
-
-  // =================================================
-  // SELECT REPLY
+  // EVERY MESSAGE GETS A REPLY
   // =================================================
 
   const reply =
     getRandomReply(
-      String(threadID)
+      threadID
     );
 
   // =================================================
-  // TYPING
+  // START TYPING FOR THIS MESSAGE
   // =================================================
 
   const typingInterval =
@@ -1197,20 +1135,11 @@ async function ({
       threadID
     );
 
-  pendingReplies.set(
-    String(threadID),
-    true
-  );
-
   // =================================================
   // SEND AFTER 10 SECONDS
   // =================================================
 
   setTimeout(() => {
-
-    pendingReplies.delete(
-      String(threadID)
-    );
 
     stopTyping(
       api,
@@ -1238,7 +1167,7 @@ async function ({
 
     }
 
-  }, TYPING_TIME);
+  }, REPLY_DELAY);
 
 };
 
@@ -1249,8 +1178,8 @@ async function ({
 module.exports.run =
 async function () {
 
-  // Prefixless system.
-  // Walang /halimaw command.
+  // Prefixless.
+  // Dot is handled inside handleEvent.
   return;
 
 };
