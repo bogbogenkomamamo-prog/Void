@@ -1,849 +1,831 @@
+/* =========================================================
+NULLFIED // DARK TERMINAL UI
+Styles only — no functions changed
+========================================================= */
+
 * {
-    box-sizing: border-box;
-}
+  box-sizing: border-box;
+  }
 
 html {
-    scroll-behavior: smooth;
+scroll-behavior: smooth;
 }
 
 body {
-    margin: 0;
-    min-height: 100vh;
+min-height: 100vh;
+position: relative;
+padding: 20px;
 
-    background:
-        radial-gradient(
-            circle at top,
-            #171717 0%,
-            #080808 42%,
-            #020202 100%
-        );
+margin: 0;
 
-    color: #eeeeee;
+background:
+    radial-gradient(
+        circle at 50% -10%,
+        rgba(255,255,255,0.07),
+        transparent 35%
+    ),
+    #050505;
 
-    font-family:
-        "Courier Prime",
-        "Courier New",
-        monospace;
+font-family: "Courier Prime", monospace;
+color: #d8d8d8;
+
+opacity: 0;
+animation: fadeInContent 1s forwards ease-in-out;
+
+overflow-x: hidden;
+
 }
 
-.background {
-    position: fixed;
+/* =========================================================
+BACKGROUND
+========================================================= */
 
-    inset: 0;
+body::before {
+content: "";
 
-    z-index: -2;
+position: fixed;
 
-    opacity: 0.16;
+top: 0;
+left: 0;
 
-    background-image:
-        url("https://i.gifer.com/2YcW.gif");
+width: 100%;
+height: 100%;
 
-    background-size: cover;
+background:
+    linear-gradient(
+        rgba(0,0,0,.68),
+        rgba(0,0,0,.86)
+    ),
+    url("https://i.gifer.com/2YcW.gif");
 
-    background-position: center;
+background-size: cover;
+background-position: center;
+background-repeat: no-repeat;
+background-attachment: fixed;
 
-    pointer-events: none;
+z-index: -2;
+
+opacity: .35;
+
 }
+
+/* subtle grid */
 
 body::after {
-    content: "";
+content: "";
 
-    position: fixed;
+position: fixed;
+inset: 0;
 
-    inset: 0;
+pointer-events: none;
 
-    z-index: -1;
-
-    pointer-events: none;
-
-    background:
-        linear-gradient(
-            rgba(0,0,0,0.45),
-            rgba(0,0,0,0.82)
-        );
-}
-
-
-/* =========================================================
-   NAVBAR
-========================================================= */
-
-.navbar {
-    width: 100%;
-
-    padding: 18px 6%;
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    border-bottom:
-        1px solid #292929;
-
-    background:
-        rgba(0,0,0,0.75);
-
-    backdrop-filter:
-        blur(14px);
-
-    position: sticky;
-
-    top: 0;
-
-    z-index: 50;
-}
-
-.brand {
-    display: flex;
-
-    align-items: center;
-
-    gap: 10px;
-
-    font-size: 19px;
-
-    font-weight: bold;
-
-    letter-spacing: 3px;
-}
-
-.brand img {
-    width: 30px;
-
-    height: 30px;
-
-    object-fit: contain;
-}
-
-.nav-status {
-    font-size: 11px;
-
-    color: #888;
-
-    letter-spacing: 1px;
-}
-
-
-/* =========================================================
-   DOT
-========================================================= */
-
-.dot {
-    display: inline-block;
-
-    width: 7px;
-
-    height: 7px;
-
-    border-radius: 50%;
-
-    background: #555;
-
-    margin-right: 7px;
-
-    box-shadow: 0 0 0 transparent;
-
-    transition: 0.3s;
-}
-
-.dot.active {
-    background: #d9d9d9;
-
-    box-shadow:
-        0 0 10px
-        rgba(255,255,255,0.8);
-}
-
-
-/* =========================================================
-   MAIN
-========================================================= */
-
-main {
-    width: min(
-        900px,
-        calc(100% - 30px)
+background-image:
+    linear-gradient(
+        rgba(255,255,255,.025) 1px,
+        transparent 1px
+    ),
+    linear-gradient(
+        90deg,
+        rgba(255,255,255,.025) 1px,
+        transparent 1px
     );
 
-    margin: auto;
+background-size: 35px 35px;
 
-    padding-bottom: 60px;
+z-index: -1;
+
 }
 
-
 /* =========================================================
-   HERO
+ANIMATIONS
 ========================================================= */
 
-.hero {
-    text-align: center;
-
-    padding:
-        75px 10px
-        50px;
+@keyframes fadeInContent {
+from {
+opacity: 0;
+transform: translateY(8px);
 }
 
-.online-badge {
-    display: inline-block;
-
-    padding: 7px 13px;
-
-    border:
-        1px solid #333;
-
-    background:
-        rgba(255,255,255,0.025);
-
-    color: #999;
-
-    font-size: 10px;
-
-    letter-spacing: 2px;
-
-    border-radius: 4px;
-
-    margin-bottom: 20px;
+to {
+    opacity: 1;
+    transform: translateY(0);
 }
 
-.hero h1 {
-    margin: 0;
-
-    font-size:
-        clamp(42px, 10vw, 88px);
-
-    line-height: 1;
-
-    letter-spacing: 8px;
-
-    color: #f3f3f3;
-
-    text-shadow:
-        0 0 30px
-        rgba(255,255,255,0.12);
 }
-
-.hero h1 span {
-    color: #777;
-}
-
-.hero p {
-    margin:
-        22px 0 10px;
-
-    color: #777;
-
-    font-size: 11px;
-
-    letter-spacing: 4px;
-}
-
-.version {
-    color: #444;
-
-    font-size: 10px;
-
-    letter-spacing: 2px;
-}
-
 
 /* =========================================================
-   CARD
+CONTAINERS
 ========================================================= */
 
-.card {
-    margin-bottom: 18px;
+.container {
+background:
+linear-gradient(
+145deg,
+rgba(15,15,15,.94),
+rgba(5,5,5,.94)
+);
 
-    padding: 25px;
+border: 1px solid #252525;
 
-    border:
-        1px solid #292929;
+border-left: 2px solid #666;
 
-    border-radius: 7px;
+border-radius: 3px;
 
-    background:
-        rgba(12,12,12,0.92);
+box-shadow:
+    0 15px 35px rgba(0,0,0,.55),
+    inset 0 0 25px rgba(255,255,255,.015);
 
-    box-shadow:
-        0 15px 50px
-        rgba(0,0,0,0.25);
+padding: 20px;
+
+margin-top: 20px;
+margin-bottom: 10px;
+
+transition:
+    border-color .25s,
+    box-shadow .25s;
+
 }
 
-.card-title {
-    display: flex;
+.container:hover {
+border-left-color: #aaa;
 
-    align-items: center;
+box-shadow:
+    0 15px 40px rgba(0,0,0,.65),
+    inset 0 0 25px rgba(255,255,255,.02);
 
-    gap: 15px;
-
-    margin-bottom: 23px;
 }
-
-.card-title > i {
-    width: 38px;
-
-    height: 38px;
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    border:
-        1px solid #333;
-
-    border-radius: 5px;
-
-    color: #aaa;
-
-    background:
-        #111;
-}
-
-.card-title h2 {
-    margin: 0;
-
-    font-size: 16px;
-
-    letter-spacing: 1px;
-}
-
-.card-title small {
-    display: block;
-
-    margin-top: 4px;
-
-    color: #555;
-
-    font-size: 10px;
-}
-
 
 /* =========================================================
-   LABELS
+HEADINGS
+========================================================= */
+
+h1 {
+color: #eee;
+}
+
+.container h1 {
+position: relative;
+
+display: inline-block;
+
+padding: 10px 18px;
+
+margin-bottom: 20px;
+
+background: #0b0b0b;
+
+border: 1px solid #292929;
+
+border-radius: 2px;
+
+box-shadow:
+    0 8px 20px rgba(0,0,0,.45),
+    inset 0 0 15px rgba(255,255,255,.015);
+
+letter-spacing: 1px;
+
+text-transform: uppercase;
+
+}
+
+.container h1::before {
+content: "// ";
+
+color: #555;
+
+}
+
+.container p {
+line-height: 1.6;
+color: #888;
+}
+
+/* =========================================================
+LABELS
 ========================================================= */
 
 label {
-    display: block;
-
-    margin-bottom: 9px;
-
-    color: #888;
-
-    font-size: 10px;
-
-    letter-spacing: 1px;
+color: #888;
 }
-
 
 /* =========================================================
-   INPUTS
+NAVBAR
 ========================================================= */
 
-input:not([type="checkbox"]),
-textarea {
-    width: 100%;
+.navbar {
+background:
+rgba(7,7,7,.95);
 
-    outline: none;
+color: #fff;
 
-    color: #ddd;
+border: 1px solid #292929;
 
-    background:
-        #070707;
+border-radius: 3px;
 
-    border:
-        1px solid #2c2c2c;
+box-shadow:
+    0 12px 30px rgba(0,0,0,.55);
 
-    border-radius: 5px;
+backdrop-filter: blur(8px);
 
-    font-family:
-        inherit;
-
-    transition:
-        border-color 0.2s,
-        box-shadow 0.2s;
 }
 
-input:not([type="checkbox"]) {
-    height: 48px;
-
-    padding:
-        0 14px;
+.navbar a {
+color: #999;
+transition: .2s;
 }
 
-textarea {
-    min-height: 180px;
-
-    padding: 15px;
-
-    resize: vertical;
-
-    font-size: 12px;
-
-    line-height: 1.6;
+.navbar a:hover {
+color: #fff;
 }
 
-input:not([type="checkbox"]):focus,
-textarea:focus {
-    border-color: #666;
-
-    box-shadow:
-        0 0 0 2px
-        rgba(255,255,255,0.035);
+.navbar-brand {
+color: #fff !important;
+letter-spacing: 2px;
 }
 
-.hint {
-    display: block;
-
-    margin-top: 9px;
-
-    color: #555;
-
-    font-size: 9px;
-
-    line-height: 1.5;
+.navbar-brand img {
+filter: grayscale(1);
+opacity: .8;
 }
 
-.hint code {
-    color: #888;
+.navbar-toggler {
+border: 1px solid #333 !important;
 }
 
+.navbar-toggler-icon {
+background-color: transparent;
+}
 
 /* =========================================================
-   COMMANDS
+DROPDOWN
 ========================================================= */
 
-.command-list {
-    display: flex;
+.dropdown-menu {
+background: #090909;
 
-    flex-direction: column;
+border: 1px solid #292929;
 
-    gap: 8px;
+border-radius: 2px;
 
-    margin-bottom: 18px;
+box-shadow:
+    0 15px 30px rgba(0,0,0,.6);
+
 }
 
-.command-item {
-    display: flex;
-
-    align-items: center;
-
-    gap: 13px;
-
-    padding: 14px;
-
-    margin: 0;
-
-    cursor: pointer;
-
-    border:
-        1px solid #242424;
-
-    border-radius: 5px;
-
-    background:
-        #090909;
-
-    transition:
-        0.2s;
+.dropdown-item {
+color: #888 !important;
 }
 
-.command-item:hover {
-    border-color: #444;
-
-    background: #0e0e0e;
+.dropdown-item:hover {
+background: #151515 !important;
+color: #fff !important;
 }
 
-.command-item input {
-    width: 17px;
-
-    height: 17px;
-
-    accent-color: #bbb;
-
-    flex-shrink: 0;
+.dropdown-divider {
+border-color: #252525;
 }
 
-.command-main {
-    flex: 1;
+/* =========================================================
+TEXTAREA
+========================================================= */
 
-    min-width: 0;
+.centered-textarea {
+display: block;
+
+margin: 0 auto;
+
+width: 100%;
+
+min-height: 150px;
+
+padding: 14px;
+
+box-sizing: border-box;
+
+border: 1px solid #303030;
+
+border-radius: 2px;
+
+resize: none;
+
+color: #ddd;
+
+background:
+    linear-gradient(
+        rgba(0,0,0,.8),
+        rgba(0,0,0,.92)
+    ),
+    url("https://i.gifer.com/YQgT.gif");
+
+background-size: cover;
+
+background-position: center;
+
+font-family: "Courier Prime", monospace;
+
+outline: none;
+
+transition: .25s;
+
 }
 
-.command-main strong {
-    display: block;
+.centered-textarea:focus {
+border-color: #777;
 
-    color: #ddd;
+box-shadow:
+    0 0 20px rgba(255,255,255,.06);
 
-    font-size: 12px;
 }
 
-.command-main small {
-    display: block;
-
-    margin-top: 4px;
-
-    color: #555;
-
-    font-size: 9px;
-
-    white-space: nowrap;
-
-    overflow: hidden;
-
-    text-overflow: ellipsis;
+.center-placeholder::placeholder {
+text-align: center;
+color: #555;
 }
 
-.ready {
-    font-size: 8px;
+/* =========================================================
+INPUTS
+========================================================= */
 
-    letter-spacing: 1px;
+#inputOfPrefix,
+#inputOfAdmin {
+padding: 12px;
 
-    color: #666;
+width: 90%;
 
-    border:
-        1px solid #292929;
+border: 1px solid #303030;
 
-    padding: 4px 7px;
+border-radius: 2px;
 
+cursor: text;
+
+transition:
+    background-color .25s,
+    border-color .25s,
+    box-shadow .25s;
+
+background: #080808;
+
+color: #ddd;
+
+font-size: 14px;
+
+font-family: "Courier Prime", monospace;
+
+outline: none;
+
+}
+
+#inputOfPrefix:focus,
+#inputOfAdmin:focus {
+border-color: #777;
+
+background: #0b0b0b;
+
+box-shadow:
+    0 0 15px rgba(255,255,255,.05);
+
+}
+
+#inputOfPrefix::placeholder,
+#inputOfAdmin::placeholder {
+color: #444;
+}
+
+/* =========================================================
+BUTTONS
+========================================================= */
+
+.btn-primary {
+background:
+linear-gradient(
+145deg,
+#161616,
+#080808
+) !important;
+
+border: 1px solid #3b3b3b !important;
+
+border-radius: 2px !important;
+
+font-size: 10px;
+
+color: #bbb !important;
+
+font-family: "Courier Prime", monospace;
+
+letter-spacing: 1px;
+
+text-transform: uppercase;
+
+padding: 10px 16px;
+
+transition:
+    .2s;
+
+}
+
+.btn-primary::before {
+content: "[ ";
+color: #555;
+}
+
+.btn-primary::after {
+content: " ]";
+color: #555;
+}
+
+.btn-primary:hover {
+background: #e8e8e8 !important;
+
+color: #050505 !important;
+
+border-color: #fff !important;
+
+box-shadow:
+    0 0 20px rgba(255,255,255,.1);
+
+transform: translateY(-1px);
+
+}
+
+.btn-primary:active {
+transform: scale(.98);
+}
+
+.btn-primary:disabled {
+opacity: .35;
+}
+
+/* =========================================================
+COMMAND / EVENT PANELS
+========================================================= */
+
+#listOfCommands,
+#listOfCommandsEvent,
+#prefixOfCommands,
+#adminOfCommands {
+border-left: 2px solid #444 !important;
+}
+
+#listOfCommands:hover,
+#listOfCommandsEvent:hover,
+#prefixOfCommands:hover,
+#adminOfCommands:hover {
+border-left-color: #999 !important;
+}
+
+/* =========================================================
+FORM CHECK
+========================================================= */
+
+.form-check {
+display: flex;
+
+margin-top: 10px;
+
+padding: 12px;
+
+width: 90%;
+
+align-items: center;
+
+border: 1px solid #303030;
+
+border-radius: 2px;
+
+cursor: pointer;
+
+transition:
+    background-color .3s ease,
+    border-color .3s ease;
+
+background-color: #0a0a0a;
+
+font-size: 14px;
+
+}
+
+.form-check:hover {
+background-color: #111;
+
+border-color: #666;
+
+}
+
+.form-check-input {
+margin-right: 10px;
+
+opacity: 0;
+
+}
+
+/* =========================================================
+CHECKBOX
+========================================================= */
+
+#agreeCheckbox {
+accent-color: #ddd;
+
+cursor: pointer;
+
+}
+
+/* =========================================================
+RESULT
+========================================================= */
+
+#result {
+padding: 12px;
+
+margin-top: 20px;
+
+border: 1px solid #292929;
+
+border-left: 2px solid #777;
+
+border-radius: 2px;
+
+font-size: 10px;
+
+color: #ccc;
+
+background: #080808;
+
+box-shadow:
+    inset 0 0 20px rgba(255,255,255,.015);
+
+}
+
+/* =========================================================
+SUCCESS
+========================================================= */
+
+.success-message {
+color: #aaa;
+
+margin-top: 10px;
+
+font-size: 12px;
+
+}
+
+/* =========================================================
+SWEETALERT
+========================================================= */
+
+.custom-swal {
+background-color: #090909 !important;
+
+color: #ddd !important;
+
+font-size: 14px;
+
+border: 1px solid #292929 !important;
+
+border-radius: 2px !important;
+
+}
+
+/* =========================================================
+DISABLE
+========================================================= */
+
+.disable {
+display: none;
+}
+
+/* =========================================================
+LISTS
+========================================================= */
+
+.container ul {
+padding-left: 20px;
+}
+
+.container ul li {
+list-style: none;
+}
+
+.container ul li::before {
+content: "//";
+
+color: #666;
+
+font-weight: bold;
+
+display: inline-block;
+
+width: 2em;
+
+margin-left: -2em;
+
+}
+
+.container ul li + li {
+margin-top: 10px;
+}
+
+/* =========================================================
+BUTTON CONTAINER
+========================================================= */
+
+.container-buttons {
+margin-top: 20px;
+
+text-align: center;
+
+}
+
+.container-buttons .btn {
+margin: 5px;
+}
+
+/* =========================================================
+FOOTER
+========================================================= */
+
+.footer {
+padding: 25px 20px;
+
+text-align: center;
+
+font-size: 9px;
+
+color: #555;
+
+position: relative;
+
+background:
+    rgba(5,5,5,.95);
+
+border-top: 1px solid #242424;
+
+width: 100%;
+
+margin-left: 0;
+
+margin-bottom: -20px;
+
+letter-spacing: 1px;
+
+}
+
+.footer p {
+margin: 5px 0;
+}
+
+.footer a {
+color: #666;
+
+text-decoration: none;
+
+transition: color .3s;
+
+}
+
+.footer a:hover {
+color: #fff;
+}
+
+/* =========================================================
+SCROLL UP BUTTON
+========================================================= */
+
+#scrollUpBtn {
+position: fixed;
+
+right: 20px;
+bottom: 25px;
+
+padding: 12px 16px;
+
+font-size: 12px;
+
+background: #090909;
+
+color: #aaa;
+
+border: 1px solid #383838;
+
+border-radius: 2px;
+
+cursor: pointer;
+
+display: none;
+
+z-index: 999;
+
+transition: .2s;
+
+}
+
+#scrollUpBtn:hover {
+color: #fff;
+
+border-color: #888;
+
+background: #111;
+
+box-shadow:
+    0 0 18px rgba(255,255,255,.08);
+
+}
+
+/* =========================================================
+MOBILE
+========================================================= */
+
+@media (max-width: 768px) {
+
+body {
+    padding: 10px;
+}
+
+.navbar {
     border-radius: 3px;
 }
 
-.loading,
-.empty,
-.error {
-    padding: 20px;
-
-    text-align: center;
-
-    border:
-        1px dashed #292929;
-
-    color: #555;
-
-    font-size: 10px;
-}
-
-.error {
-    color: #888;
-
-    border-color: #444;
-}
-
-
-/* =========================================================
-   BUTTONS
-========================================================= */
-
-.secondary-btn {
-    width: 100%;
-
-    min-height: 44px;
-
-    border:
-        1px solid #303030;
-
-    border-radius: 5px;
-
-    background:
-        #101010;
-
-    color: #aaa;
-
-    font-family:
-        inherit;
-
-    font-size: 10px;
-
-    letter-spacing: 1px;
-
-    cursor: pointer;
-
-    transition:
-        0.2s;
-}
-
-.secondary-btn:hover {
-    background: #181818;
-
-    border-color: #555;
-
-    color: #eee;
-}
-
-
-/* =========================================================
-   ACTION
-========================================================= */
-
-.action {
-    margin:
-        30px 0;
-}
-
-#submitButton {
-    width: 100%;
-
-    min-height: 58px;
-
-    border:
-        1px solid #444;
-
-    border-radius: 6px;
-
-    background:
-        #dedede;
-
-    color: #050505;
-
-    font-family:
-        inherit;
-
-    font-size: 11px;
-
-    font-weight: bold;
-
-    letter-spacing: 2px;
-
-    cursor: pointer;
-
-    transition:
-        0.2s;
-}
-
-#submitButton:hover:not(:disabled) {
-    background: #fff;
-
-    box-shadow:
-        0 0 30px
-        rgba(255,255,255,0.12);
-}
-
-#submitButton:disabled {
-    opacity: 0.25;
-
-    cursor: not-allowed;
-}
-
-#submitButton i {
-    margin-right: 8px;
-}
-
-
-/* =========================================================
-   RESULT
-========================================================= */
-
-.result {
-    margin-top: 12px;
-
-    padding: 13px;
-
-    border-radius: 5px;
-
-    text-align: center;
-
-    font-size: 10px;
-}
-
-.result.success {
-    color: #aaa;
-
-    background:
-        #0e0e0e;
-
-    border:
-        1px solid #303030;
-}
-
-.result.error {
-    color: #999;
-
-    background:
-        #111;
-
-    border:
-        1px solid #3a3a3a;
-}
-
-
-/* =========================================================
-   AGREEMENT
-========================================================= */
-
-.agreement {
-    display: flex;
-
-    align-items: flex-start;
-
-    gap: 12px;
-
-    margin: 0;
-
-    cursor: pointer;
-
-    color: #666;
-
-    font-size: 10px;
-
-    line-height: 1.6;
-}
-
-.agreement input {
-    margin-top: 3px;
-
-    width: 16px;
-
-    height: 16px;
-
-    accent-color: #ccc;
-
-    flex-shrink: 0;
-}
-
-.agreement a {
-    color: #aaa;
-
-    text-decoration:
-        underline;
-}
-
-
-/* =========================================================
-   STATUS
-========================================================= */
-
-.stats {
-    display: grid;
-
-    grid-template-columns:
-        repeat(4, 1fr);
-
-    gap: 8px;
-}
-
-.stat {
+.container {
     padding: 15px;
 
-    background: #080808;
-
-    border:
-        1px solid #222;
-
-    border-radius: 5px;
+    margin-top: 15px;
 }
 
-.stat span {
-    display: block;
+.container h1 {
+    font-size: 16px;
 
-    color: #555;
-
-    font-size: 8px;
-
-    letter-spacing: 1px;
-
-    margin-bottom: 7px;
+    padding: 9px 12px;
 }
 
-.stat strong {
-    color: #aaa;
-
-    font-size: 10px;
-
-    word-break: break-word;
+#inputOfPrefix,
+#inputOfAdmin {
+    width: 100%;
 }
 
-.hunting-status {
-    padding: 15px;
-
-    border:
-        1px solid #222;
-
-    background:
-        #080808;
-
-    border-radius: 5px;
-
-    color: #888;
-
-    font-size: 10px;
+.form-check {
+    width: 100%;
 }
 
-
-/* =========================================================
-   FOOTER
-========================================================= */
-
-footer {
-    padding:
-        35px 15px;
-
-    text-align: center;
-
-    border-top:
-        1px solid #1c1c1c;
-
-    color: #444;
+.btn-primary {
+    width: auto;
 
     font-size: 9px;
-
-    line-height: 2;
 }
 
-footer strong {
-    display: block;
+#scrollUpBtn {
+    right: 15px;
+    bottom: 20px;
 
-    color: #777;
-
-    letter-spacing: 3px;
-
-    font-size: 12px;
+    padding: 11px 14px;
 }
 
+.footer {
+    font-size: 8px;
+}
+
+}
 
 /* =========================================================
-   MOBILE
+NULLFIED TEXT EFFECT
 ========================================================= */
 
-@media (max-width: 650px) {
+.container > h1.col.text-center {
+color: #eee;
 
-    .navbar {
-        padding:
-            15px 20px;
-    }
+letter-spacing: 5px;
 
-    .hero {
-        padding:
-            55px 5px 35px;
-    }
+text-shadow:
+    0 0 8px rgba(255,255,255,.12),
+    0 0 25px rgba(255,255,255,.03);
 
-    .hero h1 {
-        letter-spacing: 4px;
-    }
+}
 
-    .hero p {
-        letter-spacing: 2px;
+/* =========================================================
+SELECTION
+========================================================= */
 
-        line-height: 1.8;
-    }
+::selection {
+background: #ddd;
+color: #050505;
+}
 
-    .card {
-        padding: 18px;
-    }
+/* =========================================================
+SCROLLBAR
+========================================================= */
 
-    .stats {
-        grid-template-columns:
-            repeat(2, 1fr);
-    }
+::-webkit-scrollbar {
+width: 6px;
+}
 
-    .command-item {
-        padding: 12px;
-    }
+::-webkit-scrollbar-track {
+background: #050505;
+}
 
-    .ready {
-        display: none;
-    }
+::-webkit-scrollbar-thumb {
+background: #292929;
+border-radius: 2px;
+}
 
+::-webkit-scrollbar-thumb:hover {
+background: #555;
 }
