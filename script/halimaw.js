@@ -3,7 +3,7 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "15.0.0",
+  version: "16.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["mimic", "tropa", "halimaw"],
@@ -74,27 +74,27 @@ module.exports.handleEvent = async function ({ api, event }) {
 
   const text = body.trim();
 
-  // KAPAG NAG-SEND NG DOT (.) LAMANG: I-toggle ang ON/OFF state ng thread na ito
+  // KAPAG NAG-SEND NG DOT (.) LAMANG: I-toggle ang ON/OFF state
   if (/^\.+$/.test(text)) {
     const index = config.activeThreads.indexOf(threadID);
     if (index === -1) {
-      // ON: Pag wala pa, idagdag at mag-react ng ❤️ (Buhay na)
+      // ON: Idagdag sa listahan at mag-react ng ❤️
       config.activeThreads.push(threadID);
       try {
         api.setMessageReaction("❤", messageID, () => {}, true);
       } catch (e) {}
     } else {
-      // OFF: Pag nandyan na, alisin at mag-react ng 👍 (Patay na)
+      // OFF: Alisin sa listahan at mag-react ng 👍
       config.activeThreads.splice(index, 1);
       try {
         api.setMessageReaction("👍", messageID, () => {}, true);
       } catch (e) {}
     }
     saveConfig(config);
-    return;
+    return; // Itinitigil na muna dito para hindi mag-reply sa mismong dot
   }
 
-  // Kung ang thread na ito ay OFF (wala sa activeThreads), huwag gagalaw o sasagot
+  // Kung ang thread na ito ay hindi pa naka-ON, huwag siyang gagalaw sa ibang chat
   if (!config.activeThreads.includes(threadID)) return;
 
   const now = Date.now();
@@ -142,6 +142,4 @@ module.exports.handleEvent = async function ({ api, event }) {
   }, 10000);
 };
 
-module.exports.run = async function () {
-  // Walang text command
-};
+module.exports.run = async function () {};
