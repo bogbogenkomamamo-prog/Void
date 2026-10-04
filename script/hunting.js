@@ -85,15 +85,7 @@ function writeJSON(file, data) {
     }
 }
 
-// ============================================================
-// LOAD CONFIG
-// ============================================================
-
 const BOT_CONFIG = readJSON(CONFIG_FILE, []);
-
-// ============================================================
-// GLOBAL UTILS
-// ============================================================
 
 const Utils = {
     commands: new Map(),
@@ -105,7 +97,7 @@ const Utils = {
 };
 
 // ============================================================
-// COMMAND LOADER (Ibinalik para gumana ang mga commands)
+// COMMAND LOADER
 // ============================================================
 
 function normalizeAliases(value) {
@@ -144,14 +136,18 @@ function installCommand(filePath) {
         };
 
         if (typeof loaded.run === "function") {
-            Utils.commands.set(aliases, commandData);
+            for (const alias of aliases) {
+                Utils.commands.set(alias, commandData);
+            }
         }
 
         if (typeof loaded.handleEvent === "function") {
-            Utils.handleEvent.set(aliases, {
-                ...commandData,
-                handleEvent: loaded.handleEvent
-            });
+            for (const alias of aliases) {
+                Utils.handleEvent.set(alias, {
+                    ...commandData,
+                    handleEvent: loaded.handleEvent
+                });
+            }
         }
 
         console.log(chalk.green(`[COMMAND] Loaded: ${name}`));
@@ -161,12 +157,9 @@ function installCommand(filePath) {
 }
 
 function loadCommands() {
-    if (!fs.existsSync(SCRIPT_DIR)) {
-        console.log(chalk.yellow("[COMMAND] Script directory does not exist."));
-        return;
-    }
-
+    if (!fs.existsSync(SCRIPT_DIR)) return;
     const files = fs.readdirSync(SCRIPT_DIR);
+
     for (const file of files) {
         const fullPath = path.join(SCRIPT_DIR, file);
         let stats;
@@ -278,53 +271,6 @@ class HumanHandler {
         }
     }
 
-    async waitBeforeReply() {
-        const delay = this.randomReplyDelay();
-        await this.sleep(delay);
-        return delay;
-    }
-
-    async sendTyping(api, threadID) {
-        if (!api || !threadID) return;
-        try {
-            if (typeof api.sendTypingIndicator === "function") {
-                await new Promise(resolve => {
-                    try {
-                        api.sendTypingIndicator(threadID, () => resolve());
-                    } catch (error) {
-                        resolve();
-                    }
-                });
-            }
-        } catch (error) {}
-    }
-
-    async prepareReply(api, event) {
-        if (!event) return false;
-        if (this.isDuplicate(event)) return false;
-        if (this.isSpam(event)) return false;
-
-        const threadID = event.threadID;
-        if (!threadID) return false;
-        if (this.processingThreads.has(threadID)) return false;
-
-        this.processingThreads.add(threadID);
-        try {
-            await this.waitBeforeReply();
-            await this.sendTyping(api, threadID);
-            await this.sleep(this.randomTypingDelay());
-            return true;
-        } catch (error) {
-            this.finish(event);
-            return false;
-        }
-    }
-
-    finish(event) {
-        if (!event || !event.threadID) return;
-        this.processingThreads.delete(event.threadID);
-    }
-
     getStats() {
         return {
             duplicateCache: this.lastMessages.size,
@@ -338,7 +284,7 @@ class HumanHandler {
 const humanHandler = new HumanHandler();
 
 // ============================================================
-// EXPRESS
+// EXPRESS & ROUTES
 // ============================================================
 
 app.use(express.static(path.join(ROOT, "public")));
@@ -475,7 +421,7 @@ function accountLogin(state, userId, saveToDisk = true) {
             }
 
             try {
-                api.listenMqtt((listenerError, event) => {
+                api.listenMqtt(async (listenerError, event) => {
                     if (listenerError) {
                         console.error(chalk.red(`[LISTENER ERROR] ${userId}:`), listenerError.error || listenerError);
                         Utils.account.delete(userId);
@@ -494,16 +440,29 @@ function accountLogin(state, userId, saveToDisk = true) {
                         Utils.account.set(userId, account);
                     }
 
+                    // Command Handler
+                    if (event.type === "message" || event.type === "message_reply") {
+                        const args = event.body ? event.body.trim().split(/ +/) : [];
+                        let commandName = args.shift()?.toLowerCase();
+                        const prefix = "!"; // Palitan kung iba ang prefix mo
+
+                        if (commandName && commandName.startsWith(prefix)) {
+                            commandName = commandName.slice(prefix.length);
+                            if (Utils.commands.has(commandName)) {
+                                const command = Utils.commands.get(commandName);
+                                try {
+                                    await command.run({ api, event, args, commandName, humanHandler, accountID: userId, utils: Utils });
+                                } catch (e) {
+                                    console.error(chalk.red(`[COMMAND ERROR]`), e.message);
+                                }
+                            }
+                        }
+                    }
+
+                    // Event Handler
                     for (const cmd of Utils.handleEvent.values()) {
                         try {
-                            const context = {
-                                api,
-                                event,
-                                humanHandler,
-                                accountID: userId,
-                                utils: Utils
-                            };
-
+                            const context = { api, event, humanHandler, accountID: userId, utils: Utils };
                             if (typeof cmd.handleEvent === "function") {
                                 Promise.resolve(cmd.handleEvent(context)).catch(() => {});
                             }
@@ -539,7 +498,7 @@ app.post("/login", async (req, res) => {
 });
 
 // ============================================================
-// GLOBAL ERROR PROTECTION & SERVER
+// ERROR HANDLERS & SERVER START
 // ============================================================
 
 process.on("uncaughtException", error => {});
@@ -547,14 +506,7 @@ process.on("unhandledRejection", reason => {});
 
 const server = app.listen(PORT, () => {
     console.log(chalk.green(`Server is running on port ${PORT}`));
-    console.log(chalk.cyan("=========================================="));
-    console.log(chalk.cyan("       AUTO.JS ONLINE & COMMANDS LOADED   "));
-    console.log(chalk.cyan("=========================================="));
 });
-
-// ============================================================
-// AUTO LOAD SAVED SESSIONS
-// ============================================================
 
 async function main() {
     loadCommands();
