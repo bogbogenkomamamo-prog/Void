@@ -15,7 +15,6 @@
     "axios": "^1.6.5",
     "bluebird": "^3.7.2",
     "body-parser": "^1.20.2",
-    "canvas": "^2.9.3",
     "chalk": "^3.0.0",
     "cheerio": "^0.22.0",
     "child_process": "^1.0.2",
