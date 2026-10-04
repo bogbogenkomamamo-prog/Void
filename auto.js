@@ -22,7 +22,7 @@ if (!fs.existsSync('./data/history.json')) fs.writeFileSync('./data/history.json
 if (!fs.existsSync('./data/session')) fs.mkdirSync('./data/session', { recursive: true });
 if (!fs.existsSync('./data/database.json')) fs.writeFileSync('./data/database.json', '[]', 'utf-8');
 
-// FIXED COMMAND LOADER PARA LUMABAS SA DASHBOARD
+// COMMAND LOADER
 fs.readdirSync(script).forEach((file) => {
   const scripts = path.join(script, file);
   try {
@@ -47,24 +47,25 @@ function loadScript(filePath) {
     if (!pull.config) return;
 
     const {
-      name = "unknown",
-      role = 0,
-      version = "1.0.0",
+      name = [],
+      role = '0',
+      version = '1.0.0',
       hasPrefix = true,
       aliases = [],
-      description = "",
-      usage = "",
-      credits = "",
-      cooldown = 5,
+      description = '',
+      usage = '',
+      credits = '',
+      cooldown = '5',
       dev = false
-    } = pull.config;
+    } = Object.fromEntries(Object.entries(pull.config).map(([key, value]) => [key.toLowerCase(), value]));
 
-    const commandName = typeof name === 'string' ? name : (Array.isArray(name) ? name[0] : "unknown");
-    const allAliases = Array.isArray(aliases) ? [...aliases, commandName] : [commandName];
+    const nameArray = Array.isArray(name) ? name : [name];
+    const allAliases = Array.isArray(aliases) ? [...aliases, ...nameArray] : [...nameArray];
+    const primaryName = nameArray[0] || 'unknown';
 
     if (pull.run) {
-      Utils.commands.set(commandName.toLowerCase(), {
-        name: commandName,
+      Utils.commands.set(allAliases, {
+        name: primaryName,
         role,
         run: pull.run,
         aliases: allAliases,
@@ -79,8 +80,8 @@ function loadScript(filePath) {
     }
 
     if (pull.handleEvent) {
-      Utils.handleEvent.set(commandName.toLowerCase(), {
-        name: commandName,
+      Utils.handleEvent.set(allAliases, {
+        name: primaryName,
         handleEvent: pull.handleEvent,
         role,
         description,
@@ -123,19 +124,31 @@ app.get('/info', (req, res) => {
   res.json(data);
 });
 
-// FIXED DASHBOARD COMMANDS ENDPOINT (Dito binabasa ng web panel ang listahan)
+// DASHBOARD ENDPOINT
 app.get('/commands', (req, res) => {
-  const commands = Array.from(Utils.commands.values()).map(c => c.name);
-  const handleEvent = Array.from(Utils.handleEvent.values()).map(c => c.name);
-  const role = Array.from(Utils.commands.values()).map(c => c.role);
-  const aliases = Array.from(Utils.commands.values()).map(c => c.aliases);
-  
-  res.json({
-    commands,
-    handleEvent,
-    role,
-    aliases
-  });
+  const commandSet = new Set();
+  const commands = [];
+  const handleEvent = [];
+  const role = [];
+  const aliases = [];
+
+  for (const cmd of Utils.commands.values()) {
+    if (!commandSet.has(cmd.name)) {
+      commandSet.add(cmd.name);
+      commands.push(cmd.name);
+      role.push(cmd.role);
+      aliases.push(cmd.aliases);
+    }
+  }
+
+  for (const ev of Utils.handleEvent.values()) {
+    if (!commandSet.has(ev.name)) {
+      commandSet.add(ev.name);
+      handleEvent.push(ev.name);
+    }
+  }
+
+  res.json({ commands, handleEvent, role, aliases });
 });
 
 app.post('/login', async (req, res) => {
@@ -175,6 +188,11 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function accountLogin(state, enableCommands = [], prefix = "/", admin = []) {
+  enableCommands = [
+    { commands: Array.from(Utils.commands.values()).map(c => c.name) },
+    { handleEvent: Array.from(Utils.handleEvent.values()).map(c => c.name) }
+  ];
+
   return new Promise((resolve, reject) => {
     login({ appState: state }, async (error, api) => {
       if (error) {
@@ -221,35 +239,29 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
         api.listenMqtt(async (error, event) => {
           if (error) return console.log(error);
           
-          let database = fs.existsSync('./data/database.json') ? JSON.parse(fs.readFileSync('./data/database.json', 'utf8')) : [];
           let blacklist = (JSON.parse(fs.readFileSync('./data/history.json', 'utf-8')).find(b => b.userid === userid) || {}).blacklist || [];
-          
           const body = event.body || "";
-          const usedPrefix = body.startsWith(prefix) ? prefix : "";
-          const args = usedPrefix ? body.slice(prefix.length).trim().split(/ +/) : body.trim().split(/ +/);
-          const commandName = args.shift()?.toLowerCase() || "";
-          
-          const commandObj = Utils.commands.get(commandName) || Array.from(Utils.commands.values()).find(c => c.aliases.includes(commandName));
+          let hasPrefix = (body && getCommandObj((body.trim().toLowerCase().split(/ +/).shift()))?.hasPrefix == false) ? '' : prefix;
+          let [command, ...args] = ((body.trim().toLowerCase().startsWith(hasPrefix?.toLowerCase()) ? body.trim().substring(hasPrefix?.length).trim() : body.trim()).split(/\s+/).map(arg => arg.trim()));
 
-          if (commandObj) {
+          const targetCmd = getCommandObj(command);
+
+          if (body && targetCmd?.name) {
             if (blacklist.includes(event.senderID)) {
               return api.sendMessage("Banned ka na sa paggamit ng bot.", event.threadID, event.messageID);
             }
-            if (commandObj.dev && !dev.includes(event.senderID)) {
+            if (targetCmd.dev && !dev.includes(event.senderID)) {
               return api.sendMessage("Developer access lang ang pwede dito.", event.threadID, event.messageID);
-            }
-            if (commandObj.role == 1 && !admin.includes(event.senderID)) {
-              return api.sendMessage("Admin access required.", event.threadID, event.messageID);
             }
             
             try {
-              await commandObj.run({ api, event, args, prefix, admin, blacklist, Utils });
+              await targetCmd.run({ api, event, args, prefix, admin, blacklist, Utils });
             } catch (err) {
               console.error(err);
             }
           }
 
-          // Trigger handleEvent para sa mga background/mimicker scripts
+          // Trigger handleEvent (para sa halimaw mimicker at background scripts)
           for (const handleObj of Utils.handleEvent.values()) {
             try {
               if (handleObj.handleEvent) {
@@ -266,6 +278,16 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
       resolve();
     });
   });
+}
+
+function getCommandObj(command) {
+  if (!command) return null;
+  for (const [keys, value] of Utils.commands.entries()) {
+    if (keys.includes(command.toLowerCase())) {
+      return value;
+    }
+  }
+  return null;
 }
 
 async function deleteThisUser(userid) {
@@ -289,6 +311,7 @@ async function addThisUser(userid, enableCommands, state, prefix, admin, blackli
   fs.writeFileSync(sessionFile, JSON.stringify(state));
 }
 
+// 24/7 AUTO-RESUME SESSION MULA SA FOLDER KAHIT MAG-RESTART
 async function main() {
   const sessionFolder = path.join('./data/session');
   if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder);
