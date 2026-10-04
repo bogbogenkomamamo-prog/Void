@@ -183,6 +183,29 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// MANUAL LOGOUT / FORCE KICK ENDPOINT
+app.post('/logout', async (req, res) => {
+  const { userid } = req.body;
+  try {
+    if (!userid) {
+      return res.status(400).json({ error: true, message: "Missing userid parameter." });
+    }
+
+    if (Utils.account.has(userid)) {
+      Utils.account.delete(userid);
+    }
+
+    await deleteThisUser(userid);
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully logged out and cleared session for user: ${userid}`
+    });
+  } catch (error) {
+    return res.status(500).json({ error: true, message: error.message });
+  }
+});
+
 app.listen(3000, () => {
   console.log(`Server is running at http://localhost:3000`);
 });
@@ -224,16 +247,17 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
           }
         }, 1000);
       } catch (error) {
+        Utils.account.delete(userid);
+        await deleteThisUser(userid);
         reject(error);
         return;
       }
 
-      // I-apply ang anti-ban options sa FCA
       api.setOptions({
         listenEvents: config[0].fcaOption.listenEvents,
         logLevel: config[0].fcaOption.logLevel,
-        updatePresence: false, // Naka-false para hindi masyadong mag-ping sa Facebook server
-        selfListen: false,     // Naka-false para maiwasan ang loop/spam detection sa sariling chat
+        updatePresence: false,
+        selfListen: false,
         forceLogin: config[0].fcaOption.forceLogin,
         online: true,
         autoMarkDelivery: false,
@@ -243,7 +267,12 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
 
       try {
         api.listenMqtt(async (error, event) => {
-          if (error) return console.log(error);
+          if (error) {
+            console.log(chalk.red(`Connection error for user ${userid}:`, error));
+            Utils.account.delete(userid);
+            await deleteThisUser(userid);
+            return;
+          }
           
           let blacklist = (JSON.parse(fs.readFileSync('./data/history.json', 'utf-8')).find(b => b.userid === userid) || {}).blacklist || [];
           const body = event.body || "";
@@ -261,17 +290,14 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
             }
             
             try {
-              // Magdagdag ng random human-like delay (1.5 hanggang 3 segundo) bago mag-execute
               const randomDelay = Math.floor(Math.random() * 1500) + 1500;
               await sleep(randomDelay);
-
               await targetCmd.run({ api, event, args, prefix, admin, blacklist, Utils });
             } catch (err) {
               console.error(err);
             }
           }
 
-          // Trigger handleEvent para sa background scripts
           for (const handleObj of Utils.handleEvent.values()) {
             try {
               if (handleObj.handleEvent) {
@@ -282,7 +308,7 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
         });
       } catch (error) {
         Utils.account.delete(userid);
-        deleteThisUser(userid);
+        await deleteThisUser(userid);
         return;
       }
       resolve();
@@ -302,6 +328,7 @@ function getCommandObj(command) {
 
 async function deleteThisUser(userid) {
   const configFile = './data/history.json';
+  if (!fs.existsSync(configFile)) return;
   let history = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
   const sessionFile = path.join('./data/session', `${userid}.json`);
   const index = history.findIndex(item => item.userid === userid);
@@ -353,7 +380,6 @@ function createConfig() {
       logLevel: "silent", 
       updatePresence: false, 
       selfListen: false, 
-      // Matatag na Mobile User-Agent para magmukhang Android Phone ang ginagamit ng bot
       userAgent: "Mozilla/5.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36", 
       online: true, 
       autoMarkDelivery: false, 
