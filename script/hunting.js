@@ -298,10 +298,7 @@ function isSpamLike(text) {
 
 	if (!value) return true;
 
-	if (
-		value.length >
-		MAX_MESSAGE_LENGTH
-	) {
+	if (value.length > MAX_MESSAGE_LENGTH) {
 		return true;
 	}
 
@@ -321,9 +318,7 @@ function isDuplicate(thread, text) {
 
 	return (
 		thread.lastInput === value &&
-		Date.now() -
-			thread.lastInputTime <
-			DUPLICATE_WINDOW
+		Date.now() - thread.lastInputTime < DUPLICATE_WINDOW
 	);
 }
 
@@ -335,9 +330,7 @@ function generateReply(input) {
 	const text = String(input || "").trim();
 	const lower = text.toLowerCase();
 
-	if (
-		/^(hi|hello|hey|yo|sup|hoy|uy)$/i.test(text)
-	) {
+	if (/^(hi|hello|hey|yo|sup|hoy|uy)$/i.test(text)) {
 		return pick([
 			"uy",
 			"oh",
@@ -356,9 +349,7 @@ function generateReply(input) {
 		return pick(QUESTION_REPLIES);
 	}
 
-	if (
-		/\b(lol|lmao|haha|hahaha|hehe)\b/i.test(lower)
-	) {
+	if (/\b(lol|lmao|haha|hahaha|hehe)\b/i.test(lower)) {
 		return pick([
 			"ano nakakatawa",
 			"tawa ka nang tawa",
@@ -372,9 +363,7 @@ function generateReply(input) {
 		]);
 	}
 
-	if (
-		/\b(bakit|bat)\b/i.test(lower)
-	) {
+	if (/\b(bakit|bat)\b/i.test(lower)) {
 		return pick([
 			"ewan",
 			"wala lang",
@@ -388,9 +377,7 @@ function generateReply(input) {
 		]);
 	}
 
-	if (
-		/\b(ano|anong)\b/i.test(lower)
-	) {
+	if (/\b(ano|anong)\b/i.test(lower)) {
 		return pick([
 			"ano",
 			"bakit",
@@ -403,10 +390,7 @@ function generateReply(input) {
 		]);
 	}
 
-	// Hindi automatic na sumasang-ayon.
-	if (
-		/\b(oo|opo|yes|yeah|yea|yup)\b/i.test(lower)
-	) {
+	if (/\b(oo|opo|yes|yeah|yea|yup)\b/i.test(lower)) {
 		return pick([
 			"ge",
 			"edi sige",
@@ -420,9 +404,7 @@ function generateReply(input) {
 		]);
 	}
 
-	if (
-		/\b(hindi|di|no|nah|nope)\b/i.test(lower)
-	) {
+	if (/\b(hindi|di|no|nah|nope)\b/i.test(lower)) {
 		return pick([
 			"ah",
 			"okay",
@@ -512,341 +494,143 @@ function mimic(input, reply) {
    TYPING INDICATOR
 ========================= */
 
-async function typingOn(message) {
+async function typingOn(api, threadID) {
 	try {
-		if (
-			typeof message.sendTypingIndicator ===
-			"function"
-		) {
-			await message.sendTypingIndicator();
-			return;
-		}
-
-		if (
-			message.api &&
-			message.threadID &&
-			typeof message.api.sendTypingIndicator ===
-			"function"
-		) {
-			message.api.sendTypingIndicator(
-				message.threadID,
-				true
-			);
+		if (api && typeof api.sendTypingIndicator === "function") {
+			api.sendTypingIndicator(threadID, true);
 		}
 	} catch (_) {}
 }
 
-async function typingOff(message) {
+async function typingOff(api, threadID) {
 	try {
-		if (
-			message.api &&
-			message.threadID &&
-			typeof message.api.sendTypingIndicator ===
-			"function"
-		) {
-			message.api.sendTypingIndicator(
-				message.threadID,
-				false
-			);
+		if (api && typeof api.sendTypingIndicator === "function") {
+			api.sendTypingIndicator(threadID, false);
 		}
 	} catch (_) {}
 }
 
 /* =========================
-   COMMAND
-   PREFIXLESS
+   COMMAND MODULE
 ========================= */
 
 module.exports = {
-
 	config: {
 		name: "human",
 		version: "5.0",
 		author: "Sinzu",
 		countDown: 0,
 		role: 0,
-
 		description: {
 			en: "Prefixless Tagalog human mimicker",
 			tl: "Prefixless Tagalog human mimicker"
 		},
-
 		category: "system",
-
 		guide: {
 			en: "human on\nhuman off",
 			tl: "human on\nhuman off"
 		}
 	},
 
-	/*
-	 * Optional prefixed usage:
-	 * human on
-	 * human off
-	 */
-	onStart: async function ({
-		args,
-		message
-	}) {
+	// Regular run function para sa command control (human on / off)
+	run: async function ({ api, event, args }) {
+		const senderID = event.senderID || event.senderId;
 
-		const senderID =
-			message.senderID ||
-			message.senderId;
-
-		if (
-			!ADMINS.has(
-				String(senderID)
-			)
-		) {
-			return message.reply(
-				"admin only."
-			);
+		if (!ADMINS.has(String(senderID))) {
+			return api.sendMessage("admin only.", event.threadID, event.messageID);
 		}
 
-		const action =
-			String(
-				args[0] || ""
-			).toLowerCase();
+		const action = String(args[0] || "").toLowerCase();
 
 		if (action === "on") {
 			state.enabled = true;
 			saveState();
-
-			return message.reply(
-				"human mode on."
-			);
+			return api.sendMessage("human mode on.", event.threadID, event.messageID);
 		}
 
 		if (action === "off") {
 			state.enabled = false;
 			saveState();
-
-			return message.reply(
-				"human mode off."
-			);
+			return api.sendMessage("human mode off.", event.threadID, event.messageID);
 		}
 
-		return message.reply(
-			"human on / human off"
-		);
+		return api.sendMessage("human on / human off", event.threadID, event.messageID);
 	},
 
-	/*
-	 * Prefixless detector
-	 */
-	handleEvent: async function ({
-		event,
-		message
-	}) {
-
+	// Event listener para sa prefixless auto-reply at mimicker
+	handleEvent: async function ({ api, event }) {
 		if (!event) return;
 
-		const body =
-			event.body ||
-			event.message ||
-			"";
-
+		const body = event.body || event.message || "";
 		if (!body) return;
 
-		const text =
-			String(body).trim();
+		const text = String(body).trim();
+		const lower = text.toLowerCase();
 
-		const lower =
-			text.toLowerCase();
-
-		/*
-		 * =========================
-		 * PREFIXLESS ON / OFF
-		 * =========================
-		 */
-
-		if (
-			lower === "human on" ||
-			lower === "human off"
-		) {
-
-			const senderID =
-				event.senderID ||
-				event.author;
-
-			if (
-				!ADMINS.has(
-					String(senderID)
-				)
-			) {
-				return;
-			}
+		if (lower === "human on" || lower === "human off") {
+			const senderID = event.senderID || event.author;
+			if (!ADMINS.has(String(senderID))) return;
 
 			if (lower === "human on") {
 				state.enabled = true;
 				saveState();
-
-				return message.reply(
-					"human mode on."
-				);
+				return api.sendMessage("human mode on.", event.threadID, event.messageID);
 			}
 
 			if (lower === "human off") {
 				state.enabled = false;
 				saveState();
-
-				return message.reply(
-					"human mode off."
-				);
+				return api.sendMessage("human mode off.", event.threadID, event.messageID);
 			}
-
 			return;
 		}
-
-		/*
-		 * Don't process commands while
-		 * human mode is disabled.
-		 */
 
 		if (!state.enabled) return;
 
-		/*
-		 * Ignore obvious bot/self messages.
-		 */
+		if (event.isSelf || event.isBot) return;
 
-		if (
-			event.isSelf ||
-			event.isBot
-		) {
-			return;
-		}
+		const senderID = event.senderID || event.author;
+		if (senderID && ADMINS.has(String(senderID))) return;
 
-		const senderID =
-			event.senderID ||
-			event.author;
-
-		if (
-			senderID &&
-			ADMINS.has(
-				String(senderID)
-			)
-		) {
-			return;
-		}
-
-		const threadID =
-			event.threadID ||
-			message.threadID;
-
+		const threadID = event.threadID;
 		if (!threadID) return;
 
-		if (isSpamLike(text)) {
-			return;
-		}
+		if (isSpamLike(text)) return;
 
-		const thread =
-			getThread(threadID);
+		const thread = getThread(threadID);
 
-		/*
-		 * Duplicate protection.
-		 */
+		if (isDuplicate(thread, text)) return;
 
-		if (
-			isDuplicate(
-				thread,
-				text
-			)
-		) {
-			return;
-		}
-
-		/*
-		 * Save incoming activity.
-		 */
-
-		thread.lastMessage =
-			Date.now();
-
-		thread.lastInput =
-			normalize(text);
-
-		thread.lastInputTime =
-			Date.now();
-
+		thread.lastMessage = Date.now();
+		thread.lastInput = normalize(text);
+		thread.lastInputTime = Date.now();
 		saveState();
 
-		/*
-		 * 10-second cooldown.
-		 */
-
-		if (
-			Date.now() -
-				Number(
-					thread.lastReply || 0
-				) <
-			THREAD_COOLDOWN
-		) {
+		if (Date.now() - Number(thread.lastReply || 0) < THREAD_COOLDOWN) {
 			return;
 		}
 
-		/*
-		 * Generate response.
-		 */
+		let reply = generateReply(text);
+		reply = mimic(text, reply);
 
-		let reply =
-			generateReply(text);
+		await sleep(REPLY_DELAY);
 
-		reply =
-			mimic(
-				text,
-				reply
-			);
+		// Typing indicator on
+		await typingOn(api, threadID);
 
-		/*
-		 * Wait exactly 10 seconds.
-		 */
-
-		await sleep(
-			REPLY_DELAY
-		);
-
-		/*
-		 * Typing indicator.
-		 */
-
-		await typingOn(message);
-
-		await sleep(
-			random(
-				TYPING_MIN,
-				TYPING_MAX
-			)
-		);
+		await sleep(random(TYPING_MIN, TYPING_MAX));
 
 		try {
+			await api.sendMessage(reply, threadID, event.messageID);
 
-			await message.reply(
-				reply
-			);
-
-			thread.lastReply =
-				Date.now();
-
-			thread.replyCount =
-				Number(
-					thread.replyCount || 0
-				) + 1;
-
+			thread.lastReply = Date.now();
+			thread.replyCount = Number(thread.replyCount || 0) + 1;
 			saveState();
-
 		} catch (err) {
-
-			console.error(
-				"[HUMAN] Reply error:",
-				err.message
-			);
-
+			console.error("[HUMAN] Reply error:", err.message);
 		} finally {
-
-			await typingOff(
-				message
-			);
-
+			// Typing indicator off
+			await typingOff(api, threadID);
 		}
 	}
 };
