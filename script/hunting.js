@@ -512,13 +512,101 @@ async function typingOff(api, threadID) {
 }
 
 /* =========================
-   COMMAND MODULE
+   MAIN LOGIC HANDLER
+========================= */
+
+async function handleIncomingMessage({ api, event }) {
+	if (!event) return;
+
+	// I-check kung sariling chat ng bot para hindi mag-loop
+	if (event.isSelf || event.senderID === api.getCurrentUserID?.()) {
+		return;
+	}
+
+	const body = event.body || event.message || "";
+	if (!body) return;
+
+	const text = String(body).trim();
+	const lower = text.toLowerCase();
+
+	const senderID = String(event.senderID || event.author || "");
+
+	// Manual ON/OFF command via chat para sa mga admins
+	if (lower === "human on" || lower === "human off") {
+		if (!ADMINS.has(senderID)) return;
+
+		if (lower === "human on") {
+			state.enabled = true;
+			saveState();
+			return api.sendMessage("human mode on.", event.threadID, event.messageID);
+		}
+
+		if (lower === "human off") {
+			state.enabled = false;
+			saveState();
+			return api.sendMessage("human mode off.", event.threadID, event.messageID);
+		}
+		return;
+	}
+
+	// Kung naka-off ang human mode, huwag mag-reply
+	if (!state.enabled) return;
+
+	// Huwag magre-reply kung ang nag-chat ay admin
+	if (ADMINS.has(senderID)) {
+		return;
+	}
+
+	const threadID = event.threadID;
+	if (!threadID) return;
+
+	if (isSpamLike(text)) return;
+
+	const thread = getThread(threadID);
+
+	if (isDuplicate(thread, text)) return;
+
+	thread.lastMessage = Date.now();
+	thread.lastInput = normalize(text);
+	thread.lastInputTime = Date.now();
+	saveState();
+
+	if (Date.now() - Number(thread.lastReply || 0) < THREAD_COOLDOWN) {
+		return;
+	}
+
+	let reply = generateReply(text);
+	reply = mimic(text, reply);
+
+	await sleep(REPLY_DELAY);
+
+	// I-on ang typing indicator
+	await typingOn(api, threadID);
+
+	await sleep(random(TYPING_MIN, TYPING_MAX));
+
+	try {
+		await api.sendMessage(reply, threadID, event.messageID);
+
+		thread.lastReply = Date.now();
+		thread.replyCount = Number(thread.replyCount || 0) + 1;
+		saveState();
+	} catch (err) {
+		console.error("[HUMAN] Reply error:", err.message);
+	} finally {
+		// I-off ang typing indicator
+		await typingOff(api, threadID);
+	}
+}
+
+/* =========================
+   EXPORT MODULE (Commands & Events)
 ========================= */
 
 module.exports = {
 	config: {
 		name: "human",
-		version: "5.0",
+		version: "5.1",
 		author: "Sinzu",
 		countDown: 0,
 		role: 0,
@@ -533,10 +621,11 @@ module.exports = {
 		}
 	},
 
+	// Para sa command execution (kapag tinatawag gamit ang prefix)
 	run: async function ({ api, event, args }) {
-		const senderID = event.senderID || event.senderId;
+		const senderID = String(event.senderID || event.senderId || "");
 
-		if (!ADMINS.has(String(senderID))) {
+		if (!ADMINS.has(senderID)) {
 			return api.sendMessage("admin only.", event.threadID, event.messageID);
 		}
 
@@ -557,86 +646,17 @@ module.exports = {
 		return api.sendMessage(`Human mode is currently: ${state.enabled ? "ON" : "OFF"}`, event.threadID, event.messageID);
 	},
 
-	handleEvent: async function ({ api, event }) {
-		if (!event) return;
+	// Para sa event listener ng ibang bot structures
+	handleEvent: async function (context) {
+		return await handleIncomingMessage(context);
+	},
 
-		let currentBotID = "";
-		try {
-			currentBotID = api.getCurrentUserID();
-		} catch (e) {}
+	// Dagdag na suporta para sa mga bot loader na gumagamit ng 'onChat' o 'onMessage'
+	onChat: async function (context) {
+		return await handleIncomingMessage(context);
+	},
 
-		if (event.senderID === currentBotID || event.isSelf || event.author === currentBotID) {
-			return;
-		}
-
-		const body = event.body || event.message || "";
-		if (!body) return;
-
-		const text = String(body).trim();
-		const lower = text.toLowerCase();
-
-		if (lower === "human on" || lower === "human off") {
-			const senderID = event.senderID || event.author;
-			if (!ADMINS.has(String(senderID))) return;
-
-			if (lower === "human on") {
-				state.enabled = true;
-				saveState();
-				return api.sendMessage("human mode on.", event.threadID, event.messageID);
-			}
-
-			if (lower === "human off") {
-				state.enabled = false;
-				saveState();
-				return api.sendMessage("human mode off.", event.threadID, event.messageID);
-			}
-			return;
-		}
-
-		if (!state.enabled) return;
-
-		const senderID = event.senderID || event.author;
-		if (senderID && ADMINS.has(String(senderID))) {
-			return;
-		}
-
-		const threadID = event.threadID;
-		if (!threadID) return;
-
-		if (isSpamLike(text)) return;
-
-		const thread = getThread(threadID);
-
-		if (isDuplicate(thread, text)) return;
-
-		thread.lastMessage = Date.now();
-		thread.lastInput = normalize(text);
-		thread.lastInputTime = Date.now();
-		saveState();
-
-		if (Date.now() - Number(thread.lastReply || 0) < THREAD_COOLDOWN) {
-			return;
-		}
-
-		let reply = generateReply(text);
-		reply = mimic(text, reply);
-
-		await sleep(REPLY_DELAY);
-
-		await typingOn(api, threadID);
-
-		await sleep(random(TYPING_MIN, TYPING_MAX));
-
-		try {
-			await api.sendMessage(reply, threadID, event.messageID);
-
-			thread.lastReply = Date.now();
-			thread.replyCount = Number(thread.replyCount || 0) + 1;
-			saveState();
-		} catch (err) {
-			console.error("[HUMAN] Reply error:", err.message);
-		} finally {
-			await typingOff(api, threadID);
-		}
+	onMessage: async function (context) {
+		return await handleIncomingMessage(context);
 	}
 };
