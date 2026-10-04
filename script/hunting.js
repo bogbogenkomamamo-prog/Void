@@ -19,12 +19,14 @@ const ADMINS = new Set([
 ]);
 
 /* =========================
-   SETTINGS
+   SETTINGS (Anti-Detection)
 ========================= */
 
-const REPLY_DELAY = 5000; // 5 seconds per reply
-const TYPING_MIN = 500;
-const TYPING_MAX = 1500;
+const DELAY_MIN = 8000;
+const DELAY_MAX = 14000;
+
+const TYPING_MIN = 800;
+const TYPING_MAX = 2000;
 
 const DUPLICATE_WINDOW = 60000;
 const MAX_MESSAGE_LENGTH = 500;
@@ -119,141 +121,148 @@ function getThread(threadID) {
 }
 
 /* =========================
-   REPLIES (100 BANAT)
+   REPLIES (WITH ABBREVIATIONS & SLANG)
 ========================= */
 
 const REPLIES = [
-	"hinay-hinay lang sa pagiisip baka maubos agad",
-	"ang ingay mo pero parang walang laman",
-	"tama na sa pagpapanggap, hindi bagong sa'yo",
-	"puro ka amba pero walang resibo",
-	"tingin mo angat ka na, nasa imbento ka pa lang",
-	"bro, huminga ka muna baka mapano ka sa kakadada",
-	"ang lakas ng loob mo, kaso hindi suportado ng utak",
-	"puro ka salita, kulang sa substance",
-	"hindi lahat ng maingay may kwenta",
-	"kala mo may audience ka sa bawat galaw mo",
-	"sobrang confident, kahit walang basehan",
-	"hindi ka boss, ikaw lang nagbibigay ng titulo sa sarili mo",
-	"kapag may premyo sa kadaldalan, siguradong kampeon ka",
-	"tama na ang eksena, hindi ito pelikula",
-	"ang dami mong alam pero parang walang naiintindihan",
-	"nagpapaka-importanteng tao, eh walang nagtatanong",
-	"puro ka clout, kulang ka sa content",
-	"bro, hindi lahat ng opinyon mo kailangang marinig",
-	"sobrang lakas ng ego, pero walang maipakita",
-	"hindi ka nakakatakot, nakakatawa ka lang",
-	"ang hirap mo kausap, parang walang signal",
-	"naghahanap ka ng away kahit walang nag-iimbita",
-	"puro ka pahirap sa sarili mong eksena",
-	"kala mo ikaw ang main character sa lahat",
-	"hindi ka naligaw, sadyang walang direksyon ang argumento mo",
-	"tambay ka ba sa imbentong scenario?",
-	"ang bilis mong magreply, sana ganon din kabilis ang pag-unawa mo",
-	"hindi lahat ng may capslock, may point",
-	"bro, parang wifi ka, mahina ang connection sa realidad",
-	"ang dami mong sinasabi, pero walang direksyon",
-	"nagpakalat ka na naman ng kalokohan",
-	"puro ka flex, wala namang context",
-	"kung may kompetisyon sa memahan, may tropeo ka na",
-	"hindi ka pinapansin, gumaawa ka na naman ng ingay",
-	"sobrang ganda ng imagination mo, sayang hindi totoo",
-	"kala mo may point ka na, paulit-ulit lang pala",
-	"hindi ka pinag-usapan, ikaw lang ang nag-aassume",
-	"ang tapang mo sa chat, parang may sariling mundo",
-	"puro ka reklamo, wala namang solusyon",
-	"ang lakas mong magpaliwanag, kaso ikaw mismo hindi mo intindihin",
-	"bro, magpahinga ka muna sa pagiging sentro ng atensyon",
-	"ang dami mong alibi, parang may script ka",
-	"hindi ka nagwawin, nagpapahaba ka lang ng usapan",
-	"puro ka parinig, diretsuhin mo kung may sasabihin ka",
-	"kala mo may impact lahat ng sinasabi mo",
-	"hindi ka mahina, pero mahina ang argumento mo",
-	"ang bilis mong maghusga, sana bilisan mo rin ang pag-unawa",
-	"naghahabol ka ng clout na parang may utang sa'yo",
-	"hindi ito paligsahan ng ego, bro",
-	"ang dami mong angas, kulang sa common sense",
-	"tama na ang pag-iimbento, nasa realidad tayo",
-	"parang bot ka na paulit-ulit ang linya",
-	"kahit ilang beses mong ulitin, hindi magiging totoo",
-	"nagpakalimutan ka na naman sa sarili mong sinabi",
-	"bro, walang nagpapataas ng score sa dami ng chat",
-	"ang dami mong energy, sana may direksyon din",
-	"hindi ka nakakalito, wala lang talagang koneksyon ang sinasabi mo",
-	"nag-iingay ka na naman para lang mapansin",
-	"puro ka teorya, nasan ang konkretong punto?",
-	"kala mo may mic ka, lahat na lang may announcement",
-	"hindi ka laging tama kahit ikaw pa ang pinaka-maingay",
-	"parang comment section ang utak mo, puro reaksiyon",
-	"ang hirap magpakatalino kapag walang pinanghawakan",
-	"naghahanap ka ng issue kahit walang problema",
-	"bro, hindi kailangang may last word ka palagi",
-	"puro ka palabas, kulang sa nilalaman",
-	"ang ganda ng kwento mo, kahit ikaw lang ang naniniwala",
-	"hindi ka nakakalamang, nagpapaliguy-liguy ka lang",
-	"may point ka ba o nagpra-practice ka lang magtype?",
-	"kala mo may tropa ka sa likod ng bawat banat",
-	"ang dami mong sinasabi, parang may bayad bawat letra",
-	"nagpapaka-expert sa bagay na hindi mo naman maipaliwanag",
-	"hindi lahat ng pagtatalo, kailangang panalunan",
-	"sobrang dami mong claims, kulang naman sa ebidensiya",
-	"bro, ang haba ng reply mo, pero walang diretso sagot",
-	"kung may bayad ang pagmamahal sa sarili, mayaman ka na",
-	"ang dami mong plano, kahit isa walang nagtutugma",
-	"puro ka pa-cool, pero halatang pilit",
-	"hindi ka nakakaprovoke, nakakatawa ka lang",
-	"nagpapakalakas ka sa sarili mong kwento",
-	"parang sirang record ang mga banat mo",
-	"bro, hindi ka kailangang maging maingay para maging interesante",
-	"ang dami mong alam sa buhay ng iba, sana may update din sa sarili mo",
-	"hindi ka pinag-usapan, pero gusto mong may issue",
-	"kala mo nakakalamang ka, paulit-ulit ka lang naman",
-	"napakahaba ng eksena, pero walang kwentang plot",
-	"puro ka pabida, wala namang nag-aaudition",
-	"ang lakas mong magbitaw ng linya, parang may award sa dulo",
-	"hindi ka nagpapatawa, pero ikaw ang naging joke",
-	"ang dami mong sinasabi, kahit sarili mong argumento hindi mo masundan",
-	"hindi ka kulang sa tapang, kulang ka lang sa paksa",
-	"bro, hindi lahat ng pagtitype mo may katumbas na talino",
-	"puro ka pa-epal, wala namang naghingi ng opinyon mo",
-	"ang gulo ng kwento mo, parang random generator",
-	"naghahanap ka ng kakalaban sa comment section",
-	"hindi ka nakakatakot, mas nakakalito ka pa",
-	"ang dami mong sinasabi, pero parang hangin lang",
-	"tama na ang pagpapanggap na may alam sa lahat",
-	"bro, mag-update ka naman ng bagong banat",
-	"peace out na lang, sayang oras sa walang katapusang usapan"
+	"hinay hinay lng s pagiisip bka maubos agad",
+	"ang ingay mo nman pero prang wlang laman",
+	"tama n s pagpapanggap, hndi bago syo",
+	"puro k amba pero wlang resibo",
+	"tingin mo angat k n, s imbento k p lng",
+	"bro, huminga k muna bka mapano k s kakadada",
+	"ang lakas ng loob mo, kso hndi suportado ng utak",
+	"puro k slita, kulang s substance",
+	"hndi lht ng maingay may kwenta",
+	"kla mo may audience k s bawat galaw mo",
+	"sobrang confident, khit wlang basehan",
+	"hndi k boss, ikaw lng nagbibigay ng titulo s sili mo",
+	"kpag may premyo s kadaldalan, siguradong kampeon ka",
+	"tama n ang eksena, hndi ito pelikula",
+	"ang dami mong alam pero prang wlang naiintindihan",
+	"nagpapaka-importanteng tao, eh wlang nagtatanong",
+	"puro k clout, kulang k s content",
+	"bro, hndi lht ng opinyon mo kailangang marinig",
+	"sobrang lakas ng ego, pero wlang maipakita",
+	"hndi k nakakatakot, nakakatawa k lng",
+	"ang hirap mo kausap, prang wlang signal",
+	"naghahanap k ng away khit wlang nag-iimbita",
+	"puro k pahirap s saring eksena",
+	"kala mo ikaw ang main character s lht",
+	"hndi k naligaw, sadyang wlang direksyon ang argumento mo",
+	"tambay k b s imbentong scenario?",
+	"ang bilis mong magreply, sna ganon din kabilis ang pag-unawa mo",
+	"hndi lht ng may capslock, may point",
+	"bro, prang wifi k, mahina ang connection s realidad",
+	"ang dami mong ssbhin, pero wlang direksyon",
+	"nagpakalat k n nman ng kalokohan",
+	"puro k flex, wla namang context",
+	"kung may kompetisyon s memahan, may tropeo k n",
+	"hndi k pinapansin, gumagawa k n nman ng ingay",
+	"sobrang ganda ng imagination mo, syang hndi totoong",
+	"kala mo may point k n, paulit-ulit lng pala",
+	"hndi k pinag-usapan, ikaw lng ang nag-aassume",
+	"ang tapang mo s chat, prang may sariling mundo",
+	"puro k reklamo, wla namang solusyon",
+	"ang lakas mong magpaliwanag, kso ikaw mismo hndi mo intindihin",
+	"bro, magpahinga k muna s pagiging sentro ng atensyon",
+	"ang dami mong alibi, prang may script ka",
+	"hndi k nagwawin, nagpapahaba k lng ng usapan",
+	"puro k parinig, diretsuhin mo kung may ssbhin ka",
+	"kala mo may impact lht ng ssbhin mo",
+	"hndi k mahina, pero mahina ang argumento mo",
+	"ang bilis mong maghusga, sna bilisan mo rin ang pag-unawa",
+	"naghahabol k ng clout na prang may utang syo",
+	"hndi ito paligsahan ng ego, bro",
+	"ang dami mong angas, kulang s common sense",
+	"tama n ang pag-iimbento, nsa realidad tyo",
+	"prang bot k n paulit-ulit ang linya",
+	"khit ilang beses mong ulitin, hndi magiging totoong",
+	"nagpakalimutan k n nman s saring sinabi",
+	"bro, wlang nagpapataas ng score s dami ng chat",
+	"ang dami mong energy, sna may direksyon din",
+	"hndi k nakakalito, wla lng tlgang koneksyon ang ssshin mo",
+	"nag-iingay k n nman para lng mapansin",
+	"puro k teorya, nsan ang konkretong punto?",
+	"kala mo may mic k, lht n lng may announcement",
+	"hndi k laging tama khit ikaw p ang pinaka-maingay",
+	"prang comment section ang utak mo, puro reaksiyon",
+	"ang hirap magpakatalino kpag wlang pinanghawakan",
+	"naghahanap k ng issue khit wlang problema",
+	"bro, hndi kailangang may last word k palagi",
+	"puro k palabas, kulang s nilalaman",
+	"ang ganda ng kwento mo, khit ikaw lng ang naniniwala",
+	"hndi k nakakalamang, nagpapaliguy-liguy k lng",
+	"may point b k o nagpra-practice k lng magtype?",
+	"kala mo may tropa k s likod ng bawat banat",
+	"ang dami mong ssbhin, prang may bayad bawat letra",
+	"nagpapaka-expert s bagay na hndi mo naman maipaliwanag",
+	"hndi lht ng pagtatalo, kailangang panalunan",
+	"sobrang dami mong claims, kulang naman s ebidensiya",
+	"bro, ang haba ng reply mo, pero wlang diretso sagot",
+	"kung may bayad ang pagmamahal s sili, mayaman k n",
+	"ang dami mong plano, khit isa wlang nagtutugma",
+	"puro k pa-cool, pero halatang pilit",
+	"hndi k nakakaprovoke, nakakatawa k lng",
+	"nagpapakalakas k s saring kwento",
+	"prang sirang record ang mga banat mo",
+	"bro, hndi k kailangang maging maingay para maging interesante",
+	"ang dami mong alam s buhay ng iba, sna may update din s sili mo",
+	"hndi k pinag-usapan, pero gusto mong may issue",
+	"kala mo nakakalamang k, paulit-ulit k lng naman",
+	"napakahaba ng eksena, pero wlang kwentang plot",
+	"puro k pabida, wla namang nag-aaudition",
+	"ang lakas mong magbitaw ng linya, prang may award s dulo",
+	"hndi k nagpapatawa, pero ikaw ang naging joke",
+	"ang dami mong ssbhin, khit saring argumento hndi mo masundan",
+	"hndi k kulang s tapang, kulang k lng s paksa",
+	"bro, hndi lht ng pagtitype mo may katumbas na talino",
+	"puro k pa-epal, wla namang naghingi ng opinyon mo",
+	"ang gulo ng kwento mo, prang random generator",
+	"naghahanap k ng kakalaban s comment section",
+	"hndi k nakakatakot, mas nakakalito k pa",
+	"ang dami mong ssbhin, pero prang hangin lng",
+	"tama n ang pagpapanggap na may alam s lht",
+	"bro, mag-update k nman ng bagong banat",
+	"peace out n lng, sayang oras s wlang katapusang usapan",
+	"lakas mong magyabang, pero s personal tahimik k naman",
+	"anong klaseng lohika 'yan, galing b s panaginip mo?",
+	"paulit-ulit n lng ang argumento mo, wla n bang iba?",
+	"nagmamagaling k nman eh hndi mo naman alam pinagsasasabi mo",
+	"taas ng ihi mo ah, bka madapa k s saring baha",
+	"umayos k n ng tayo, hndi mo hawak ang mundo",
+	"puro k hanash, wla namang napatunayan",
+	"sige lng, ituloy mo lng 'yan hanggang mapagod ka",
+	"naka-energy drink k b o sadyang sabog lng",
+	"wala k bang ibang libangan bukod s mamerwisyo dito?",
+	"ang lala ng sabog mo ngayon ah, uminom k n b ng gamot?",
+	"nakakatawa k kpag seryoso k s mga pinagsasabi mo",
+	"hinaan mo boses mo, khit text 'yan naririnig ko ang yabang mo",
+	"akala mo naman nakakatuwa ka, hndi mukha k lng ewan",
+	"magtigil k n kung walang matino kang maibubuga",
+	"puro k drama, may pa-thesis k pang nalalaman",
+	"kumain k muna ng saging para tumalino k naman kahit konti",
+	"hndi lht ng nagpapapansin, pinagbibigyan",
+	"hanggang dito n lng b ang kaya ng utak mo?",
+	"utak mo prang clearance sale, luma at wlang bumibili",
+	"huwag masyadong magmamagaling kung napaghahalataan kng sablay",
+	"napakaingay mo para s isang taong wlang kwenta magsalita",
+	"magkano b bayad syo para maging istorbo?",
+	"sili mo munang problema ayusin mo bago k makisawsaw",
+	"dami mong ebas, wla namang pumapansin",
+	"huwag k iiyak ha p pag nasupalpal ka",
+	"himbing ng tulog ng mga may matinong isip, ikaw gising n gising s katangahan",
+	"subukan mo kayang tumahimik paminsan-minsan para may silbi k naman",
+	"nag-aaksaya k lng ng kuryente at oras s mga pinaggagagawa mo",
+	"ikaw n ang pinakamagaling, ikaw n ang perpekto s paningin mo"
 ];
 
 const SHORT_REPLIES = [
-	"ano",
-	"bakit",
-	"ha",
-	"weh",
-	"luh",
-	"ge",
-	"alr",
-	"edi wow",
-	"tapos",
-	"so",
-	"ah",
-	"oh",
-	"hmm",
-	"ewan",
-	"malay ko"
+	"ano", "bakit", "ha", "weh", "luh", "ge", "alr", "edi wow", "tapos", "so", "ah", "oh", "hmm", "ewan", "malay ko", "sus", "pake ko", "ha?", "wehh", "dko alm", "wla", "cge"
 ];
 
 const QUESTION_REPLIES = [
-	"ewan",
-	"di ko alam",
-	"malay ko",
-	"baka",
-	"siguro",
-	"depende",
-	"bat mo natanong",
-	"pano ko malalaman",
-	"ikaw kaya sumagot",
-	"ano tingin mo"
+	"ewan", "di ko alam", "malay ko", "baka", "siguro", "depende", "bat mo natanong", "pano ko malalaman", "ikaw kaya sumagot", "ano tingin mo", "sino nagsabi", "ikaw n bahala mag-isip", "dko dn alam"
 ];
 
 /* =========================
@@ -262,27 +271,15 @@ const QUESTION_REPLIES = [
 
 function isSpamLike(text) {
 	const value = normalize(text);
-
 	if (!value) return true;
-
-	if (value.length > MAX_MESSAGE_LENGTH) {
-		return true;
-	}
-
-	if (/(.)\1{9,}/i.test(value)) {
-		return true;
-	}
-
-	if (/[!?]{8,}/.test(value)) {
-		return true;
-	}
-
+	if (value.length > MAX_MESSAGE_LENGTH) return true;
+	if (/(.)\1{9,}/i.test(value)) return true;
+	if (/[!?]{8,}/.test(value)) return true;
 	return false;
 }
 
 function isDuplicate(thread, text) {
 	const value = normalize(text);
-
 	return (
 		thread.lastInput === value &&
 		Date.now() - thread.lastInputTime < DUPLICATE_WINDOW
@@ -297,20 +294,10 @@ function generateReply(input) {
 	const text = String(input || "").trim();
 
 	if (/^(hi|hello|hey|yo|sup|hoy|uy)$/i.test(text)) {
-		return pick([
-			"uy",
-			"oh",
-			"ano",
-			"bakit",
-			"yo",
-			"hey"
-		]);
+		return pick(["uy", "oh", "ano", "bakit", "yo", "hey", "ano n nman"]);
 	}
 
-	if (
-		/[?]$/.test(text) ||
-		/\b(what|why|how|when|where|who)\b/i.test(text)
-	) {
+	if (/[?]$/.test(text) || /\b(what|why|how|when|where|who)\b/i.test(text)) {
 		return pick(QUESTION_REPLIES);
 	}
 
@@ -321,27 +308,12 @@ function generateReply(input) {
 	return pick(REPLIES);
 }
 
-/* =========================
-   MIMIC
-========================= */
-
 function mimic(input, reply) {
 	const text = String(input || "");
-
-	if (Math.random() > 0.35) {
-		return reply;
-	}
-
-	if (text === text.toLowerCase()) {
-		reply = reply.toLowerCase();
-	}
-
+	if (Math.random() > 0.35) return reply;
+	if (text === text.toLowerCase()) reply = reply.toLowerCase();
 	return reply.trim();
 }
-
-/* =========================
-   TYPING INDICATOR
-========================= */
 
 async function typingOn(api, threadID) {
 	try {
@@ -381,7 +353,6 @@ async function handleIncomingMessage({ api, event }) {
 	const text = String(body).trim();
 	const senderID = String(event.senderID || event.author || "");
 
-	// Kapag nag-type ang admin ng "." (dot) i-toggle ang human mode at i-heart ang message
 	if (text === ".") {
 		if (!ADMINS.has(senderID)) return;
 
@@ -398,11 +369,7 @@ async function handleIncomingMessage({ api, event }) {
 	}
 
 	if (!thread.enabled) return;
-
-	if (ADMINS.has(senderID)) {
-		return;
-	}
-
+	if (ADMINS.has(senderID)) return;
 	if (isSpamLike(text)) return;
 	if (isDuplicate(thread, text)) return;
 
@@ -410,8 +377,8 @@ async function handleIncomingMessage({ api, event }) {
 	thread.lastInputTime = Date.now();
 	saveState();
 
-	// 5 seconds delay bawat reply sa bawat mensahe
-	await sleep(REPLY_DELAY);
+	const currentDelay = random(DELAY_MIN, DELAY_MAX);
+	await sleep(currentDelay);
 
 	await typingOn(api, threadID);
 	await sleep(random(TYPING_MIN, TYPING_MAX));
@@ -437,13 +404,13 @@ async function handleIncomingMessage({ api, event }) {
 module.exports = {
 	config: {
 		name: "human",
-		version: "6.3",
+		version: "6.7",
 		author: "Sinzu",
 		countDown: 0,
 		role: 0,
 		description: {
-			en: "Thread-specific Tagalog human mimicker with dot toggle and heart reaction",
-			tl: "Thread-specific Tagalog human mimicker with dot toggle and heart reaction"
+			en: "Anti-detection human mimicker with conversational abbreviations and slangs",
+			tl: "Anti-detection human mimicker with conversational abbreviations and slangs"
 		},
 		category: "system",
 		guide: {
