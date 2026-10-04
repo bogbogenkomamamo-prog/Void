@@ -22,11 +22,10 @@ const ADMINS = new Set([
    SETTINGS
 ========================= */
 
-const REPLY_DELAY = 10000; // 10 seconds
-const TYPING_MIN = 700;
-const TYPING_MAX = 1800;
+const REPLY_DELAY = 5000; // 5 seconds per reply
+const TYPING_MIN = 500;
+const TYPING_MAX = 1500;
 
-const THREAD_COOLDOWN = 10000;
 const DUPLICATE_WINDOW = 60000;
 const MAX_MESSAGE_LENGTH = 500;
 
@@ -35,7 +34,6 @@ const MAX_MESSAGE_LENGTH = 500;
 ========================= */
 
 let state = {
-	enabled: true,
 	threads: {}
 };
 
@@ -49,7 +47,6 @@ function loadState() {
 		const data = fs.readJsonSync(STATE_FILE);
 
 		state = {
-			enabled: data.enabled !== undefined ? Boolean(data.enabled) : true,
 			threads: data.threads || {}
 		};
 	} catch (err) {
@@ -111,8 +108,7 @@ function normalize(text) {
 function getThread(threadID) {
 	if (!state.threads[threadID]) {
 		state.threads[threadID] = {
-			lastMessage: 0,
-			lastReply: 0,
+			enabled: false,
 			lastInput: "",
 			lastInputTime: 0,
 			replyCount: 0
@@ -123,130 +119,110 @@ function getThread(threadID) {
 }
 
 /* =========================
-   REPLIES
+   REPLIES (100 BANAT)
 ========================= */
 
 const REPLIES = [
-	"ano ba yan",
-	"eto na naman",
-	"ikaw na naman",
-	"wala ka bang ibang alam",
-	"ang kulit mo",
-	"di ka pa tapos",
-	"may ambag ka ba",
-	"seryoso ka ba",
-	"ano bang trip mo",
-	"umayos ka nga",
-	"tigil mo yan",
-	"wag ka ngang ganyan",
-	"corny mo",
-	"ang ingay mo",
-	"ayan na naman siya",
-	"feeling mo naman",
-	"lakas mo ah",
-	"mayabang ka na naman",
-	"kalma ka lang",
-	"hinga muna",
-	"wag kang excited",
-	"di kita kinakausap",
-	"bakit ka nandito",
-	"sinong nagtawag sayo",
-	"may kailangan ka",
-	"ano gusto mo",
-	"gusto mo medal",
-	"congrats sayo",
-	"wow proud ka",
-	"edi ikaw na",
-	"ikaw na magaling",
-	"wow naman",
-	"grabe ka na",
-	"napaka kulit",
-	"wala kang preno",
-	"di ka talaga tumitigil",
-	"hanggang dyan ka lang",
-	"ayan ka na naman eh",
-	"pinipilit mo talaga",
-	"wag mo kong simulan",
-	"baka maiyak ka",
-	"kalma baka maiyak",
-	"iyak ka muna",
-	"arte mo",
-	"dramatic mo",
-	"nakakahiya ka",
-	"tama na yan",
-	"pagbigyan na kita",
-	"swerte mo kausap mo",
-	"special ka",
-	"feeling main character",
-	"may pa entry ka pa",
-	"required ba yan",
-	"sinong nagtanong",
-	"may nagtatanong ba",
-	"interesting hindi",
-	"noted next",
-	"okay ka lang",
-	"parang may problema ka",
-	"kulang ka lang sa tulog",
-	"matulog ka na",
-	"kumain ka muna",
-	"baka gutom ka lang",
-	"wag ka magkalat",
-	"tahimik ka muna",
-	"ge lang nang ge",
-	"push mo yan mag isa",
-	"support kita from afar",
-	"bahala ka sa buhay mo",
-	"good luck sayo",
-	"malala na ata to",
-	"wala na pag asa",
-	"ayoko na sayo",
-	"joke lang baka seryosohin mo",
-	"wag kang pikon",
-	"pikon ka ba",
-	"galit agad",
-	"easy ka lang",
-	"konti lang asar",
-	"mahina ka naman pala",
-	"di ka kaya dito",
-	"subukan mo pa",
-	"yan lang",
-	"yun na yon",
-	"bitin naman",
-	"wala bang mas maganda",
-	"next topic",
-	"skip natin yan",
-	"nakakatamad ka kausap",
-	"mamaya na kita aasarin",
-	"save muna energy mo",
-
-	"bat ganyan ka",
-	"ano trip mo",
-	"ikaw na naman",
-	"edi wow",
-	"ge ikaw na",
-	"luh pikon",
-	"weh",
-	"seryoso ka ba",
-	"fr ang kulit mo",
-	"tbh ang ingay mo",
-	"ngl corny mo",
-	"idk sayo",
-	"wdym ikaw nga",
-	"alr tama na",
-	"bruh ano yan",
-	"bro kalma",
-	"bro pls",
-	"ah basta",
-	"ge lang",
-	"ikaw bahala",
-	"malay ko sayo",
-	"ewan sayo",
-	"di ko gets sayo",
-	"ano nanaman",
-	"may bago ka bang script",
-	"paulit ulit ka",
-	"same script nanaman",
-	"wala ka bang ibang banat"
+	"hinay-hinay lang sa pagiisip baka maubos agad",
+	"ang ingay mo pero parang walang laman",
+	"tama na sa pagpapanggap, hindi bagong sa'yo",
+	"puro ka amba pero walang resibo",
+	"tingin mo angat ka na, nasa imbento ka pa lang",
+	"bro, huminga ka muna baka mapano ka sa kakadada",
+	"ang lakas ng loob mo, kaso hindi suportado ng utak",
+	"puro ka salita, kulang sa substance",
+	"hindi lahat ng maingay may kwenta",
+	"kala mo may audience ka sa bawat galaw mo",
+	"sobrang confident, kahit walang basehan",
+	"hindi ka boss, ikaw lang nagbibigay ng titulo sa sarili mo",
+	"kapag may premyo sa kadaldalan, siguradong kampeon ka",
+	"tama na ang eksena, hindi ito pelikula",
+	"ang dami mong alam pero parang walang naiintindihan",
+	"nagpapaka-importanteng tao, eh walang nagtatanong",
+	"puro ka clout, kulang ka sa content",
+	"bro, hindi lahat ng opinyon mo kailangang marinig",
+	"sobrang lakas ng ego, pero walang maipakita",
+	"hindi ka nakakatakot, nakakatawa ka lang",
+	"ang hirap mo kausap, parang walang signal",
+	"naghahanap ka ng away kahit walang nag-iimbita",
+	"puro ka pahirap sa sarili mong eksena",
+	"kala mo ikaw ang main character sa lahat",
+	"hindi ka naligaw, sadyang walang direksyon ang argumento mo",
+	"tambay ka ba sa imbentong scenario?",
+	"ang bilis mong magreply, sana ganon din kabilis ang pag-unawa mo",
+	"hindi lahat ng may capslock, may point",
+	"bro, parang wifi ka, mahina ang connection sa realidad",
+	"ang dami mong sinasabi, pero walang direksyon",
+	"nagpakalat ka na naman ng kalokohan",
+	"puro ka flex, wala namang context",
+	"kung may kompetisyon sa memahan, may tropeo ka na",
+	"hindi ka pinapansin, gumaawa ka na naman ng ingay",
+	"sobrang ganda ng imagination mo, sayang hindi totoo",
+	"kala mo may point ka na, paulit-ulit lang pala",
+	"hindi ka pinag-usapan, ikaw lang ang nag-aassume",
+	"ang tapang mo sa chat, parang may sariling mundo",
+	"puro ka reklamo, wala namang solusyon",
+	"ang lakas mong magpaliwanag, kaso ikaw mismo hindi mo intindihin",
+	"bro, magpahinga ka muna sa pagiging sentro ng atensyon",
+	"ang dami mong alibi, parang may script ka",
+	"hindi ka nagwawin, nagpapahaba ka lang ng usapan",
+	"puro ka parinig, diretsuhin mo kung may sasabihin ka",
+	"kala mo may impact lahat ng sinasabi mo",
+	"hindi ka mahina, pero mahina ang argumento mo",
+	"ang bilis mong maghusga, sana bilisan mo rin ang pag-unawa",
+	"naghahabol ka ng clout na parang may utang sa'yo",
+	"hindi ito paligsahan ng ego, bro",
+	"ang dami mong angas, kulang sa common sense",
+	"tama na ang pag-iimbento, nasa realidad tayo",
+	"parang bot ka na paulit-ulit ang linya",
+	"kahit ilang beses mong ulitin, hindi magiging totoo",
+	"nagpakalimutan ka na naman sa sarili mong sinabi",
+	"bro, walang nagpapataas ng score sa dami ng chat",
+	"ang dami mong energy, sana may direksyon din",
+	"hindi ka nakakalito, wala lang talagang koneksyon ang sinasabi mo",
+	"nag-iingay ka na naman para lang mapansin",
+	"puro ka teorya, nasan ang konkretong punto?",
+	"kala mo may mic ka, lahat na lang may announcement",
+	"hindi ka laging tama kahit ikaw pa ang pinaka-maingay",
+	"parang comment section ang utak mo, puro reaksiyon",
+	"ang hirap magpakatalino kapag walang pinanghawakan",
+	"naghahanap ka ng issue kahit walang problema",
+	"bro, hindi kailangang may last word ka palagi",
+	"puro ka palabas, kulang sa nilalaman",
+	"ang ganda ng kwento mo, kahit ikaw lang ang naniniwala",
+	"hindi ka nakakalamang, nagpapaliguy-liguy ka lang",
+	"may point ka ba o nagpra-practice ka lang magtype?",
+	"kala mo may tropa ka sa likod ng bawat banat",
+	"ang dami mong sinasabi, parang may bayad bawat letra",
+	"nagpapaka-expert sa bagay na hindi mo naman maipaliwanag",
+	"hindi lahat ng pagtatalo, kailangang panalunan",
+	"sobrang dami mong claims, kulang naman sa ebidensiya",
+	"bro, ang haba ng reply mo, pero walang diretso sagot",
+	"kung may bayad ang pagmamahal sa sarili, mayaman ka na",
+	"ang dami mong plano, kahit isa walang nagtutugma",
+	"puro ka pa-cool, pero halatang pilit",
+	"hindi ka nakakaprovoke, nakakatawa ka lang",
+	"nagpapakalakas ka sa sarili mong kwento",
+	"parang sirang record ang mga banat mo",
+	"bro, hindi ka kailangang maging maingay para maging interesante",
+	"ang dami mong alam sa buhay ng iba, sana may update din sa sarili mo",
+	"hindi ka pinag-usapan, pero gusto mong may issue",
+	"kala mo nakakalamang ka, paulit-ulit ka lang naman",
+	"napakahaba ng eksena, pero walang kwentang plot",
+	"puro ka pabida, wala namang nag-aaudition",
+	"ang lakas mong magbitaw ng linya, parang may award sa dulo",
+	"hindi ka nagpapatawa, pero ikaw ang naging joke",
+	"ang dami mong sinasabi, kahit sarili mong argumento hindi mo masundan",
+	"hindi ka kulang sa tapang, kulang ka lang sa paksa",
+	"bro, hindi lahat ng pagtitype mo may katumbas na talino",
+	"puro ka pa-epal, wala namang naghingi ng opinyon mo",
+	"ang gulo ng kwento mo, parang random generator",
+	"naghahanap ka ng kakalaban sa comment section",
+	"hindi ka nakakatakot, mas nakakalito ka pa",
+	"ang dami mong sinasabi, pero parang hangin lang",
+	"tama na ang pagpapanggap na may alam sa lahat",
+	"bro, mag-update ka naman ng bagong banat",
+	"peace out na lang, sayang oras sa walang katapusang usapan"
 ];
 
 const SHORT_REPLIES = [
@@ -264,12 +240,7 @@ const SHORT_REPLIES = [
 	"oh",
 	"hmm",
 	"ewan",
-	"malay ko",
-	"ikaw bahala",
-	"ano naman",
-	"bat",
-	"seryoso",
-	"pikon"
+	"malay ko"
 ];
 
 const QUESTION_REPLIES = [
@@ -282,12 +253,7 @@ const QUESTION_REPLIES = [
 	"bat mo natanong",
 	"pano ko malalaman",
 	"ikaw kaya sumagot",
-	"ano tingin mo",
-	"di ko sure",
-	"baka ikaw may alam",
-	"tanong mo sa iba",
-	"bakit ako",
-	"ako pa tinanong mo"
+	"ano tingin mo"
 ];
 
 /* =========================
@@ -329,7 +295,6 @@ function isDuplicate(thread, text) {
 
 function generateReply(input) {
 	const text = String(input || "").trim();
-	const lower = text.toLowerCase();
 
 	if (/^(hi|hello|hey|yo|sup|hoy|uy)$/i.test(text)) {
 		return pick([
@@ -338,8 +303,7 @@ function generateReply(input) {
 			"ano",
 			"bakit",
 			"yo",
-			"hey",
-			"eto nanaman"
+			"hey"
 		]);
 	}
 
@@ -350,75 +314,7 @@ function generateReply(input) {
 		return pick(QUESTION_REPLIES);
 	}
 
-	if (/\b(lol|lmao|haha|hahaha|hehe)\b/i.test(lower)) {
-		return pick([
-			"ano nakakatawa",
-			"tawa ka nang tawa",
-			"lakas tawa",
-			"okay ka lang",
-			"corny",
-			"seryoso ka",
-			"ayan nanaman",
-			"di naman nakakatawa",
-			"ge tawa pa"
-		]);
-	}
-
-	if (/\b(bakit|bat)\b/i.test(lower)) {
-		return pick([
-			"ewan",
-			"wala lang",
-			"trip ko lang",
-			"basta",
-			"di ko alam",
-			"bat ba",
-			"malay ko",
-			"ganun lang",
-			"ikaw kasi"
-		]);
-	}
-
-	if (/\b(ano|anong)\b/i.test(lower)) {
-		return pick([
-			"ano",
-			"bakit",
-			"e ano",
-			"anong meron",
-			"malay ko",
-			"ewan",
-			"ano naman",
-			"bat mo gusto malaman"
-		]);
-	}
-
-	if (/\b(oo|opo|yes|yeah|yea|yup)\b/i.test(lower)) {
-		return pick([
-			"ge",
-			"edi sige",
-			"tapos",
-			"so",
-			"ano next",
-			"okay na",
-			"ayan",
-			"noted",
-			"ikaw bahala"
-		]);
-	}
-
-	if (/\b(hindi|di|no|nah|nope)\b/i.test(lower)) {
-		return pick([
-			"ah",
-			"okay",
-			"ge",
-			"edi wag",
-			"bahala ka",
-			"ikaw bahala",
-			"noted",
-			"tapos"
-		]);
-	}
-
-	if (Math.random() < 0.30) {
+	if (Math.random() < 0.25) {
 		return pick(SHORT_REPLIES);
 	}
 
@@ -431,7 +327,6 @@ function generateReply(input) {
 
 function mimic(input, reply) {
 	const text = String(input || "");
-	const lower = text.toLowerCase();
 
 	if (Math.random() > 0.35) {
 		return reply;
@@ -439,53 +334,6 @@ function mimic(input, reply) {
 
 	if (text === text.toLowerCase()) {
 		reply = reply.toLowerCase();
-	}
-
-	const abbreviations = [
-		"bat",
-		"di",
-		"ge",
-		"alr",
-		"fr",
-		"tbh",
-		"ngl",
-		"idk",
-		"wdym",
-		"wym",
-		"rn",
-		"btw"
-	];
-
-	const hasAbbreviation =
-		abbreviations.some(word =>
-			new RegExp(
-				`(^|\\s)${word}(\\s|$)`,
-				"i"
-			).test(lower)
-		);
-
-	if (
-		hasAbbreviation &&
-		Math.random() < 0.60
-	) {
-		const suffix = pick([
-			"ah",
-			"eh",
-			"oh",
-			"ig",
-			"tbh",
-			"fr",
-			"lang",
-			"naman"
-		]);
-
-		if (
-			!reply
-				.toLowerCase()
-				.includes(suffix)
-		) {
-			reply += " " + suffix;
-		}
 	}
 
 	return reply.trim();
@@ -518,101 +366,86 @@ async function typingOff(api, threadID) {
 async function handleIncomingMessage({ api, event }) {
 	if (!event) return;
 
-	// I-check kung sariling chat ng bot para hindi mag-loop
 	if (event.isSelf || event.senderID === api.getCurrentUserID?.()) {
-		return;
-	}
-
-	const body = event.body || event.message || "";
-	if (!body) return;
-
-	const text = String(body).trim();
-	const lower = text.toLowerCase();
-
-	const senderID = String(event.senderID || event.author || "");
-
-	// Manual ON/OFF command via chat para sa mga admins
-	if (lower === "human on" || lower === "human off") {
-		if (!ADMINS.has(senderID)) return;
-
-		if (lower === "human on") {
-			state.enabled = true;
-			saveState();
-			return api.sendMessage("human mode on.", event.threadID, event.messageID);
-		}
-
-		if (lower === "human off") {
-			state.enabled = false;
-			saveState();
-			return api.sendMessage("human mode off.", event.threadID, event.messageID);
-		}
-		return;
-	}
-
-	// Kung naka-off ang human mode, huwag mag-reply
-	if (!state.enabled) return;
-
-	// Huwag magre-reply kung ang nag-chat ay admin
-	if (ADMINS.has(senderID)) {
 		return;
 	}
 
 	const threadID = event.threadID;
 	if (!threadID) return;
 
-	if (isSpamLike(text)) return;
-
 	const thread = getThread(threadID);
 
+	const body = event.body || event.message || "";
+	if (!body) return;
+
+	const text = String(body).trim();
+	const lower = text.toLowerCase();
+	const senderID = String(event.senderID || event.author || "");
+
+	if (lower === "human on" || lower === "human off") {
+		if (!ADMINS.has(senderID)) return;
+
+		if (lower === "human on") {
+			thread.enabled = true;
+			saveState();
+			return api.sendMessage("human mode on sa thread na ito.", threadID, event.messageID);
+		}
+
+		if (lower === "human off") {
+			thread.enabled = false;
+			saveState();
+			return api.sendMessage("human mode off sa thread na ito.", threadID, event.messageID);
+		}
+		return;
+	}
+
+	if (!thread.enabled) return;
+
+	if (ADMINS.has(senderID)) {
+		return;
+	}
+
+	if (isSpamLike(text)) return;
 	if (isDuplicate(thread, text)) return;
 
-	thread.lastMessage = Date.now();
 	thread.lastInput = normalize(text);
 	thread.lastInputTime = Date.now();
 	saveState();
 
-	if (Date.now() - Number(thread.lastReply || 0) < THREAD_COOLDOWN) {
-		return;
-	}
+	// 5 seconds delay bawat reply sa bawat mensahe
+	await sleep(REPLY_DELAY);
+
+	await typingOn(api, threadID);
+	await sleep(random(TYPING_MIN, TYPING_MAX));
 
 	let reply = generateReply(text);
 	reply = mimic(text, reply);
 
-	await sleep(REPLY_DELAY);
-
-	// I-on ang typing indicator
-	await typingOn(api, threadID);
-
-	await sleep(random(TYPING_MIN, TYPING_MAX));
-
 	try {
 		await api.sendMessage(reply, threadID, event.messageID);
-
-		thread.lastReply = Date.now();
 		thread.replyCount = Number(thread.replyCount || 0) + 1;
 		saveState();
 	} catch (err) {
 		console.error("[HUMAN] Reply error:", err.message);
 	} finally {
-		// I-off ang typing indicator
 		await typingOff(api, threadID);
 	}
 }
 
 /* =========================
-   EXPORT MODULE (Commands & Events)
+   EXPORT MODULE
 ========================= */
 
 module.exports = {
 	config: {
 		name: "human",
-		version: "5.1",
+		version: "6.1",
 		author: "Sinzu",
 		countDown: 0,
 		role: 0,
 		description: {
-			en: "Prefixless Tagalog human mimicker",
-			tl: "Prefixless Tagalog human mimicker"
+			en: "Thread-specific Tagalog human mimicker with 5s delay",
+			tl: "Thread-specific Tagalog human mimicker with 5s delay"
 		},
 		category: "system",
 		guide: {
@@ -621,37 +454,36 @@ module.exports = {
 		}
 	},
 
-	// Para sa command execution (kapag tinatawag gamit ang prefix)
 	run: async function ({ api, event, args }) {
 		const senderID = String(event.senderID || event.senderId || "");
+		const threadID = event.threadID;
 
 		if (!ADMINS.has(senderID)) {
-			return api.sendMessage("admin only.", event.threadID, event.messageID);
+			return api.sendMessage("admin only.", threadID, event.messageID);
 		}
 
+		const thread = getThread(threadID);
 		const action = String(args[0] || "").toLowerCase();
 
 		if (action === "on") {
-			state.enabled = true;
+			thread.enabled = true;
 			saveState();
-			return api.sendMessage("human mode on.", event.threadID, event.messageID);
+			return api.sendMessage("human mode on sa thread na ito.", threadID, event.messageID);
 		}
 
 		if (action === "off") {
-			state.enabled = false;
+			thread.enabled = false;
 			saveState();
-			return api.sendMessage("human mode off.", event.threadID, event.messageID);
+			return api.sendMessage("human mode off sa thread na ito.", threadID, event.messageID);
 		}
 
-		return api.sendMessage(`Human mode is currently: ${state.enabled ? "ON" : "OFF"}`, event.threadID, event.messageID);
+		return api.sendMessage(`Human mode sa thread na ito ay: ${thread.enabled ? "ON" : "OFF"}`, threadID, event.messageID);
 	},
 
-	// Para sa event listener ng ibang bot structures
 	handleEvent: async function (context) {
 		return await handleIncomingMessage(context);
 	},
 
-	// Dagdag na suporta para sa mga bot loader na gumagamit ng 'onChat' o 'onMessage'
 	onChat: async function (context) {
 		return await handleIncomingMessage(context);
 	},
