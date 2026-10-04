@@ -15,12 +15,11 @@ function start() {
         if (exitCode === 0) {
             console.log("Main process exited with code 0");
         } else if (exitCode === 1) {
-            console.log("Main process exited with code 1. Restarting...");
-            start();
+            console.log("Main process exited with code 1. Restarting automatically...");
+            setTimeout(start, 3000);
         } else {
-            console.error(`Main process exited with code ${exitCode}`);
-            console.log("Restarting process automatically...");
-            start();
+            console.error(`Main process exited with code ${exitCode}. Restarting...`);
+            setTimeout(start, 3000);
         }
     });
 }
