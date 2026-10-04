@@ -2,543 +2,976 @@
 
 const fs = require("fs");
 const path = require("path");
-const express = require("express");
-const chalk = require("chalk");
-const cron = require("node-cron");
-const fsExtra = require("fs-extra");
-const login = require("fca-unofficial");
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-const ROOT = __dirname;
-
-const DATA_DIR = path.join(ROOT, "data");
-const SESSION_DIR = path.join(DATA_DIR, "session");
-const SCRIPT_DIR = path.join(ROOT, "script");
-const CACHE_DIR = path.join(SCRIPT_DIR, "cache");
-
-const CONFIG_FILE = path.join(DATA_DIR, "config.json");
-const HISTORY_FILE = path.join(DATA_DIR, "history.json");
-const DATABASE_FILE = path.join(DATA_DIR, "database.json");
-const DEV_FILE = path.join(ROOT, "dev.json");
-
-// ============================================================
-// SETTINGS
-// ============================================================
-
-const SETTINGS = {
-    MIN_REPLY_DELAY: 7000,
-    MAX_REPLY_DELAY: 12000,
-    MIN_TYPING_DELAY: 1000,
-    MAX_TYPING_DELAY: 2500,
-    DUPLICATE_WINDOW: 30000,
-    SPAM_WINDOW: 60000,
-    MAX_MESSAGES_PER_WINDOW: 8,
-    INITIAL_RECONNECT_DELAY: 5000,
-    MAX_RECONNECT_DELAY: 60000,
-    HEALTH_INTERVAL: 30000,
-    MAX_QUEUE_PER_THREAD: 3
+module.exports.config = {
+  name: "halimaw",
+  version: "10.0.0",
+  hasPermission: 0,
+  credits: "sinzu / updated",
+  description: "Tarantadong Halimaw - Human Style Massive Reply System",
+  usePrefix: true,
+  commandCategory: "Fun",
+  usages: "/halimaw [on | off | status]",
+  cooldowns: 3
 };
 
-// ============================================================
-// DIRECTORY SETUP
-// ============================================================
+const DATA_PATH = path.join(__dirname, "halimaw_config.json");
 
-function ensureDirectory(dir) {
-    try {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-    } catch (error) {
-        console.error(chalk.red(`[FS] Failed creating directory: ${dir}`), error.message);
-    }
-}
+const ADMIN_IDS = [
+  "61594951192638",
+  "61594616562680",
+  "61594981323552"
+];
 
-ensureDirectory(DATA_DIR);
-ensureDirectory(SESSION_DIR);
-ensureDirectory(CACHE_DIR);
+const threadCooldowns = new Map();
+const recentReplies = new Map();
+const recentCategories = new Map();
 
-// ============================================================
-// JSON HELPERS
-// ============================================================
+const REPLY_DELAY = 10000;
+const TYPING_TIME = 2000;
 
-function readJSON(file, fallback) {
-    try {
-        if (!fs.existsSync(file)) return fallback;
-        const raw = fs.readFileSync(file, "utf8");
-        if (!raw.trim()) return fallback;
-        return JSON.parse(raw);
-    } catch (error) {
-        return fallback;
-    }
-}
+/*
+==================================================
+ SHORT / DRY / BORED
+==================================================
+*/
 
-function writeJSON(file, data) {
-    try {
-        const tempFile = `${file}.tmp`;
-        fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), "utf8");
-        fs.renameSync(tempFile, file);
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
+const SHORT_REPLIES = [
+  "edi wow",
+  "sabi mo e",
+  "tapos?",
+  "ha?",
+  "ah ok",
+  "k",
+  "ok",
+  "sus",
+  "ewan",
+  "weh",
+  "so?",
+  "then?",
+  "and?",
+  "ayan na naman",
+  "eto na naman tayo",
+  "wala na naman",
+  "ano na naman yan",
+  "anong pake ko",
+  "pakialam ko",
+  "sino nagtanong",
+  "may nagtanong ba",
+  "sige",
+  "go mo lang",
+  "ituloy mo lang",
+  "bahala ka",
+  "ikaw na",
+  "edi ikaw na",
+  "sige ikaw na magaling",
+  "wow naman",
+  "astig",
+  "lakas",
+  "angas ah",
+  "grabe ka",
+  "kalma",
+  "hinga muna",
+  "tulog ka na",
+  "matulog ka",
+  "antok ako",
+  "nakakatamad ka",
+  "ang boring",
+  "boring mo",
+  "ang haba",
+  "di ko binasa",
+  "skip",
+  "next",
+  "pass",
+  "wala akong gana",
+  "mamaya na",
+  "wag na",
+  "tama na",
+  "ayoko na",
+  "sakit sa ulo",
+  "daldal",
+  "daldal mo",
+  "ingay",
+  "ang ingay mo",
+  "puro ka salita",
+  "sana all",
+  "iyak na",
+  "pikon ka?",
+  "galit?",
+  "triggered?",
+  "affected?",
+  "tinamaan?",
+  "aray",
+  "ouch",
+  "luh",
+  "hala",
+  "omsim",
+  "legit ba",
+  "sure ka",
+  "seryoso?",
+  "talaga ba",
+  "nice try",
+  "good luck",
+  "better luck next time",
+  "try again",
+  "wag ka ganyan",
+  "umayos ka",
+  "ayos ayos din",
+  "relax ka lang",
+  "calm down bro"
+];
 
-const BOT_CONFIG = readJSON(CONFIG_FILE, []);
+/*
+==================================================
+ NATURAL / CASUAL
+==================================================
+*/
 
-const Utils = {
-    commands: new Map(),
-    handleEvent: new Map(),
-    account: new Map(),
-    cooldowns: new Map(),
-    connections: new Map(),
-    reconnecting: new Set()
+const NATURAL_REPLIES = [
+  "ano bang point mo",
+  "saan mo naman napulot yan",
+  "anong pinaglalaban mo ngayon",
+  "bakit parang galit na galit ka",
+  "normal ka lang ba",
+  "ano na naman pinag-iisip mo",
+  "parang may kailangan kang patunayan ah",
+  "bakit kailangan mo pang ipilit",
+  "gets ko naman sinasabi mo pero ang ingay",
+  "may point ka ba o trip mo lang talaga magsalita",
+  "parang ikaw mismo di mo alam sinasabi mo",
+  "ang seryoso mo naman sa bagay na wala namang bigat",
+  "bro relax lang",
+  "huminga ka muna bago ka magreply",
+  "wag mong dibdibin lahat",
+  "parang personal na personal sayo",
+  "okay ka lang ba dyan",
+  "anong nangyari sayo at ganyan ka",
+  "may pinagdadaanan ka ba",
+  "bakit parang kailangan mo ng validation",
+  "hindi naman kita inaaway",
+  "ikaw tong nagdadala ng gulo dito",
+  "ikaw rin naman nagsimula",
+  "wag kang masyadong invested",
+  "masyado kang seryoso",
+  "parang ikaw lang ang may pake",
+  "wala namang contest dito",
+  "di mo kailangan patunayan sarili mo",
+  "chill ka lang",
+  "wag mong ubusin energy mo dyan",
+  "ang effort mo naman",
+  "pinag-isipan mo pa talaga yan",
+  "ayan na naman yung confidence",
+  "confidence lang kulang sa evidence",
+  "may resibo ka ba",
+  "saan ang source",
+  "source: trust me bro",
+  "parang gawa-gawa lang",
+  "interesting take",
+  "ibang klase ka talaga",
+  "unique yung logic mo",
+  "creative ng reasoning mo",
+  "di ko alam kung seryoso ka",
+  "baka joke lang yan",
+  "sabihin mo na lang diretso",
+  "wag mo nang paligoy-ligoy",
+  "ano ba talaga gusto mong sabihin",
+  "diretsuhin mo na",
+  "ang dami mong intro",
+  "parang may essay submission",
+  "mahaba pero saan yung punto",
+  "nawala ako sa gitna",
+  "wait lang naligaw ako",
+  "balikan mo nga yung point",
+  "ano ulit",
+  "di ko nasundan",
+  "parang iba yung pinupuntahan mo",
+  "okay ka pa?",
+  "buhay ka pa ba",
+  "active na active ah",
+  "may energy ka talaga",
+  "sana all may ganyang oras"
+];
+
+/*
+==================================================
+ SARCASTIC
+==================================================
+*/
+
+const SARCASTIC_REPLIES = [
+  "wow may confidence kahit kulang sa dahilan",
+  "congratulations may speech ka na naman",
+  "palakpakan natin para masaya",
+  "sige lang baka maniwala ka rin sa sarili mo",
+  "ang galing mo talaga mag-imagine",
+  "nice story bro",
+  "solid fiction",
+  "maganda yung imagination mo",
+  "parang convincing kung di lang obvious",
+  "ang lakas ng plot twist",
+  "may season 2 pa ba yan",
+  "waiting sa resibo",
+  "saan yung proof",
+  "may evidence ba o vibes lang",
+  "source: sariling isip",
+  "trust me bro talaga",
+  "very convincing, almost",
+  "grabe yung confidence mo",
+  "confidence level: unlimited",
+  "evidence level: unavailable",
+  "ang tapang mo naman sa chat",
+  "malakas talaga pag keyboard ang hawak",
+  "keyboard warrior arc na naman",
+  "online ka lang pala malakas",
+  "parang final boss pero tutorial stage",
+  "boss fight daw pero intro pa lang",
+  "main character syndrome detected",
+  "akala mo may audience",
+  "may sariling teleserye",
+  "may sariling storyline",
+  "ikaw gumawa ng problema tapos ikaw din bida",
+  "ang cinematic naman ng kwento mo",
+  "parang movie pero walang budget",
+  "ang taas ng expectation sa sarili",
+  "hindi ka ba nauubusan ng confidence",
+  "walang preno yung yabang",
+  "sige lang, support kita sa delusion",
+  "keep believing",
+  "manifest mo lang baka mangyari",
+  "baka sakali",
+  "malay natin",
+  "baka bukas",
+  "maybe someday",
+  "almost believable",
+  "nice attempt",
+  "close enough",
+  "good effort",
+  "10/10 sa confidence",
+  "2/10 sa logic",
+  "5/10 sa effort",
+  "100/10 sa kapal ng mukha"
+];
+
+/*
+==================================================
+ BARDAGULAN
+==================================================
+*/
+
+const BARDAGULAN_REPLIES = [
+  "kala mo may impact lahat ng sinasabi mo",
+  "nag-iingay ka na naman para lang mapansin",
+  "hindi ka boss, ikaw lang nagbibigay ng titulo sa sarili mo",
+  "ang lakas mong magbitaw ng linya parang may award sa dulo",
+  "ang ingay mo pero parang walang laman",
+  "wala ka namang kwenta kausap",
+  "sige patuloy mo lang pagpapanggap mo",
+  "ikaw na ang magaling palakpakan natin",
+  "puro ka yabang pero sablay naman",
+  "wala na bang bago? gasgas na yan",
+  "sarili mo lang niloloko mo dyan",
+  "ang galing mong gumawa ng sarili mong pelikula",
+  "hindi ka nakakatakot, nakakatawa ka lang",
+  "tumigil ka na, ang sakit mo sa ulo",
+  "parang sirang plaka, paulit-ulit",
+  "daldal mo sobra, wala namang sustansya",
+  "sumagot ka pa, halatang pikon ka na",
+  "huli ka na sa balita, nagmamagaling ka pa",
+  "hinay-hinay lang sa pag-iisip baka maubos agad",
+  "tama na sa pagpapanggap, hindi bagay sa'yo",
+  "puro ka amba pero walang resibo",
+  "tingin mo angat ka na, nasa imbento ka pa lang",
+  "bro huminga ka muna baka mapano ka sa kakadada",
+  "ang lakas ng loob mo kaso hindi suportado ng utak",
+  "kala mo may audience ka sa bawat galaw mo",
+  "sobrang confident kahit walang basehan",
+  "hina ng connection mo sa realidad bro",
+  "ang tapang ng salita mo, nasaan yung gawa",
+  "puro intro walang main event",
+  "ang dami mong sinasabi para sa taong walang point",
+  "nagpapaka-bida ka na naman",
+  "di lahat ng iniisip mo kailangan sabihin",
+  "may mute button ka ba sa sarili mo",
+  "sobra na yung confidence, kulang na yung sense",
+  "parang kailangan mo ng reality check",
+  "wag mong seryosohin sarili mo nang ganyan",
+  "ang taas ng tingin mo sa sarili mo",
+  "pero bakit parang walang sumasang-ayon",
+  "puro ka flex wala namang maipakita",
+  "yabang muna bago utak",
+  "puro ka salita, gawa wala",
+  "kung yabang ang sukatan panalo ka na",
+  "kaso hindi yabang ang labanan dito",
+  "ang lakas mong manghusga parang perfect ka",
+  "may checklist ka ba ng sariling mali",
+  "tingnan mo muna sarili mo bago iba",
+  "ang bilis mong pumuna pero mabagal umintindi",
+  "parang gusto mong manalo kahit walang laban",
+  "pinipilit mong maging relevant",
+  "hindi ka naman kailangan i-ignore, kusa kang nawawala",
+  "ang effort mong maging annoying",
+  "successful ka naman",
+  "successful maging istorbo",
+  "ang consistent mo sa pagiging ganyan",
+  "at least may talent ka sa pang-iinis",
+  "may ambag ka naman pala",
+  "ambag sa ingay",
+  "hindi kita kailangang kontrahin, ginagawa mo naman mag-isa",
+  "sige lang tuloy mo yung self-destruction",
+  "ikaw na mismo nagbibigay ng dahilan para pagtawanan ka"
+];
+
+/*
+==================================================
+ COLD / DEADPAN
+==================================================
+*/
+
+const COLD_REPLIES = [
+  "noted",
+  "interesting",
+  "irrelevant",
+  "okay then",
+  "good for you",
+  "that's nice",
+  "if you say so",
+  "whatever works for you",
+  "do what you want",
+  "your choice",
+  "carry on",
+  "continue",
+  "proceed",
+  "go ahead",
+  "i'll let you have that",
+  "sure",
+  "alright",
+  "understood",
+  "received",
+  "message received",
+  "noted with concern",
+  "noted with amusement",
+  "that's one way to think about it",
+  "interesting perspective",
+  "valid attempt",
+  "noted, anyway",
+  "okay, moving on",
+  "anyway",
+  "back to reality",
+  "let's not",
+  "we're not doing this",
+  "i'm not entertaining this",
+  "wrong audience",
+  "wrong person",
+  "wrong timing",
+  "not today",
+  "maybe next time",
+  "pass muna",
+  "skip muna tayo",
+  "wala akong comment",
+  "no comment",
+  "i have nothing to add",
+  "nothing to discuss",
+  "end of discussion",
+  "case closed",
+  "next topic",
+  "moving on",
+  "that's enough",
+  "we're done here"
+];
+
+/*
+==================================================
+ PANG-AASAR / MOCKING
+==================================================
+*/
+
+const MOCK_REPLIES = [
+  "bro really thought that would work",
+  "bro typed all that with confidence",
+  "bro thought he cooked",
+  "bro forgot the evidence",
+  "bro forgot the point",
+  "bro is fighting an imaginary opponent",
+  "bro arguing with himself again",
+  "bro created his own enemy",
+  "bro is in his own universe",
+  "bro wrote a whole paragraph just to say nothing",
+  "bro needs a map",
+  "bro lost the plot",
+  "bro skipped common sense",
+  "bro needs to restart",
+  "bro needs an update",
+  "bro is running outdated logic",
+  "bro's connection to reality is unstable",
+  "bro is buffering",
+  "bro is still loading",
+  "bro hasn't finished processing",
+  "bro's brain entered maintenance mode",
+  "bro needs technical support",
+  "bro needs a reality patch",
+  "bro is confidently incorrect",
+  "bro is speedrunning embarrassment",
+  "bro is farming reactions",
+  "bro wants attention badly",
+  "bro really wants the spotlight",
+  "bro thinks this is a tournament",
+  "bro treating the group chat like a stage",
+  "bro brought an entire presentation",
+  "bro made a thesis",
+  "bro wrote a novel",
+  "bro needs an editor",
+  "bro needs to shorten that",
+  "bro lost me at the first sentence",
+  "bro somehow made it worse",
+  "bro kept talking and proved the point",
+  "bro is helping the allegations",
+  "bro is beating the allegations by becoming them",
+  "bro is not beating the allegations",
+  "bro thought nobody noticed",
+  "bro thought we forgot",
+  "bro really said that publicly",
+  "bro chose violence against his own reputation",
+  "bro woke up and chose nonsense",
+  "bro woke up with too much confidence",
+  "bro needs sleep",
+  "bro needs water",
+  "bro needs to log out"
+];
+
+/*
+==================================================
+ TAGALOG INTERNET STYLE
+==================================================
+*/
+
+const INTERNET_REPLIES = [
+  "brodie chill",
+  "luh ano yan",
+  "ano yan lods",
+  "grabe naman bossing",
+  "kalmahan mo lods",
+  "wala ka sa wisyo",
+  "ano ba yan pre",
+  "wag ganyan pre",
+  "pre tama na",
+  "pre huminga ka",
+  "boss relax",
+  "bossing ano yan",
+  "lods naman",
+  "kuya tama na",
+  "beh enough",
+  "beh kalma",
+  "tol ano yan",
+  "tol wag mo na ituloy",
+  "pare ang lala",
+  "pare naman",
+  "idol wag",
+  "idol kalma",
+  "master naman",
+  "sir enough",
+  "chief relax",
+  "chief ano yan",
+  "brother please",
+  "bro please",
+  "bro stop",
+  "bro enough",
+  "bro relax",
+  "bro calm down",
+  "bro what are you doing",
+  "bro why",
+  "bro how",
+  "bro really",
+  "bro seriously",
+  "bro nah",
+  "nah bro",
+  "no way bro",
+  "ain't no way",
+  "what is bro doing",
+  "what are you cooking",
+  "who let bro cook",
+  "take the stove away",
+  "turn off the stove",
+  "bro burned the kitchen",
+  "wala nang pag-asa yung niluluto mo",
+  "sunog na pre",
+  "lutong-luto na",
+  "overcooked",
+  "medyo sablay"
+];
+
+/*
+==================================================
+ DEEPER BARAGULAN
+==================================================
+*/
+
+const HEAVY_REPLIES = [
+  "hindi naman kita pinipigilan magsalita, pero sana may sense din minsan",
+  "kung confidence lang ang puhunan mo, mayaman ka na siguro",
+  "ang problema hindi ka madaldal, wala lang talagang patutunguhan yung sinasabi mo",
+  "hindi mo kailangang lakasan boses mo para magmukhang tama",
+  "kahit ilang beses mong sabihin, hindi nagiging tama dahil lang paulit-ulit",
+  "hindi porket confident ka ibig sabihin tama ka",
+  "may difference ang pagiging prangka sa pagiging walang sense",
+  "ang hirap makipagtalo sa taong sarili lang ang source",
+  "parang ikaw yung debate, ikaw din yung judge, ikaw din yung panalo",
+  "ang convenient ng logic mo, ikaw lagi ang tama kahit walang proof",
+  "hindi ko alam kung argument yan o desperate attempt para mapansin",
+  "masyado mong gustong manalo sa usapan na nakakalimutan mong intindihin yung usapan",
+  "ang dami mong sinasabi pero kahit isang solid na punto wala",
+  "hindi lahat ng argumento kailangan tapusin ng yabang",
+  "may confidence ka nga pero nawawala naman yung common sense",
+  "kung ingay ang basehan ng panalo, champion ka na",
+  "hindi kita inaaway, pinapakita ko lang kung gaano ka ka-obvious",
+  "ang funny kapag sobrang seryoso ka sa sarili mong narrative",
+  "you keep proving the point without anyone asking",
+  "you are doing most of the work yourself",
+  "wala nang kailangan sabihin, ikaw na mismo nag-expose sa sarili mo",
+  "hindi mo kailangan ng kalaban, kaya mong talunin sarili mo",
+  "ang bilis mong mag-react pero ang bagal mong umintindi",
+  "hindi problema yung opinion mo, yung confidence mo na parang fact siya",
+  "you don't need to be loud to be right",
+  "you just need an actual point",
+  "at the moment, wala pa",
+  "maybe think first before sending another paragraph",
+  "mas convincing sana kung may resibo",
+  "words are easy, evidence isn't",
+  "puro statement, walang support",
+  "that's a lot of confidence for very little substance",
+  "you really committed to that take",
+  "unfortunately the logic didn't come with it",
+  "ang lakas ng delivery, kulang sa laman",
+  "parang trailer na walang movie",
+  "ang haba ng build-up tapos ganun lang",
+  "you had all that time to think and chose that",
+  "respect the confidence, question the reasoning",
+  "good energy, questionable direction",
+  "strong delivery, weak argument",
+  "great enthusiasm, terrible execution",
+  "ang tapang mo pero parang wala kang backup",
+  "kung may resibo ka sana mas interesante",
+  "wag puro amba, pakita mo rin",
+  "hindi sapat yung 'feeling ko'",
+  "feeling isn't evidence",
+  "opinion isn't automatically fact",
+  "confidence isn't proof"
+];
+
+/*
+==================================================
+ ALL POOLS
+==================================================
+*/
+
+const POOLS = {
+  short: SHORT_REPLIES,
+  natural: NATURAL_REPLIES,
+  sarcastic: SARCASTIC_REPLIES,
+  bardagulan: BARDAGULAN_REPLIES,
+  cold: COLD_REPLIES,
+  mocking: MOCK_REPLIES,
+  internet: INTERNET_REPLIES,
+  heavy: HEAVY_REPLIES
 };
 
-// ============================================================
-// COMMAND LOADER
-// ============================================================
+/*
+==================================================
+ CONFIG
+==================================================
+*/
 
-function normalizeAliases(value) {
-    if (Array.isArray(value)) return [...value];
-    if (typeof value === "string" && value.length > 0) return [value];
-    return [];
+function loadConfig() {
+  try {
+    if (fs.existsSync(DATA_PATH)) {
+      return JSON.parse(
+        fs.readFileSync(DATA_PATH, "utf8")
+      );
+    }
+  } catch (err) {
+    console.error("[HALIMAW] Config load error:", err.message);
+  }
+
+  return {
+    active: false
+  };
 }
 
-function installCommand(filePath) {
-    try {
-        delete require.cache[require.resolve(filePath)];
-        const loaded = require(filePath);
-        if (!loaded || !loaded.config) return;
-
-        const rawConfig = loaded.config;
-        const name = rawConfig.name || rawConfig.Name || path.basename(filePath, ".js");
-        const aliases = normalizeAliases(rawConfig.aliases || rawConfig.Aliases);
-        const lowerName = String(name).toLowerCase();
-
-        if (!aliases.includes(lowerName)) {
-            aliases.push(lowerName);
-        }
-
-        const commandData = {
-            name,
-            role: rawConfig.role ?? rawConfig.hasPermission ?? 0,
-            run: loaded.run,
-            aliases,
-            description: rawConfig.description || "",
-            usage: rawConfig.usage || "",
-            version: rawConfig.version || "1.0.0",
-            hasPrefix: rawConfig.hasPrefix !== undefined ? rawConfig.hasPrefix : true,
-            credits: rawConfig.credits || "",
-            cooldown: Number(rawConfig.cooldown || 0),
-            dev: Boolean(rawConfig.dev)
-        };
-
-        if (typeof loaded.run === "function") {
-            for (const alias of aliases) {
-                Utils.commands.set(alias, commandData);
-            }
-        }
-
-        if (typeof loaded.handleEvent === "function") {
-            for (const alias of aliases) {
-                Utils.handleEvent.set(alias, {
-                    ...commandData,
-                    handleEvent: loaded.handleEvent
-                });
-            }
-        }
-
-        console.log(chalk.green(`[COMMAND] Loaded: ${name}`));
-    } catch (error) {
-        console.error(chalk.red(`[COMMAND] Failed loading ${filePath}:`), error.message);
-    }
+function saveConfig(data) {
+  try {
+    fs.writeFileSync(
+      DATA_PATH,
+      JSON.stringify(data, null, 2)
+    );
+  } catch (err) {
+    console.error("[HALIMAW] Config save error:", err.message);
+  }
 }
 
-function loadCommands() {
-    if (!fs.existsSync(SCRIPT_DIR)) return;
-    const files = fs.readdirSync(SCRIPT_DIR);
+/*
+==================================================
+ RANDOM SYSTEM
+==================================================
+*/
 
-    for (const file of files) {
-        const fullPath = path.join(SCRIPT_DIR, file);
-        let stats;
-        try {
-            stats = fs.statSync(fullPath);
-        } catch (error) {
-            continue;
-        }
-
-        if (stats.isDirectory()) {
-            let children;
-            try {
-                children = fs.readdirSync(fullPath);
-            } catch (error) {
-                continue;
-            }
-            for (const child of children) {
-                if (child.endsWith(".js")) {
-                    installCommand(path.join(fullPath, child));
-                }
-            }
-        } else if (stats.isFile() && file.endsWith(".js")) {
-            installCommand(fullPath);
-        }
-    }
+function randomItem(array) {
+  return array[
+    Math.floor(Math.random() * array.length)
+  ];
 }
 
-loadCommands();
+function getCategory(threadID) {
+  const categories = Object.keys(POOLS);
 
-// ============================================================
-// HUMAN HANDLER
-// ============================================================
+  const previous =
+    recentCategories.get(threadID) || null;
 
-class HumanHandler {
-    constructor() {
-        this.lastMessages = new Map();
-        this.userMessages = new Map();
-        this.processingThreads = new Set();
-        this.replyQueues = new Map();
-        this.messageHashes = new Map();
-    }
+  let category;
 
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+  do {
+    category = randomItem(categories);
+  } while (
+    categories.length > 1 &&
+    category === previous
+  );
 
-    random(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
+  recentCategories.set(threadID, category);
 
-    randomReplyDelay() {
-        return this.random(SETTINGS.MIN_REPLY_DELAY, SETTINGS.MAX_REPLY_DELAY);
-    }
-
-    randomTypingDelay() {
-        return this.random(SETTINGS.MIN_TYPING_DELAY, SETTINGS.MAX_TYPING_DELAY);
-    }
-
-    hash(value) {
-        let hash = 0;
-        const text = String(value || "");
-        for (let i = 0; i < text.length; i++) {
-            hash = ((hash << 5) - hash) + text.charCodeAt(i);
-            hash |= 0;
-        }
-        return String(hash);
-    }
-
-    getMessageKey(event) {
-        if (!event) return null;
-        const threadID = event.threadID || "";
-        const senderID = event.senderID || "";
-        const body = event.body || "";
-        if (!body) return null;
-        return [threadID, senderID, this.hash(body)].join(":");
-    }
-
-    isDuplicate(event) {
-        const key = this.getMessageKey(event);
-        if (!key) return false;
-        const now = Date.now();
-        const previous = this.lastMessages.get(key);
-        if (previous && now - previous < SETTINGS.DUPLICATE_WINDOW) {
-            return true;
-        }
-        this.lastMessages.set(key, now);
-        this.cleanupMap(this.lastMessages, SETTINGS.DUPLICATE_WINDOW);
-        return false;
-    }
-
-    isSpam(event) {
-        if (!event) return false;
-        const senderID = event.senderID;
-        if (!senderID) return false;
-        const now = Date.now();
-        let messages = this.userMessages.get(senderID) || [];
-        messages = messages.filter(timestamp => now - timestamp < SETTINGS.SPAM_WINDOW);
-        messages.push(now);
-        this.userMessages.set(senderID, messages);
-        return messages.length > SETTINGS.MAX_MESSAGES_PER_WINDOW;
-    }
-
-    cleanupMap(map, lifetime) {
-        const now = Date.now();
-        for (const [key, timestamp] of map.entries()) {
-            if (now - timestamp > lifetime) {
-                map.delete(key);
-            }
-        }
-    }
-
-    getStats() {
-        return {
-            duplicateCache: this.lastMessages.size,
-            trackedUsers: this.userMessages.size,
-            activeThreads: this.processingThreads.size,
-            queuedThreads: this.replyQueues.size
-        };
-    }
+  return category;
 }
 
-const humanHandler = new HumanHandler();
+function getHumanReply(threadID) {
+  const category = getCategory(threadID);
+  const pool = POOLS[category];
 
-// ============================================================
-// EXPRESS & ROUTES
-// ============================================================
+  let previous =
+    recentReplies.get(threadID) || [];
 
-app.use(express.static(path.join(ROOT, "public")));
-app.use(express.json({ limit: "10mb" }));
+  /*
+  Keep last 12 replies from repeating.
+  */
+  const available = pool.filter(
+    reply => !previous.includes(reply)
+  );
 
-app.get("/health", (req, res) => {
-    res.json({
-        status: "online",
-        uptime: process.uptime(),
-        accounts: Utils.account.size,
-        commands: Utils.commands.size,
-        connections: Utils.connections.size,
-        reconnecting: Utils.reconnecting.size,
-        human: humanHandler.getStats(),
-        timestamp: new Date().toISOString()
-    });
-});
+  const source =
+    available.length > 0
+      ? available
+      : pool;
 
-app.get("/info", (req, res) => {
-    const data = Array.from(Utils.account.values()).map(account => ({
-        name: account.name || "Unknown",
-        profileUrl: account.profileUrl || "",
-        thumbSrc: account.thumbSrc || "",
-        time: Number(account.time || 0)
-    }));
-    res.json(data);
-});
+  const selected =
+    randomItem(source);
 
-// ============================================================
-// RECONNECT MANAGER
-// ============================================================
+  previous.push(selected);
 
-const reconnectTimers = new Map();
-const reconnectAttempts = new Map();
+  if (previous.length > 12) {
+    previous.shift();
+  }
 
-function getReconnectDelay(userId) {
-    const attempts = reconnectAttempts.get(userId) || 0;
-    const exponential = SETTINGS.INITIAL_RECONNECT_DELAY * Math.pow(2, Math.min(attempts, 5));
-    const delay = Math.min(exponential, SETTINGS.MAX_RECONNECT_DELAY);
-    const jitter = Math.floor(Math.random() * 1500);
-    return delay + jitter;
+  recentReplies.set(threadID, previous);
+
+  return selected;
 }
 
-function reconnectAccount(state, userId) {
-    if (!state) return;
-    if (reconnectTimers.has(userId)) return;
-    if (Utils.reconnecting.has(userId)) return;
+/*
+==================================================
+ DOT REACTION
+==================================================
+*/
 
-    Utils.reconnecting.add(userId);
-    const attempts = (reconnectAttempts.get(userId) || 0) + 1;
-    reconnectAttempts.set(userId, attempts);
-
-    const delay = getReconnectDelay(userId);
-    console.log(chalk.yellow(`[RECONNECT] ${userId} retry #${attempts} in ${delay}ms`));
-
-    const timer = setTimeout(() => {
-        reconnectTimers.delete(userId);
-        Utils.reconnecting.delete(userId);
-        try {
-            accountLogin(state, userId, false);
-        } catch (error) {
-            reconnectAccount(state, userId);
-        }
-    }, delay);
-
-    reconnectTimers.set(userId, timer);
+function reactToMessage(api, messageID) {
+  try {
+    api.setMessageReaction(
+      "❤️",
+      messageID,
+      () => {},
+      true
+    );
+  } catch (err) {}
 }
 
-function resetReconnectAttempts(userId) {
-    reconnectAttempts.delete(userId);
+/*
+==================================================
+ TYPING
+==================================================
+*/
+
+function startTyping(api, threadID) {
+  try {
+    if (
+      typeof api.sendTypingIndicator ===
+      "function"
+    ) {
+      api.sendTypingIndicator(
+        threadID,
+        true
+      );
+    }
+  } catch (err) {}
 }
 
-// ============================================================
-// LOGIN FUNCTION & PERSISTENCE
-// ============================================================
-
-function accountLogin(state, userId, saveToDisk = true) {
-    if (!state || typeof state !== "object") {
-        console.error(chalk.red(`[LOGIN] Invalid appState for ${userId}`));
-        return;
+function stopTyping(api, threadID) {
+  try {
+    if (
+      typeof api.sendTypingIndicator ===
+      "function"
+    ) {
+      api.sendTypingIndicator(
+        threadID,
+        false
+      );
     }
-
-    const fcaOption = BOT_CONFIG[0]?.fcaOption || {
-        forceLogin: true,
-        listenEvents: true,
-        logLevel: "silent",
-        updatePresence: true,
-        selfListen: true
-    };
-
-    if (saveToDisk) {
-        try {
-            const sessionFile = path.join(SESSION_DIR, `${userId}.json`);
-            fs.writeFileSync(sessionFile, JSON.stringify(state, null, 2), "utf8");
-        } catch (error) {
-            console.error(chalk.red(`[SESSION] Failed to save session for ${userId}:`), error.message);
-        }
-    }
-
-    try {
-        login({ appState: state }, fcaOption, async (err, api) => {
-            if (err) {
-                console.error(chalk.red(`[LOGIN] Failed for user ${userId}:`), err.error || err);
-                Utils.account.delete(userId);
-                Utils.connections.delete(userId);
-                reconnectAccount(state, userId);
-                return;
-            }
-
-            resetReconnectAttempts(userId);
-            console.log(chalk.green(`[LOGIN] Successfully logged in for ID: ${userId}`));
-
-            try {
-                const userInfo = await new Promise(resolve => {
-                    api.getUserInfo(userId, (infoError, ret) => {
-                        if (infoError || !ret || !ret[userId]) {
-                            resolve({ name: "User", profileUrl: "", thumbSrc: "" });
-                            return;
-                        }
-                        resolve({
-                            name: ret[userId].name || "User",
-                            profileUrl: ret[userId].profileUrl || "",
-                            thumbSrc: ret[userId].thumbSrc || ""
-                        });
-                    });
-                });
-
-                Utils.account.set(userId, { api, ...userInfo, time: Date.now() });
-                Utils.connections.set(userId, { api, state, connectedAt: Date.now() });
-
-                console.log(chalk.green(`[ACCOUNT] ${userInfo.name} is ready.`));
-            } catch (error) {
-                console.error(chalk.red("[SETUP ERROR]"), error.message);
-            }
-
-            try {
-                api.listenMqtt(async (listenerError, event) => {
-                    if (listenerError) {
-                        console.error(chalk.red(`[LISTENER ERROR] ${userId}:`), listenerError.error || listenerError);
-                        Utils.account.delete(userId);
-                        Utils.connections.delete(userId);
-                        reconnectAccount(state, userId);
-                        return;
-                    }
-
-                    if (!event) return;
-                    if (humanHandler.isDuplicate(event)) return;
-                    if (humanHandler.isSpam(event)) return;
-
-                    const account = Utils.account.get(userId);
-                    if (account) {
-                        account.time = Date.now();
-                        Utils.account.set(userId, account);
-                    }
-
-                    // Command Handler
-                    if (event.type === "message" || event.type === "message_reply") {
-                        const args = event.body ? event.body.trim().split(/ +/) : [];
-                        let commandName = args.shift()?.toLowerCase();
-                        const prefix = "!"; // Palitan kung iba ang prefix mo
-
-                        if (commandName && commandName.startsWith(prefix)) {
-                            commandName = commandName.slice(prefix.length);
-                            if (Utils.commands.has(commandName)) {
-                                const command = Utils.commands.get(commandName);
-                                try {
-                                    await command.run({ api, event, args, commandName, humanHandler, accountID: userId, utils: Utils });
-                                } catch (e) {
-                                    console.error(chalk.red(`[COMMAND ERROR]`), e.message);
-                                }
-                            }
-                        }
-                    }
-
-                    // Event Handler
-                    for (const cmd of Utils.handleEvent.values()) {
-                        try {
-                            const context = { api, event, humanHandler, accountID: userId, utils: Utils };
-                            if (typeof cmd.handleEvent === "function") {
-                                Promise.resolve(cmd.handleEvent(context)).catch(() => {});
-                            }
-                            if (typeof cmd.onChat === "function") {
-                                Promise.resolve(cmd.onChat(context)).catch(() => {});
-                            }
-                        } catch (error) {}
-                    }
-                });
-            } catch (error) {
-                reconnectAccount(state, userId);
-            }
-        });
-    } catch (error) {
-        reconnectAccount(state, userId);
-    }
+  } catch (err) {}
 }
 
-app.post("/login", async (req, res) => {
-    try {
-        const { appState, userid } = req.body;
-        if (!appState) {
-            return res.status(400).json({ success: false, message: "Missing appState" });
-        }
+/*
+==================================================
+ EVENT HANDLER
+==================================================
+*/
 
-        const uid = userid || "default";
-        accountLogin(appState, uid, true);
+module.exports.handleEvent =
+async function ({ api, event }) {
 
-        return res.json({ success: true, message: "Login process initiated and session saved." });
-    } catch (error) {
-        return res.status(500).json({ success: false, message: "Internal server error" });
-    }
-});
+  const {
+    threadID,
+    senderID,
+    body,
+    messageID
+  } = event;
 
-// ============================================================
-// ERROR HANDLERS & SERVER START
-// ============================================================
+  if (!body) return;
 
-process.on("uncaughtException", error => {});
-process.on("unhandledRejection", reason => {});
+  if (
+    senderID ===
+    api.getCurrentUserID()
+  ) {
+    return;
+  }
 
-const server = app.listen(PORT, () => {
-    console.log(chalk.green(`Server is running on port ${PORT}`));
-});
+  const config = loadConfig();
 
-async function main() {
-    loadCommands();
+  if (!config.active) {
+    return;
+  }
 
-    if (!fs.existsSync(SESSION_DIR)) return;
+  /*
+  ADMIN ONLY
+  */
 
-    let files;
-    try {
-        files = fs.readdirSync(SESSION_DIR);
-    } catch (error) {
-        return;
-    }
+  if (
+    !ADMIN_IDS.includes(
+      String(senderID)
+    )
+  ) {
+    return;
+  }
 
-    const sessionFiles = files.filter(file => file.endsWith(".json"));
-    if (sessionFiles.length === 0) return;
+  /*
+  IGNORE COMMANDS
+  */
 
-    for (const file of sessionFiles) {
-        const userId = path.basename(file, ".json");
-        const sessionPath = path.join(SESSION_DIR, file);
+  const text = body.trim();
 
-        try {
-            const rawState = fs.readFileSync(sessionPath, "utf8");
-            const appState = JSON.parse(rawState);
+  if (text.startsWith("/")) {
+    return;
+  }
 
-            if (appState) {
-                console.log(chalk.yellow(`[SESSION] Auto-logging in saved account: ${userId}`));
-                accountLogin(appState, userId, false);
-            }
-        } catch (error) {}
-    }
-}
+  /*
+  THREAD COOLDOWN
+  */
 
-main().catch(error => {
-    console.error(chalk.red("[MAIN] Fatal startup error:"), error.message);
-});
+  const now = Date.now();
+
+  const last =
+    threadCooldowns.get(threadID) || 0;
+
+  if (
+    now - last <
+    REPLY_DELAY
+  ) {
+    return;
+  }
+
+  threadCooldowns.set(
+    threadID,
+    now
+  );
+
+  /*
+  DOT / HEART
+  */
+
+  if (
+    text === "." ||
+    /^\.+$/.test(text)
+  ) {
+
+    setTimeout(() => {
+      reactToMessage(
+        api,
+        messageID
+      );
+    }, REPLY_DELAY);
+
+    return;
+  }
+
+  /*
+  HUMAN REPLY
+  */
+
+  const reply =
+    getHumanReply(threadID);
+
+  /*
+  WAIT 10 SEC
+  */
+
+  setTimeout(() => {
+
+    startTyping(
+      api,
+      threadID
+    );
+
+    /*
+    TYPING 2 SEC
+    */
+
+    setTimeout(() => {
+
+      stopTyping(
+        api,
+        threadID
+      );
+
+      try {
+
+        api.sendMessage(
+          {
+            body: reply
+          },
+          threadID,
+          () => {},
+          messageID
+        );
+
+      } catch (err) {
+        console.error(
+          "[HALIMAW] Send error:",
+          err.message
+        );
+      }
+
+    }, TYPING_TIME);
+
+  }, REPLY_DELAY);
+};
+
+/*
+==================================================
+ COMMAND
+==================================================
+*/
+
+module.exports.run =
+async function ({
+  api,
+  event,
+  args
+}) {
+
+  const {
+    threadID,
+    senderID,
+    messageID
+  } = event;
+
+  if (
+    !ADMIN_IDS.includes(
+      String(senderID)
+    )
+  ) {
+
+    return api.sendMessage(
+      "Hindi ka authorized gumamit nito.",
+      threadID,
+      messageID
+    );
+
+  }
+
+  const sub =
+    String(args[0] || "")
+      .toLowerCase();
+
+  const config =
+    loadConfig();
+
+  /*
+  ON
+  */
+
+  if (sub === "on") {
+
+    config.active = true;
+
+    saveConfig(config);
+
+    threadCooldowns.clear();
+    recentReplies.clear();
+    recentCategories.clear();
+
+    return api.sendMessage(
+      "Halimaw ON. Human-style massive reply mode active.",
+      threadID,
+      messageID
+    );
+  }
+
+  /*
+  OFF
+  */
+
+  if (sub === "off") {
+
+    config.active = false;
+
+    saveConfig(config);
+
+    threadCooldowns.clear();
+    recentReplies.clear();
+    recentCategories.clear();
+
+    return api.sendMessage(
+      "Halimaw OFF.",
+      threadID,
+      messageID
+    );
+  }
+
+  /*
+  STATUS
+  */
+
+  if (sub === "status") {
+
+    return api.sendMessage(
+      `Halimaw Status: ${
+        config.active
+          ? "ONLINE"
+          : "OFFLINE"
+      }\n\nReply delay: 10 seconds\nTyping simulation: 2 seconds\nReply pools: ${
+        Object.keys(POOLS).length
+      }\nAnti-repeat: ON`,
+      threadID,
+      messageID
+    );
+  }
+
+  return api.sendMessage(
+    "/halimaw on | off | status",
+    threadID,
+    messageID
+  );
+};
