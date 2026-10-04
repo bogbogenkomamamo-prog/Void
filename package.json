@@ -1,19 +1,15 @@
 {
   "name": "auto-messenger-bot",
   "version": "1.0.0",
-  "description": "Long-running Messenger automation bot",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:auto": "node auto.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "engines": {
-    "node": ">=18.18.0"
-  },
   "dependencies": {
     "@types/node": "^18.0.6",
     "axios": "^1.6.5",
