@@ -371,22 +371,16 @@ app.get("/info", (req, res) => {
 // ============================================================
 
 app.get("/commands", (req, res) => {
-    const commandNames = new Set();
-
     const commands = [];
-
     for (const command of Utils.commands.values()) {
-        if (!commandNames.has(command.name)) {
-            commandNames.add(command.name);
+        if (!commands.includes(command.name)) {
             commands.push(command.name);
         }
     }
 
     const handleEvent = [];
-
     for (const command of Utils.handleEvent.values()) {
-        if (!commandNames.has(command.name)) {
-            commandNames.add(command.name);
+        if (!commands.includes(command.name) && !handleEvent.includes(command.name)) {
             handleEvent.push(command.name);
         }
     }
@@ -714,10 +708,6 @@ function deleteThisUser(userid) {
         HISTORY_FILE,
         filtered
     );
-
-    // NOTE:
-    // Session is intentionally NOT deleted here
-    // during connection errors.
 }
 
 // ============================================================
@@ -765,7 +755,6 @@ async function accountLogin(
         );
     }
 
-    // Always enable currently loaded commands.
     const enabled = [
         {
             commands:
@@ -860,10 +849,6 @@ async function accountLogin(
                         blacklist
                     );
 
-                    // ------------------------------------------------
-                    // ACCOUNT INFO
-                    // ------------------------------------------------
-
                     try {
                         const userInfo =
                             await api.getUserInfo(userid);
@@ -929,10 +914,6 @@ async function accountLogin(
                         );
                     }
 
-                    // ------------------------------------------------
-                    // TIME COUNTER
-                    // ------------------------------------------------
-
                     if (!Utils.account.get(userid)._timer) {
                         const timer =
                             setInterval(() => {
@@ -955,10 +936,6 @@ async function accountLogin(
                             account._timer = timer;
                         }
                     }
-
-                    // ------------------------------------------------
-                    // OPTIONS
-                    // ------------------------------------------------
 
                     const fcaOptions =
                         BOT_CONFIG?.[0]?.fcaOption || {};
@@ -999,10 +976,6 @@ async function accountLogin(
                         );
                     }
 
-                    // ------------------------------------------------
-                    // CONNECTION STATE
-                    // ------------------------------------------------
-
                     Utils.connections.set(
                         userid,
                         {
@@ -1018,10 +991,6 @@ async function accountLogin(
                             `[ONLINE] ${userid}`
                         )
                     );
-
-                    // ------------------------------------------------
-                    // MQTT LISTENER
-                    // ------------------------------------------------
 
                     let reconnectStarted = false;
 
@@ -1050,10 +1019,6 @@ async function accountLogin(
                         api.listenMqtt(
                             async (listenError, event) => {
 
-                                // ------------------------------------
-                                // CONNECTION ERROR
-                                // ------------------------------------
-
                                 if (listenError) {
                                     console.error(
                                         chalk.yellow(
@@ -1077,10 +1042,6 @@ async function accountLogin(
 
                                     return;
                                 }
-
-                                // ------------------------------------
-                                // INVALID EVENT
-                                // ------------------------------------
 
                                 if (!event) {
                                     return;
@@ -1232,10 +1193,6 @@ async function processEvent({
             ? event.body.trim()
             : "";
 
-    // --------------------------------------------------------
-    // DATABASE
-    // --------------------------------------------------------
-
     let database =
         readJSON(
             DATABASE_FILE,
@@ -1274,10 +1231,6 @@ async function processEvent({
             );
     }
 
-    // --------------------------------------------------------
-    // CURRENT BLACKLIST
-    // --------------------------------------------------------
-
     const history =
         readJSON(
             HISTORY_FILE,
@@ -1297,10 +1250,6 @@ async function processEvent({
         )
             ? currentUser.blacklist
             : blacklist || [];
-
-    // --------------------------------------------------------
-    // COMMAND
-    // --------------------------------------------------------
 
     let command = "";
     let args = [];
@@ -1365,10 +1314,6 @@ async function processEvent({
     const commandInfo =
         aliases(command);
 
-    // --------------------------------------------------------
-    // PREFIX VALIDATION
-    // --------------------------------------------------------
-
     if (
         usedPrefix &&
         commandInfo &&
@@ -1390,10 +1335,6 @@ async function processEvent({
         return;
     }
 
-    // --------------------------------------------------------
-    // DEV CHECK
-    // --------------------------------------------------------
-
     if (body && commandInfo) {
         if (commandInfo.dev) {
             if (
@@ -1413,10 +1354,6 @@ async function processEvent({
             }
         }
     }
-
-    // --------------------------------------------------------
-    // ADMIN / THREAD ADMIN
-    // --------------------------------------------------------
 
     if (body && commandInfo) {
         const role =
@@ -1479,10 +1416,6 @@ async function processEvent({
         }
     }
 
-    // --------------------------------------------------------
-    // BLACKLIST
-    // --------------------------------------------------------
-
     if (
         commandInfo &&
         Array.isArray(currentBlacklist) &&
@@ -1502,10 +1435,6 @@ async function processEvent({
 
         return;
     }
-
-    // --------------------------------------------------------
-    // COOLDOWN
-    // --------------------------------------------------------
 
     if (commandInfo) {
         const now = Date.now();
@@ -1560,10 +1489,6 @@ async function processEvent({
         }
     }
 
-    // --------------------------------------------------------
-    // INVALID PREFIX COMMAND
-    // --------------------------------------------------------
-
     if (
         body &&
         usedPrefix &&
@@ -1606,10 +1531,6 @@ async function processEvent({
 
         return;
     }
-
-    // --------------------------------------------------------
-    // HANDLE EVENTS
-    // --------------------------------------------------------
 
     for (
         const command of Utils.handleEvent.values()
@@ -1658,10 +1579,6 @@ async function processEvent({
             );
         }
     }
-
-    // --------------------------------------------------------
-    // RUN COMMAND
-    // --------------------------------------------------------
 
     if (
         !commandInfo ||
@@ -1920,9 +1837,6 @@ async function main() {
                     error.message
                 );
 
-                // IMPORTANT:
-                // Don't delete the session here.
-                // Reconnect is handled separately.
                 scheduleReconnect(
                     userid,
                     state,
@@ -1948,8 +1862,6 @@ async function main() {
 // PERIODIC SAVE
 // ============================================================
 
-// Save state every 15 minutes.
-// IMPORTANT: this DOES NOT process.exit().
 cron.schedule(
     "*/15 * * * *",
     async () => {
@@ -1972,9 +1884,6 @@ process.on(
             error.stack ||
             error.message
         );
-
-        // Do NOT immediately kill the process.
-        // Individual command/event errors are already isolated.
     }
 );
 
@@ -2054,7 +1963,4 @@ main().catch(error => {
         error.stack ||
         error.message
     );
-
-    // Let the hosting process manager decide whether
-    // to restart the process.
 });
