@@ -7,19 +7,19 @@ module.exports.config = {
   role: 0,
   hasPrefix: true,
   aliases: ["mimic", "tropa", "halimaw"],
-  description: "Human Mimicker 24/7 - 10s Continuous Typing Indicator & 1k+ Replies",
+  description: "Human Mimicker 24/7 - 10s Continuous Typing Indicator & 1k+ Replies for Everyone",
   usage: "/halimaw [on | off | status]",
   credits: "sinzu",
   cooldown: 3
 };
 
 const DATA_PATH = path.join(__dirname, "halimaw_config.json");
-const ADMIN_IDS = ["61594951192638", "61594616562680", "61594981323552"];
 
+// Tandaan: Inalis na ang ADMIN_IDS restriction para gumana siya sa LAHAT ng tao.
 const threadCooldowns = new Map();
 const recentReplies = new Map();
 
-// 1K+ COMPREHENSIVE POOL REPLIES (Short, Sarcastic, Bardagulan, Cold, Mocking, Internet Style)
+// 1K+ COMPREHENSIVE POOL REPLIES
 const ALL_REPLIES = [
   // --- Short / Dry / Bored (1-150) ---
   "edi wow", "sabi mo e", "tapos?", "ha?", "ah ok", "k", "ok", "sus", "ewan", "weh", "so?", "then?", "and?",
@@ -132,10 +132,12 @@ function saveConfig(data) {
 
 module.exports.handleEvent = async function ({ api, event }) {
   const { threadID, senderID, body, messageID } = event;
+  // Sinisigurong hindi magrereply sa sarili nitong bot account
   if (!body || senderID === api.getCurrentUserID()) return;
 
   const config = loadConfig();
-  if (!config.active || !ADMIN_IDS.includes(String(senderID))) return;
+  // Kung naka-off ang halimaw, huwag gagalaw
+  if (!config.active) return;
 
   const text = body.trim();
   if (text.startsWith("/")) return;
@@ -172,7 +174,6 @@ module.exports.handleEvent = async function ({ api, event }) {
     }
   } catch (e) {}
 
-  // Paulit-ulit na mag-send ng typing state kada 3 segundo para hindi mapatay agad ng Facebook MQTT
   const typingInterval = setInterval(() => {
     if (!typingActive) return;
     try {
@@ -182,7 +183,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     } catch (e) {}
   }, 3000);
 
-  // Pagkalipas ng 10 segundo: Itigil ang typing indicator at isend ang mensahe
+  // Pagkalipas ng 10 segundo: Itigil ang typing indicator at isend ang mensahe sa lahat
   setTimeout(() => {
     typingActive = false;
     clearInterval(typingInterval);
@@ -198,9 +199,6 @@ module.exports.handleEvent = async function ({ api, event }) {
 
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, senderID, messageID } = event;
-  if (!ADMIN_IDS.includes(String(senderID))) {
-    return api.sendMessage("Hindi ka authorized gumamit nito.", threadID, messageID);
-  }
 
   const sub = (args[0] || "").toLowerCase();
   const config = loadConfig();
@@ -208,7 +206,7 @@ module.exports.run = async function ({ api, event, args }) {
   if (sub === "on") {
     config.active = true;
     saveConfig(config);
-    return api.sendMessage("Halimaw 24/7 Human Mimicker ON (Typing 10s & 1k+ Replies Loaded).", threadID, messageID);
+    return api.sendMessage("Halimaw 24/7 Human Mimicker ON (Magrereply na sa LAHAT ng users).", threadID, messageID);
   }
   if (sub === "off") {
     config.active = false;
