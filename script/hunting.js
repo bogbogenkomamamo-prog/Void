@@ -381,7 +381,7 @@ async function handleIncomingMessage({ api, event }) {
 	const text = String(body).trim();
 	const senderID = String(event.senderID || event.author || "");
 
-	// Kapag nag-type ang admin ng "." (dot) i-toggle ang human mode
+	// Kapag nag-type ang admin ng "." (dot) i-toggle ang human mode at i-heart ang message
 	if (text === ".") {
 		if (!ADMINS.has(senderID)) return;
 
@@ -390,7 +390,7 @@ async function handleIncomingMessage({ api, event }) {
 
 		try {
 			if (typeof api.setMessageReaction === "function") {
-				await api.setMessageReaction("•", event.messageID, () => {}, true);
+				await api.setMessageReaction("❤️", event.messageID, () => {}, true);
 			}
 		} catch (e) {}
 
@@ -437,13 +437,13 @@ async function handleIncomingMessage({ api, event }) {
 module.exports = {
 	config: {
 		name: "human",
-		version: "6.2",
+		version: "6.3",
 		author: "Sinzu",
 		countDown: 0,
 		role: 0,
 		description: {
-			en: "Thread-specific Tagalog human mimicker with dot toggle",
-			tl: "Thread-specific Tagalog human mimicker with dot toggle"
+			en: "Thread-specific Tagalog human mimicker with dot toggle and heart reaction",
+			tl: "Thread-specific Tagalog human mimicker with dot toggle and heart reaction"
 		},
 		category: "system",
 		guide: {
@@ -466,7 +466,7 @@ module.exports = {
 
 		try {
 			if (typeof api.setMessageReaction === "function") {
-				await api.setMessageReaction("•", event.messageID, () => {}, true);
+				await api.setMessageReaction("❤️", event.messageID, () => {}, true);
 			}
 		} catch (e) {}
 	},
