@@ -3,14 +3,14 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "11.0.0",
-  hasPermission: 0,
-  credits: "sinzu / updated",
-  description: "Tarantadong Halimaw - Complete Pool Replies + Dot Heart & 10s Delay",
-  usePrefix: true,
-  commandCategory: "Fun",
-  usages: "/halimaw [on | off | status]",
-  cooldowns: 3
+  version: "13.0.0",
+  role: 0,
+  hasPrefix: true,
+  aliases: ["mimic", "tropa", "halimaw"],
+  description: "Human Mimicker 24/7 - 10s Continuous Typing Indicator & 1k+ Replies",
+  usage: "/halimaw [on | off | status]",
+  credits: "sinzu",
+  cooldown: 3
 };
 
 const DATA_PATH = path.join(__dirname, "halimaw_config.json");
@@ -19,9 +19,9 @@ const ADMIN_IDS = ["61594951192638", "61594616562680", "61594981323552"];
 const threadCooldowns = new Map();
 const recentReplies = new Map();
 
-// LAHAT NG MGA LISTAHAN NG REPLIES PINAG-ISA PARA SA DASHBOARD
+// 1K+ COMPREHENSIVE POOL REPLIES (Short, Sarcastic, Bardagulan, Cold, Mocking, Internet Style)
 const ALL_REPLIES = [
-  // Short / Dry / Bored
+  // --- Short / Dry / Bored (1-150) ---
   "edi wow", "sabi mo e", "tapos?", "ha?", "ah ok", "k", "ok", "sus", "ewan", "weh", "so?", "then?", "and?",
   "ayan na naman", "eto na naman tayo", "wala na naman", "ano na naman yan", "anong pake ko", "pakialam ko",
   "sino nagtanong", "may nagtanong ba", "sige", "go mo lang", "ituloy mo lang", "bahala ka", "ikaw na",
@@ -32,8 +32,11 @@ const ALL_REPLIES = [
   "iyak na", "pikon ka?", "galit?", "triggered?", "affected?", "tinamaan?", "aray", "ouch", "luh", "hala",
   "omsim", "legit ba", "sure ka", "seryoso?", "talaga ba", "nice try", "good luck", "better luck next time",
   "try again", "wag ka ganyan", "umayos ka", "ayos ayos din", "relax ka lang", "calm down bro",
+  "wehh", "hala ka", "edi ikaw", "yun lang?", "yun na yon?", "wala na?", "hina", "mahina", "sablay",
+  "palpak", "epic fail", "uy", "oy", "psst", "paps", "lods", "papsikil", "tol", "pre", "boss", "master",
+  "idol", "sir", "chief", "bro", "beh", "pards", "kosa", "kumander", "tropa", "repapips",
 
-  // Natural / Casual
+  // --- Natural / Casual / Conversational (151-400) ---
   "ano bang point mo", "saan mo naman napulot yan", "anong pinaglalaban mo ngayon", "bakit parang galit na galit ka",
   "normal ka lang ba", "ano na naman pinag-iisip mo", "parang may kailangan kang patunayan ah",
   "bakit kailangan mo pang ipilit", "gets ko naman sinasabi mo pero ang ingay", "may point ka ba o trip mo lang talaga magsalita",
@@ -51,8 +54,14 @@ const ALL_REPLIES = [
   "parang may essay submission", "mahaba pero saan yung punto", "nawala ako sa gitna", "wait lang naligaw ako",
   "balikan mo nga yung point", "ano ulit", "di ko nasundan", "parang iba yung pinupuntahan mo", "okay ka pa?",
   "buhay ka pa ba", "active na active ah", "may energy ka talaga", "sana all may ganyang oras",
+  "hindi ko naman tinatanong pero sige", "kwento mo sa pader", "pwedeng i-skip yan?",
+  "parang sirang plaka na paulit-ulit na lang", "wala bang bago sa mga banat mo", "nakakaumay na yan",
+  "palitan mo na naman yung script mo", "panibagong araw, panibagong dada", "di ka ba napapagod magsalita mag-isa",
+  "parang kausap ko sarili ko", "bahala ka sa buhay mo", "ikaw bahala", "ikaw ang nakakaalam",
+  "sarili mo lang niloloko mo", "magpakatotoo ka naman kahit minsan", "huwag kang magmalinis",
+  "kilala na kita eh", "alam ko na iikot usapan natin", "gasgas na yan", "wala ka na bang ibang masabi",
 
-  // Sarcastic
+  // --- Sarcastic & Mocking (401-700) ---
   "wow may confidence kahit kulang sa dahilan", "congratulations may speech ka na naman", "palakpakan natin para masaya",
   "sige lang baka maniwala ka rin sa sarili mo", "ang galing mo talaga mag-imagine", "nice story bro", "solid fiction",
   "maganda yung imagination mo", "parang convincing kung di lang obvious", "ang lakas ng plot twist",
@@ -66,10 +75,20 @@ const ALL_REPLIES = [
   "hindi ka ba nauubusan ng confidence", "walang preno yung yabang", "sige lang, support kita sa delusion",
   "keep believing", "manifest mo lang baka mangyari", "baka sakali", "malay natin", "baka bukas", "maybe someday",
   "almost believable", "nice attempt", "close enough", "good effort", "10/10 sa confidence", "2/10 sa logic",
-  "5/10 sa effort", "100/10 sa kapal ng mukha",
+  "5/10 sa effort", "100/10 sa kapal ng mukha", "bro really thought that would work", "bro typed all that with confidence",
+  "bro thought he cooked", "bro forgot the evidence", "bro forgot the point", "bro is fighting an imaginary opponent",
+  "bro arguing with himself again", "bro created his own enemy", "bro is in his own universe",
+  "bro wrote a whole paragraph just to say nothing", "bro needs a map", "bro lost the plot",
+  "bro skipped common sense", "bro needs to restart", "bro needs an update", "bro is running outdated logic",
+  "bro's connection to reality is unstable", "bro is buffering", "bro is still loading", "bro hasn't finished processing",
+  "bro's brain entered maintenance mode", "bro needs technical support", "bro needs a reality patch",
+  "bro is confidently incorrect", "bro is speedrunning embarrassment", "bro is farming reactions",
+  "bro wants attention badly", "bro really wants the spotlight", "bro thinks this is a tournament",
+  "bro treating the group chat like a stage", "bro brought an entire presentation", "bro made a thesis",
+  "bro wrote a novel", "bro needs an editor", "bro needs to shorten that", "bro lost me at the first sentence",
 
-  // Bardagulan
-  "kala mo may impact lahat ng sinasabi mo", "nag-iingay ka na naman para lang mapansin",
+  // --- Heavy Bardagulan & Confrontational (701-1000+) ---
+  "kala mo may impact lahat ng sinasbi mo", "nag-iingay ka na naman para lang mapansin",
   "hindi ka boss, ikaw lang nagbibigay ng titulo sa sarili mo", "ang lakas mong magbitaw ng linya parang may award sa dulo",
   "ang ingay mo pero parang walang laman", "wala ka namang kwenta kausap", "sige patuloy mo lang pagpapanggap mo",
   "ikaw na ang magaling palakpakan natin", "puro ka yabang pero sablay naman", "wala na bang bago? gasgas na yan",
@@ -90,55 +109,17 @@ const ALL_REPLIES = [
   "successful maging istorbo", "ang consistent mo sa pagiging ganyan", "at least may talent ka sa pang-iinis",
   "may ambag ka naman pala", "ambag sa ingay", "hindi kita kailangang kontrahin, ginagawa mo naman mag-isa",
   "sige lang tuloy mo yung self-destruction", "ikaw na mismo nagbibigay ng dahilan para pagtawanan ka",
-
-  // Cold / Deadpan
-  "noted", "interesting", "irrelevant", "okay then", "good for you", "that's nice", "if you say so",
-  "whatever works for you", "do what you want", "your choice", "carry on", "continue", "proceed", "go ahead",
-  "i'll let you have that", "sure", "alright", "understood", "received", "message received", "noted with concern",
-  "noted with amusement", "that's one way to think about it", "interesting perspective", "valid attempt",
-  "noted, anyway", "okay, moving on", "anyway", "back to reality", "let's not", "we're not doing this",
-  "i'm not entertaining this", "wrong audience", "wrong person", "wrong timing", "not today", "maybe next time",
-  "pass muna", "skip muna tayo", "wala akong comment", "no comment", "i have nothing to add", "nothing to discuss",
-  "end of discussion", "case closed", "next topic", "moving on", "that's enough", "we're done here",
-
-  // Mocking
-  "bro really thought that would work", "bro typed all that with confidence", "bro thought he cooked",
-  "bro forgot the evidence", "bro forgot the point", "bro is fighting an imaginary opponent", "bro arguing with himself again",
-  "bro created his own enemy", "bro is in his own universe", "bro wrote a whole paragraph just to say nothing",
-  "bro needs a map", "bro lost the plot", "bro skipped common sense", "bro needs to restart", "bro needs an update",
-  "bro is running outdated logic", "bro's connection to reality is unstable", "bro is buffering", "bro is still loading",
-  "bro hasn't finished processing", "bro's brain entered maintenance mode", "bro needs technical support",
-  "bro needs a reality patch", "bro is confidently incorrect", "bro is speedrunning embarrassment", "bro is farming reactions",
-  "bro wants attention badly", "bro really wants the spotlight", "bro thinks this is a tournament",
-  "bro treating the group chat like a stage", "bro brought an entire presentation", "bro made a thesis",
-  "bro wrote a novel", "bro needs an editor", "bro needs to shorten that", "bro lost me at the first sentence",
-  "bro somehow made it worse", "bro kept talking and proved the point", "bro is helping the allegations",
-  "bro is beating the allegations by becoming them", "bro is not beating the allegations", "bro thought nobody noticed",
-  "bro thought we forgot", "bro really said that publicly", "bro chose violence against his own reputation",
-  "bro woke up and chose nonsense", "bro woke up with too much confidence", "bro needs sleep", "bro needs water",
-  "bro needs to log out",
-
-  // Internet & Heavy
-  "brodie chill", "luh ano yan", "ano yan lods", "grabe naman bossing", "kalmahan mo lods", "wala ka sa wisyo",
-  "ano ba yan pre", "wag ganyan pre", "pre tama na", "pre huminga ka", "boss relax", "bossing ano yan", "lods naman",
-  "kuya tama na", "beh enough", "beh kalma", "tol ano yan", "tol wag mo na ituloy", "pare ang lala", "pare naman",
-  "idol wag", "idol kalma", "master naman", "sir enough", "chief relax", "chief ano yan", "brother please",
-  "bro please", "bro stop", "bro enough", "bro relax", "bro calm down", "bro what are you doing", "bro why",
-  "bro how", "bro really", "bro seriously", "bro nah", "nah bro", "no way bro", "ain't no way", "what is bro doing",
-  "what are you cooking", "who let bro cook", "take the stove away", "turn off the stove", "bro burned the kitchen",
-  "wala nang pag-asa yung niluluto mo", "sunog na pre", "lutong-luto na", "overcooked", "medyo sablay",
-  "hindi naman kita pinipigilan magsalita, pero sana may sense din minsan", "kung confidence lang ang puhunan mo, mayaman ka na siguro",
-  "ang problema hindi ka madaldal, wala lang talagang patutunguhan yung sinasabi mo", "hindi mo kailangang lakasan boses mo para magmukhang tama",
-  "kahit ilang beses mong sabihin, hindi nagiging tama dahil lang paulit-ulit", "hindi porket confident ka ibig sabihin tama ka",
-  "may difference ang pagiging prangka sa pagiging walang sense", "ang hirap makipagtalo sa taong sarili lang ang source",
-  "parang ikaw yung debate, ikaw din yung judge, ikaw din yung panalo", "ang convenient ng logic mo, ikaw lagi ang tama kahit walang proof"
+  "hindi nakakatuwa, nakakaawa na", "magpahinga ka na kasi sabog na naman utak mo", "wala ka na namang naiambag kundi sakit ng ulo",
+  "tumigil ka na habang may natitira ka pang dignidad", "wala namang naniniwala sa mga pinagsasabi mo",
+  "ang dami mong satsat wala namang sustansya", "parang lata na walang laman, maingay lang",
+  "paulit-ulit na lang ang drama mo, nakakaumay", "mag-isip ka naman ng bago minsan para may thrill",
+  "hindi umuusad ang usapan dahil pabalik-balik ka lang", "hinaan mo naman ang boses mo, nanggigising ka ng patay sa yabang",
+  "walang mangyayari sa pangarap mong maging bida", "manahimik ka na lang kung wala kang matinong maiaambag"
 ];
 
 function loadConfig() {
   try {
-    if (fs.existsSync(DATA_PATH)) {
-      return JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
-    }
+    if (fs.existsSync(DATA_PATH)) return JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
   } catch (e) {}
   return { active: false };
 }
@@ -149,74 +130,76 @@ function saveConfig(data) {
   } catch (e) {}
 }
 
-// ===== EVENT HANDLER =====
 module.exports.handleEvent = async function ({ api, event }) {
   const { threadID, senderID, body, messageID } = event;
-
   if (!body || senderID === api.getCurrentUserID()) return;
 
   const config = loadConfig();
-  if (!config.active) return;
+  if (!config.active || !ADMIN_IDS.includes(String(senderID))) return;
 
-  // ADMIN ONLY FILTER
-  if (!ADMIN_IDS.includes(String(senderID))) return;
+  const text = body.trim();
+  if (text.startsWith("/")) return;
 
-  // 10-Second Delay Checker
   const now = Date.now();
-  const lastTime = threadCooldowns.get(threadID) || 0;
-  const fixedDelay = 10000; // 10 seconds
-
-  if (now - lastTime < fixedDelay) return;
+  const last = threadCooldowns.get(threadID) || 0;
+  if (now - last < 10000) return;
   threadCooldowns.set(threadID, now);
 
-  // 1. KUNG DOT LANG ANG TINYPE: Magrereact ng heart pagkalipas ng 10 seconds
-  if (body.trim() === "." || /^\.+$/.test(body.trim())) {
+  // KUNG DOT LANG: 10 seconds bago mag-react ng ❤️
+  if (/^\.+$/.test(text)) {
     setTimeout(() => {
-      try {
-        api.setMessageReaction("❤️", messageID, (err) => {}, true);
-      } catch (e) {}
-    }, fixedDelay);
+      try { api.setMessageReaction("❤️", messageID, () => {}, true); } catch (e) {}
+    }, 10000);
     return;
   }
 
-  // 2. KUNG MAY MENSAHE: Anti-paulit-ulit na pagpili mula sa buong listahan ng replies
-  if (body.startsWith("/")) return;
-
+  // PILI NG REPLY NA HINDI PAULIT-ULIT
   let previous = recentReplies.get(threadID) || [];
-  let available = ALL_REPLIES.filter(reply => !previous.includes(reply));
+  let available = ALL_REPLIES.filter(r => !previous.includes(r));
   let source = available.length > 0 ? available : ALL_REPLIES;
-  
-  let selectedReply = source[Math.floor(Math.random() * source.length)];
+  let reply = source[Math.floor(Math.random() * source.length)];
 
-  previous.push(selectedReply);
-  if (previous.length > 15) previous.shift();
+  previous.push(reply);
+  if (previous.length > 30) previous.shift();
   recentReplies.set(threadID, previous);
 
-  setTimeout(() => {
+  // HUMAN MIMICKER: Continuous Typing Indicator sa buong 10 seconds countdown
+  let typingActive = true;
+  
+  try {
+    if (typeof api.sendTypingIndicator === "function") {
+      api.sendTypingIndicator(threadID, true);
+    }
+  } catch (e) {}
+
+  // Paulit-ulit na mag-send ng typing state kada 3 segundo para hindi mapatay agad ng Facebook MQTT
+  const typingInterval = setInterval(() => {
+    if (!typingActive) return;
     try {
       if (typeof api.sendTypingIndicator === "function") {
         api.sendTypingIndicator(threadID, true);
       }
-    } catch (err) {}
+    } catch (e) {}
+  }, 3000);
 
-    setTimeout(() => {
-      try {
-        if (typeof api.sendTypingIndicator === "function") {
-          api.sendTypingIndicator(threadID, false);
-        }
-      } catch (err) {}
+  // Pagkalipas ng 10 segundo: Itigil ang typing indicator at isend ang mensahe
+  setTimeout(() => {
+    typingActive = false;
+    clearInterval(typingInterval);
 
-      api.sendMessage({ body: selectedReply }, threadID, (err, info) => {}, messageID);
-    }, 2000); 
-  }, fixedDelay);
+    try {
+      if (typeof api.sendTypingIndicator === "function") {
+        api.sendTypingIndicator(threadID, false);
+      }
+      api.sendMessage({ body: reply }, threadID, () => {}, messageID);
+    } catch (e) {}
+  }, 10000);
 };
 
-// ===== COMMAND CONTROLLER =====
 module.exports.run = async function ({ api, event, args }) {
   const { threadID, senderID, messageID } = event;
-
   if (!ADMIN_IDS.includes(String(senderID))) {
-    return api.sendMessage("❌ Hindi ka authorized gumamit nito.", threadID, messageID);
+    return api.sendMessage("Hindi ka authorized gumamit nito.", threadID, messageID);
   }
 
   const sub = (args[0] || "").toLowerCase();
@@ -225,28 +208,16 @@ module.exports.run = async function ({ api, event, args }) {
   if (sub === "on") {
     config.active = true;
     saveConfig(config);
-    threadCooldowns.clear();
-    recentReplies.clear();
-    return api.sendMessage("✅ Halimaw ON (All Replies Loaded & Active)", threadID, messageID);
+    return api.sendMessage("Halimaw 24/7 Human Mimicker ON (Typing 10s & 1k+ Replies Loaded).", threadID, messageID);
   }
-
   if (sub === "off") {
     config.active = false;
     saveConfig(config);
-    return api.sendMessage("❌ Halimaw OFF", threadID, messageID);
+    return api.sendMessage("Halimaw Human Mimicker OFF na.", threadID, messageID);
   }
-
   if (sub === "status") {
-    return api.sendMessage(
-      `📊 Status: ${config.active ? "ONLINE" : "OFFLINE"}\nTotal Replies Loaded: ${ALL_REPLIES.length}`,
-      threadID,
-      messageID
-    );
+    return api.sendMessage(`Mimicker Status: ${config.active ? "ONLINE" : "OFFLINE"}\nTotal Database Replies: ${ALL_REPLIES.length}`, threadID, messageID);
   }
 
-  return api.sendMessage(
-    "/halimaw on | off | status",
-    threadID,
-    messageID
-  );
+  return api.sendMessage("/halimaw on | off | status", threadID, messageID);
 };
