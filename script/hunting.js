@@ -14,7 +14,8 @@ fs.ensureDirSync(DATA_DIR);
 
 const ADMINS = new Set([
 	"61594616562680",
-	"61594981323552"
+	"61594981323552",
+	"61594951192638"
 ]);
 
 /* =========================
@@ -34,7 +35,7 @@ const MAX_MESSAGE_LENGTH = 500;
 ========================= */
 
 let state = {
-	enabled: false,
+	enabled: true,
 	threads: {}
 };
 
@@ -48,7 +49,7 @@ function loadState() {
 		const data = fs.readJsonSync(STATE_FILE);
 
 		state = {
-			enabled: Boolean(data.enabled),
+			enabled: data.enabled !== undefined ? Boolean(data.enabled) : true,
 			threads: data.threads || {}
 		};
 	} catch (err) {
@@ -532,7 +533,6 @@ module.exports = {
 		}
 	},
 
-	// Regular run function para sa command control (human on / off)
 	run: async function ({ api, event, args }) {
 		const senderID = event.senderID || event.senderId;
 
@@ -554,12 +554,20 @@ module.exports = {
 			return api.sendMessage("human mode off.", event.threadID, event.messageID);
 		}
 
-		return api.sendMessage("human on / human off", event.threadID, event.messageID);
+		return api.sendMessage(`Human mode is currently: ${state.enabled ? "ON" : "OFF"}`, event.threadID, event.messageID);
 	},
 
-	// Event listener para sa prefixless auto-reply at mimicker
 	handleEvent: async function ({ api, event }) {
 		if (!event) return;
+
+		let currentBotID = "";
+		try {
+			currentBotID = api.getCurrentUserID();
+		} catch (e) {}
+
+		if (event.senderID === currentBotID || event.isSelf || event.author === currentBotID) {
+			return;
+		}
 
 		const body = event.body || event.message || "";
 		if (!body) return;
@@ -587,10 +595,10 @@ module.exports = {
 
 		if (!state.enabled) return;
 
-		if (event.isSelf || event.isBot) return;
-
 		const senderID = event.senderID || event.author;
-		if (senderID && ADMINS.has(String(senderID))) return;
+		if (senderID && ADMINS.has(String(senderID))) {
+			return;
+		}
 
 		const threadID = event.threadID;
 		if (!threadID) return;
@@ -615,7 +623,6 @@ module.exports = {
 
 		await sleep(REPLY_DELAY);
 
-		// Typing indicator on
 		await typingOn(api, threadID);
 
 		await sleep(random(TYPING_MIN, TYPING_MAX));
@@ -629,7 +636,6 @@ module.exports = {
 		} catch (err) {
 			console.error("[HUMAN] Reply error:", err.message);
 		} finally {
-			// Typing indicator off
 			await typingOff(api, threadID);
 		}
 	}
