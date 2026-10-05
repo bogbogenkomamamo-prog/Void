@@ -21,7 +21,8 @@ module.exports.config = {
 
 const ADMIN_IDS = new Set([
   "61594951192638",
-  "61594616562680"
+  "61594616562680",
+  "61594370023022" // id mo
 ]);
 
 // =====================================================
@@ -132,7 +133,6 @@ const ALL_REPLIES = [
   "gasgas na yang linya mo", "laos na yan", "wala ka na bang bago", "bobo na nga paulit-ulit pa",
   "sarap mong ibitin patiwarik", "tarantado ka talaga", "gago", "hinayupak",
   "lintik ka", "salbahe ka", "demonyo", "anak ng tokwa", "bwisit",
-  // Dinagdagan pa para umabot ng libo+ ang kombinasyon ng mga bara
   ...Array.from({ length: 900 }, (_, i) => `tanga combo number ${i + 1}: ${["tumigil ka na", "wala kang mararating", "pulubi ka", "iyak ka na", "inutil ka", "epal ka", "bobo ka", "panget mo"][i % 8]}`)
 ];
 
