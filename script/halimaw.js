@@ -5,11 +5,11 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "33.0.0",
+  version: "36.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Human-like 1000+ Reply System",
+  description: "Pure Asar / Dry Bardagulan Reply System",
   usage: "Send / to toggle ON/OFF",
   credits: "sinzu",
   cooldown: 1
@@ -35,16 +35,15 @@ const DATA_PATH = path.join(
 );
 
 // =====================================================
-// SETTINGS
+// REPLY SETTINGS
 // =====================================================
 
-const MIN_REPLY_DELAY = 6000;
-const MAX_REPLY_DELAY = 14000;
+const MIN_REPLY_DELAY = 8000;
+const MAX_REPLY_DELAY = 18000;
 
-const THREAD_COOLDOWN = 4000;
+const THREAD_COOLDOWN = 12000;
+const CHANCE_TO_REPLY = 0.75;
 
-// 1000+ pool means this can safely remember
-// hundreds of previous replies.
 const RECENT_REPLY_LIMIT = 250;
 
 // =====================================================
@@ -56,15 +55,15 @@ const threadCooldowns = new Map();
 const pendingReplies = new Map();
 
 // =====================================================
-// HUMAN REPLY DATA
+// PURE ASAR — STARTERS
 // =====================================================
 
 const STARTERS = [
-  "ano",
-  "bakit",
-  "grabe",
-  "seryoso",
-  "teka",
+  "ano ba",
+  "bakit ba",
+  "grabe ka",
+  "seryoso ka",
+  "teka nga",
   "sandali",
   "wait",
   "luh",
@@ -75,41 +74,32 @@ const STARTERS = [
   "ah",
   "hmm",
   "hmmm",
-  "okay",
-  "sige",
-  "ge",
-  "oo",
-  "hindi",
-  "ewan",
+  "okay ka lang",
+  "sige ka",
+  "ge ka",
+  "oo na",
+  "hindi nga",
+  "ewan sayo",
   "parang",
   "medyo",
   "actually",
   "honestly",
-  "real",
-  "totoo",
-  "sure",
+  "totoo ba",
+  "sure ka",
   "malamang",
   "siguro",
   "baka",
   "possible",
-  "fair",
-  "gets",
+  "gets mo ba",
   "wait lang",
   "teka lang",
-  "ayos",
-  "nice",
-  "wow",
-  "wow ah",
-  "edi wow",
-  "ay wow",
-  "lakas",
-  "ibang klase",
-  "eto na",
-  "ayan na",
+  "ayos ka lang",
+  "eto na naman",
+  "ayan na naman",
   "eto nanaman",
   "ayan nanaman",
   "ikaw talaga",
-  "grabe ka",
+  "grabe naman",
   "wala na",
   "tama na",
   "okay na",
@@ -126,15 +116,27 @@ const STARTERS = [
   "bukas na",
   "pass muna",
   "skip muna",
+  "iba naman",
   "change topic",
-  "iba naman"
+  "ulit na naman",
+  "paulit ulit",
+  "same ka pa rin",
+  "ganyan ka talaga",
+  "di ka talaga",
+  "wala ka talagang",
+  "may bago ka ba"
 ];
 
+// =====================================================
+// PURE ASAR — MIDDLES
+// =====================================================
+
 const MIDDLES = [
-  "ano ba",
-  "ano naman",
+  "ano ba yan",
+  "ano naman yan",
   "ano yan",
-  "ano pa",
+  "ano na naman",
+  "ano pa ba",
   "ano raw",
   "ano daw",
   "bakit naman",
@@ -146,20 +148,26 @@ const MIDDLES = [
   "bakit ako",
   "bakit pa",
   "bakit naman ganon",
+  "bakit parang ewan",
+  "bakit parang pilit",
+  "bakit parang wala",
   "paano yan",
-  "paano ba",
+  "paano ba yan",
   "paano naman",
   "paano nangyari",
-  "saan galing",
-  "saan mo nakuha",
-  "saan patungo",
-  "saan tayo",
-  "sino nagsabi",
-  "sino nagturo",
-  "sino nag isip",
-  "sino may gawa",
-  "kailan pa",
-  "kailan nagsimula",
+  "paano mo naisip yan",
+  "paano naging ganyan",
+  "saan galing yan",
+  "saan mo napulot yan",
+  "saan mo nakuha yan",
+  "saan papunta yan",
+  "saan ka pupunta",
+  "sino nagsabi sayo",
+  "sino nagturo sayo",
+  "sino nag isip nyan",
+  "sino may gawa nyan",
+  "kailan pa yan",
+  "kailan nagsimula yan",
   "anong point",
   "anong connect",
   "anong trip",
@@ -167,20 +175,20 @@ const MIDDLES = [
   "anong problema",
   "anong nangyari",
   "anong gusto mo",
-  "anong ibig sabihin",
-  "may point ba",
-  "may sense ba",
-  "may kasunod pa",
-  "may bago ba",
-  "may sasabihin ka pa",
-  "may plano ka ba",
+  "anong pinaglalaban mo",
+  "ano ba talagang point",
+  "may point ba yan",
+  "may sense ba yan",
   "may dahilan ba",
   "may resibo ba",
   "may proof ba",
   "may evidence ba",
   "may kwenta ba",
   "may ambag ba",
-  "may point ka pala",
+  "may kasunod pa ba",
+  "may sasabihin ka pa",
+  "may plano ka ba",
+  "may bago ka ba",
   "parang wala",
   "parang pilit",
   "parang sablay",
@@ -195,12 +203,19 @@ const MIDDLES = [
   "parang may mali",
   "parang may kulang",
   "parang di convincing",
-  "parang di gumana"
+  "parang di gumana",
+  "parang di umubra",
+  "parang minadali",
+  "parang random",
+  "parang wala lang"
 ];
+
+// =====================================================
+// PURE ASAR — ENDINGS
+// =====================================================
 
 const ENDINGS = [
   "sayo",
-  "sayong lahat",
   "sa sinabi mo",
   "sa chat mo",
   "sa ginagawa mo",
@@ -221,10 +236,13 @@ const ENDINGS = [
   "sa confidence mo",
   "sa yabang mo",
   "sa timing mo",
-  "sa situation na to",
+  "sa drama mo",
+  "sa typing mo",
+  "sa reasoning mo",
+  "sa explanation mo",
   "dito",
-  "diyan",
   "dyan",
+  "diyan",
   "ngayon",
   "mamaya",
   "later",
@@ -245,14 +263,26 @@ const ENDINGS = [
   "raw"
 ];
 
+// =====================================================
+// PURE ASAR — MAIN
+// =====================================================
+
 const ASAR = [
   "pinilit mo pa",
   "nag effort ka pa",
   "sayang effort",
+  "sayang typing",
+  "sayang oras",
+  "sayang character",
+  "sayang paliwanag",
   "medyo pilit",
   "pilit na pilit",
+  "sobrang pilit",
+  "halatang pilit",
   "di umubra",
   "di gumana",
+  "di tumama",
+  "di nag land",
   "try again",
   "try mo ulit",
   "isa pa",
@@ -261,193 +291,260 @@ const ASAR = [
   "baka gumana",
   "malabo yan",
   "mahina pa",
+  "mahina talaga",
   "kulang pa",
-  "medyo sablay",
+  "kulang na kulang",
+  "bitin",
+  "bitin yung banat",
+  "bitin yung point",
+  "bitin yung paliwanag",
+  "sablay",
   "sablay nanaman",
+  "palpak nanaman",
+  "maling direction",
+  "naligaw ka",
+  "naligaw ata",
   "huli ka",
   "nahuli kita",
   "halata naman",
   "obvious naman",
   "kitang kita",
-  "wag ka magpanggap",
-  "wag na mag deny",
-  "aminin mo na",
-  "aminin na kasi",
+  "alam na agad",
   "alam na namin",
   "alam na ng lahat",
-  "di kami uto uto",
-  "hindi convincing",
-  "kulang sa convincing",
+  "wag ka magpanggap",
+  "wag ka mag deny",
+  "wag mo itago",
+  "aminin mo na",
+  "aminin na kasi",
+  "aminin mo na lang",
+  "wag na magpalusot",
+  "palusot pa",
+  "excuse nanaman",
+  "same excuse",
+  "same script",
+  "same story",
+  "same banat",
+  "same style",
+  "same drama",
+  "same kalokohan",
+  "ulit ulit",
+  "paulit ulit",
+  "ikot ka nang ikot",
+  "paligoy ligoy",
+  "ang dami mong paligoy",
+  "ang haba naman",
+  "mahaba pa ba",
+  "diretso na kasi",
+  "diretsohin mo na",
+  "ano nga ulit point mo",
+  "nakalimutan mo point mo",
+  "balik ka muna sa point",
   "wala sa hulog",
   "wala sa lugar",
   "wala sa point",
   "wala sa topic",
-  "naligaw ka",
-  "naligaw ata",
-  "nakalimutan mo point mo",
-  "ano nga ulit point mo",
-  "balik ka muna sa point",
-  "ikot ka nang ikot",
-  "ang dami mong paligoy",
-  "diretso na kasi",
-  "mahaba pa ba",
+  "wala namang connect",
+  "walang connect",
+  "walang kwenta yung ikot",
+  "di mo rin alam",
+  "di mo alam sinasabi mo",
+  "di mo alam point mo",
+  "di mo alam ginagawa mo",
+  "parang nag iisip ka pa",
+  "nag iisip ka pa ba",
+  "pinag isipan mo ba yan",
+  "pinag isipan mo talaga yan",
+  "minadali mo yata",
+  "minadali nanaman",
+  "random nanaman",
+  "lutang nanaman",
+  "sabaw nanaman",
+  "nalito ka na",
+  "naligaw ka na",
+  "wala ka na sa topic",
+  "lumayo ka na sa point",
+  "lumayo ka na naman",
+  "iba na sinasabi mo",
+  "nag iba na kwento",
+  "nagpalit ka nanaman",
+  "biglang iba",
+  "biglang liko",
+  "liko nanaman",
+  "may plot twist na naman",
+  "may bagong excuse na naman",
+  "may bagong palusot na naman",
   "may episode pa ba",
-  "lecture nanaman",
+  "may part two pa ba",
+  "may sequel pa ba",
   "podcast na ba to",
-  "motivational speaker",
+  "lecture nanaman",
+  "lecture mode",
   "teacher mode",
   "professor mode",
-  "expert daw",
+  "expert mode",
   "masterclass daw",
   "tutorial daw",
-  "champion sa sariling mundo",
-  "hari ng sariling argumento",
-  "best in confidence",
-  "best in yabang",
-  "best in salita",
-  "best in walang point",
-  "angas sa chat",
-  "malakas loob",
-  "confidence lang ambag",
-  "yabang naman",
-  "lakas maka confident",
-  "sige ikaw na",
-  "oo ikaw na",
-  "ikaw na magaling",
-  "ikaw na panalo",
-  "ikaw na pinaka magaling",
-  "bigyan na natin ng trophy",
-  "palakpakan natin",
-  "congrats sayo",
-  "achievement unlocked",
-  "may medal ka na",
-  "record holder",
-  "number one ka na",
-  "proud ka pa",
-  "proud na proud",
-  "sige proud ka dyan",
-  "enjoy mo lang",
-  "panindigan mo",
-  "sinabi mo yan",
-  "choice mo yan",
-  "desisyon mo yan"
+  "motivational speaker nanaman",
+  "life coach yarn",
+  "lawyer yarn",
+  "debater yarn",
+  "analyst yarn",
+  "commentator yarn",
+  "tagapagsalita yarn",
+  "may seminar pa ba",
+  "may powerpoint pa ba",
+  "may presentation pa ba",
+  "may assignment pa ba",
+  "may quiz pa ba",
+  "may attendance pa ba",
+  "may recitation pa ba",
+  "may thesis pa ba",
+  "may defense pa ba",
+  "defense nanaman",
+  "argument nanaman",
+  "debate nanaman",
+  "discussion na walang katapusan",
+  "sagot na walang point",
+  "explanation na walang patutunguhan",
+  "kwento na paikot ikot",
+  "salita nang salita",
+  "typing nang typing",
+  "chat nang chat",
+  "daldal nang daldal",
+  "ingay nang ingay",
+  "wala nang preno",
+  "di ka talaga tumitigil",
+  "di ka talaga nauubusan",
+  "may quota ka ba sa chat",
+  "may target ka bang characters",
+  "may bayad ba kada salita",
+  "may points ba kada message",
+  "may reward ba sa daldal",
+  "may achievement ba sa haba",
+  "may medal ba sa typing",
+  "may trophy ba sa paligoy",
+  "may certificate ba pagkatapos",
+  "may diploma ka ba dyan",
+  "graduation na ba",
+  "orientation pa ba to",
+  "seminar na ata",
+  "radio show na ata",
+  "podcast na ata",
+  "news anchor ka ba",
+  "commentator ka ba",
+  "press conference na ba",
+  "press release na ba",
+  "official statement na ba",
+  "statement mo pa talaga",
+  "may closing remarks pa ba",
+  "may final answer pa ba",
+  "may bonus round pa ba"
 ];
+
+// =====================================================
+// PURE ASAR — NATURAL
+// =====================================================
 
 const NATURAL = [
   "di ko gets",
   "di ko talaga gets",
-  "gets ko naman",
-  "medyo gets",
-  "di pa rin gets",
+  "di ko pa rin gets",
+  "di ko alam sayo",
+  "hindi ko alam sayo",
+  "wala akong maintindihan",
+  "wala akong masabi",
+  "ano pa sasabihin ko",
   "explain mo nga",
   "explain mo ulit",
   "paki explain",
   "ulit nga",
   "sabihin mo nga",
   "ano sinabi mo",
-  "di ko narinig",
-  "di ko alam sayo",
-  "hindi ko alam",
-  "wala akong alam",
-  "wala akong masabi",
-  "ano pa sasabihin ko",
-  "ikaw bahala",
-  "bahala ka dyan",
-  "wag ako idamay",
-  "wag nyo ko idamay",
-  "ako nanaman",
-  "bakit ako",
-  "anong kasalanan ko",
-  "wala akong ginawa",
-  "innocent ako",
-  "di ako kasama dyan",
-  "pass ako",
-  "skip muna",
-  "observer lang ako",
-  "nanonood lang ako",
-  "nakatingin lang ako",
-  "continue nyo lang",
-  "go lang kayo",
-  "ako na tatahimik",
-  "tahimik muna ako",
-  "wala akong nakita",
-  "hindi ako kasali",
-  "change topic",
-  "next topic",
-  "iba naman",
-  "may bago ba",
-  "ano ganap",
-  "kamusta naman",
-  "okay naman",
-  "buhay pa",
-  "gising pa",
-  "online pa",
-  "active pa",
-  "busy ka",
-  "wala ka bang ginagawa",
-  "dami mong time",
-  "ang sipag mo mag chat",
-  "ang ingay mo",
-  "daldal mo",
-  "tahimik ka muna",
-  "hinga ka muna",
-  "pahinga ka rin",
-  "matulog ka na",
-  "wag ka magpuyat",
-  "di ka ba napapagod",
-  "may pahinga ka ba",
-  "wala ka bang preno",
-  "di ka talaga titigil",
-  "ganyan ka talaga",
-  "di ka nagbabago",
-  "consistent ka ah",
-  "consistent sa kalokohan",
-  "at least consistent",
+  "ano raw",
+  "ano daw",
+  "bakit ganon",
+  "bakit ganyan",
+  "ano ba talaga",
+  "ano ba kasi",
+  "ano na naman",
+  "eto na naman",
+  "ayan na naman",
+  "eto nanaman siya",
+  "ayan nanaman siya",
+  "same na naman",
+  "ulit na naman",
+  "paulit ulit na naman",
+  "wala ka bang bago",
+  "may bago ka ba",
   "same old",
   "nothing new",
   "walang bago",
   "same energy",
-  "same behavior"
+  "same behavior",
+  "same excuse",
+  "same story",
+  "same script",
+  "same banat",
+  "same style",
+  "ganyan ka talaga",
+  "di ka nagbabago",
+  "consistent ka sa kalokohan",
+  "di ka talaga titigil",
+  "wala kang preno",
+  "ang ingay mo",
+  "daldal mo",
+  "dami mong sinasabi",
+  "ang dami mong chat",
+  "ang sipag mo magtype",
+  "ang sipag mo mag explain",
+  "ang haba ng sinabi mo",
+  "ang haba ng ikot mo",
+  "ang haba ng paligoy mo",
+  "tahimik ka muna",
+  "hinga ka muna",
+  "pahinga ka muna",
+  "matulog ka na",
+  "wag ka magpuyat",
+  "di ka ba napapagod",
+  "may pahinga ka ba",
+  "wala ka bang ginagawa",
+  "dami mong time",
+  "busy ka ba talaga",
+  "online ka pa rin",
+  "active ka pa rin",
+  "gising ka pa",
+  "buhay ka pa",
+  "observer na lang",
+  "manood ka muna",
+  "tahimik ka muna",
+  "wag ka muna magsalita",
+  "wag ka muna mag explain",
+  "wag mo na pahabain",
+  "wag mo na ikutin",
+  "diretso na",
+  "short version naman",
+  "summary naman",
+  "one sentence lang",
+  "wag essay",
+  "wag thesis",
+  "wag dissertation",
+  "wag lecture",
+  "wag seminar",
+  "wag podcast",
+  "wag press conference",
+  "wag speech",
+  "wag campaign speech",
+  "wag closing remarks",
+  "wag ka nang mag drama",
+  "wag ka nang magpalusot",
+  "wag ka nang magpaliwanag",
+  "wag ka nang mag imbento"
 ];
 
-const REACTIONS = [
-  "HAHA",
-  "haha",
-  "hahaha",
-  "HAHAHAHA",
-  "lmao",
-  "lol",
-  "grabe HAHA",
-  "natawa ako dun",
-  "di ko kinaya",
-  "seryoso HAHA",
-  "hindi ko alam sayo HAHA",
-  "lakas mo HAHA",
-  "ibang klase HAHA",
-  "okay HAHA",
-  "sige HAHA",
-  "weh HAHA",
-  "ay wow HAHA",
-  "edi ikaw na HAHA",
-  "good one",
-  "nice one",
-  "nice try",
-  "good try",
-  "fair enough",
-  "valid",
-  "valid naman",
-  "real",
-  "facts",
-  "true",
-  "exactly",
-  "same",
-  "relate",
-  "may point",
-  "may tama ka",
-  "may mali ka rin",
-  "half point",
-  "close enough"
-];
+// =====================================================
+// PURE ASAR — SHORT
+// =====================================================
 
 const SHORT = [
   "k",
@@ -455,8 +552,6 @@ const SHORT = [
   "okay",
   "ge",
   "sige",
-  "oo",
-  "hindi",
   "ha",
   "weh",
   "luh",
@@ -466,11 +561,8 @@ const SHORT = [
   "pfft",
   "hmm",
   "hmmm",
+  "hm",
   "yawn",
-  "wow",
-  "nice",
-  "real",
-  "fake",
   "cringe",
   "weak",
   "trash",
@@ -483,65 +575,261 @@ const SHORT = [
   "palpak",
   "sablay",
   "boring",
-  "nakakaumay",
-  "nakakatawa",
-  "nakakaloka",
-  "nakakainis",
+  "basic",
+  "generic",
+  "pilit",
+  "mahina",
+  "kulang",
+  "bitin",
+  "malabo",
+  "random",
+  "lito",
+  "ligaw",
+  "paikot",
+  "paligoy",
+  "daldal",
+  "ingay",
+  "essay",
+  "thesis",
+  "lecture",
+  "seminar",
+  "podcast",
+  "drama",
+  "excuse",
+  "palusot",
+  "ulit",
+  "again",
+  "next",
+  "pass",
+  "skip",
+  "stop",
   "tama na",
-  "stop na",
   "enough",
-  "timeout",
-  "pause muna",
+  "pause",
   "kalma",
   "relax",
   "chill",
-  "easy",
-  "pass",
-  "next",
-  "later"
+  "slow",
+  "tigil",
+  "quit",
+  "move on",
+  "iba naman"
 ];
 
 // =====================================================
-// BUILD 1000+ HUMAN-LIKE REPLIES
+// PURE ASAR — EXTRA
+// =====================================================
+
+const EXTRA_ASAR = [
+  "ang tapang sa chat",
+  "tapang sa keyboard",
+  "keyboard warrior nanaman",
+  "chat warrior nanaman",
+  "typing warrior",
+  "lakas ng loob sa screen",
+  "sa chat lang malakas",
+  "sa typing lang matapang",
+  "confidence na walang basehan",
+  "yabang na walang laman",
+  "angas na walang point",
+  "salita na walang patutunguhan",
+  "typing na walang direction",
+  "explanation na paikot",
+  "argument na paikot",
+  "logic na paikot",
+  "reasoning na paikot",
+  "point na nawawala",
+  "topic na nawawala",
+  "kwento na nawawala",
+  "direction na nawawala",
+  "focus na nawawala",
+  "sense na nawawala",
+  "may sariling mundo",
+  "may sariling universe",
+  "may sariling timeline",
+  "may sariling logic",
+  "may sariling version",
+  "may sariling kwento",
+  "may sariling rules",
+  "may sariling batas",
+  "sariling interpretation",
+  "sariling definition",
+  "sariling conclusion",
+  "sariling problema",
+  "sariling sagot",
+  "sariling tanong",
+  "tanong mo ikaw din sumagot",
+  "ikaw na rin mag explain",
+  "ikaw na rin sumagot",
+  "ikaw na rin mag debate",
+  "ikaw na rin mag judge",
+  "ikaw na rin mag conclude",
+  "ikaw na rin mag close",
+  "wala nang kailangan idagdag",
+  "sobra na yung ikot",
+  "sobra na yung drama",
+  "sobra na yung palusot",
+  "sobra na yung essay",
+  "sobra na yung typing",
+  "sobra na yung explanation",
+  "sobra na yung confidence",
+  "sobra na yung daldal",
+  "parang may sariling show",
+  "parang may sariling programa",
+  "parang may live broadcast",
+  "parang may audience",
+  "parang may press",
+  "parang may interview",
+  "parang may debate stage",
+  "parang may podium",
+  "parang may microphone",
+  "parang may teleprompter",
+  "parang scripted",
+  "parang rehearsed",
+  "parang pinaghandaan nang todo",
+  "parang may speech",
+  "parang may campaign",
+  "parang may election",
+  "parang may announcement",
+  "parang may declaration",
+  "parang may manifesto",
+  "parang may constitution",
+  "parang may republic",
+  "parang may sariling bansa",
+  "parang may sariling government",
+  "parang may sariling department",
+  "parang may sariling ministry",
+  "parang may sariling committee",
+  "parang may sariling board",
+  "parang may sariling council",
+  "parang may sariling parliament",
+  "parang may sariling congress",
+  "parang may sariling senate",
+  "parang may sariling hearing",
+  "parang may court session",
+  "parang may trial",
+  "parang may defense",
+  "parang may prosecution",
+  "parang may verdict",
+  "parang may appeal",
+  "parang may case number",
+  "parang may docket",
+  "parang may affidavit",
+  "parang may sworn statement",
+  "parang may witness",
+  "parang may evidence room",
+  "parang may investigation",
+  "parang may detective",
+  "parang may interrogation",
+  "parang may documentary",
+  "parang may documentary series",
+  "parang may season two",
+  "parang may season three",
+  "parang may extended version",
+  "parang may director's cut",
+  "parang may deleted scenes",
+  "parang may behind the scenes",
+  "parang may bonus episode",
+  "parang may filler arc",
+  "filler na naman",
+  "side quest na naman",
+  "lumayo na sa main quest",
+  "wala na sa storyline",
+  "wala na sa plot",
+  "plot hole nanaman",
+  "plot armor nanaman",
+  "character development wala",
+  "character arc nawala",
+  "storyline nag crash",
+  "script nag error",
+  "dialogue nag loading",
+  "brain loading",
+  "processing pa",
+  "buffering pa",
+  "loading pa yung point",
+  "nag timeout yung logic",
+  "connection lost sa point",
+  "signal lost sa explanation",
+  "system error sa reasoning",
+  "restart mo muna isip mo",
+  "reboot muna",
+  "refresh muna",
+  "reset muna",
+  "balik sa main topic",
+  "balik sa simula",
+  "ulit from the start",
+  "start over",
+  "restart conversation",
+  "new save file",
+  "bagong attempt na naman",
+  "second attempt",
+  "third attempt",
+  "ilang attempt na yan",
+  "ilang take na ba",
+  "ilang retake pa",
+  "ilang revision pa",
+  "ilang draft pa",
+  "ilang version pa",
+  "version number na naman",
+  "patch notes na ba",
+  "update na naman",
+  "bug pa rin",
+  "same bug",
+  "same error",
+  "same problem",
+  "same nonsense",
+  "same kalokohan"
+];
+
+// =====================================================
+// BUILD REPLY POOL
 // =====================================================
 
 const REPLIES = new Set();
 
-// Add direct replies first
 [
-  ...SHORT,
+  ...STARTERS,
+  ...MIDDLES,
+  ...ENDINGS,
+  ...ASAR,
   ...NATURAL,
-  ...REACTIONS,
-  ...ASAR
-].forEach(x => REPLIES.add(x));
+  ...SHORT,
+  ...EXTRA_ASAR
+].forEach(reply => {
+  REPLIES.add(reply);
+});
 
-// Human combinations
+// =====================================================
+// STARTER + MIDDLE
+// =====================================================
+
 for (let i = 0; i < STARTERS.length; i++) {
   for (let j = 0; j < MIDDLES.length; j++) {
-
-    const a = STARTERS[i];
-    const b = MIDDLES[j];
-
-    REPLIES.add(`${a} ${b}`);
+    REPLIES.add(
+      `${STARTERS[i]} ${MIDDLES[j]}`
+    );
   }
 }
 
-// More natural combinations
+// =====================================================
+// ASAR + ENDING
+// =====================================================
+
 for (let i = 0; i < ASAR.length; i++) {
   for (let j = 0; j < ENDINGS.length; j++) {
-
-    const a = ASAR[i];
-    const b = ENDINGS[j];
-
-    REPLIES.add(`${a} ${b}`);
+    REPLIES.add(
+      `${ASAR[i]} ${ENDINGS[j]}`
+    );
   }
 }
 
-// Natural conversational combinations
+// =====================================================
+// NATURAL + ENDING
+// =====================================================
+
 for (let i = 0; i < NATURAL.length; i++) {
   for (let j = 0; j < ENDINGS.length; j++) {
-
-    if (i % 3 === j % 3) {
+    if ((i + j) % 3 === 0) {
       REPLIES.add(
         `${NATURAL[i]} ${ENDINGS[j]}`
       );
@@ -549,19 +837,52 @@ for (let i = 0; i < NATURAL.length; i++) {
   }
 }
 
-// Reaction combinations
-for (let i = 0; i < REACTIONS.length; i++) {
-  for (let j = 0; j < SHORT.length; j++) {
+// =====================================================
+// EXTRA ASAR + ENDING
+// =====================================================
 
-    if (i % 2 === j % 2) {
+for (let i = 0; i < EXTRA_ASAR.length; i++) {
+  for (let j = 0; j < ENDINGS.length; j++) {
+    if ((i + j) % 5 === 0) {
       REPLIES.add(
-        `${REACTIONS[i]} ${SHORT[j]}`
+        `${EXTRA_ASAR[i]} ${ENDINGS[j]}`
       );
     }
   }
 }
 
-// Convert to array
+// =====================================================
+// ASAR + SHORT
+// =====================================================
+
+for (let i = 0; i < ASAR.length; i++) {
+  for (let j = 0; j < SHORT.length; j++) {
+    if ((i + j) % 4 === 0) {
+      REPLIES.add(
+        `${ASAR[i]} ${SHORT[j]}`
+      );
+    }
+  }
+}
+
+// =====================================================
+// EXTRA ASAR + SHORT
+// =====================================================
+
+for (let i = 0; i < EXTRA_ASAR.length; i++) {
+  for (let j = 0; j < SHORT.length; j++) {
+    if ((i + j) % 6 === 0) {
+      REPLIES.add(
+        `${EXTRA_ASAR[i]} ${SHORT[j]}`
+      );
+    }
+  }
+}
+
+// =====================================================
+// FINAL REPLY ARRAY
+// =====================================================
+
 const ALL_REPLIES = Array.from(REPLIES);
 
 // =====================================================
@@ -569,11 +890,8 @@ const ALL_REPLIES = Array.from(REPLIES);
 // =====================================================
 
 function loadConfig() {
-
   try {
-
     if (fs.existsSync(DATA_PATH)) {
-
       const data = JSON.parse(
         fs.readFileSync(
           DATA_PATH,
@@ -581,24 +899,17 @@ function loadConfig() {
         )
       );
 
-      if (
-        !Array.isArray(
-          data.activeThreads
-        )
-      ) {
+      if (!Array.isArray(data.activeThreads)) {
         data.activeThreads = [];
       }
 
       return data;
     }
-
   } catch (error) {
-
     console.error(
       "[HALIMAW] Config load error:",
       error.message
     );
-
   }
 
   return {
@@ -611,9 +922,7 @@ function loadConfig() {
 // =====================================================
 
 function saveConfig(data) {
-
   try {
-
     fs.writeFileSync(
       DATA_PATH,
       JSON.stringify(
@@ -623,14 +932,11 @@ function saveConfig(data) {
       ),
       "utf8"
     );
-
   } catch (error) {
-
     console.error(
       "[HALIMAW] Config save error:",
       error.message
     );
-
   }
 }
 
@@ -645,11 +951,10 @@ function isAdmin(senderID) {
 }
 
 // =====================================================
-// RANDOM HUMAN REPLY
+// RANDOM REPLY
 // =====================================================
 
 function getRandomReply(threadID) {
-
   const id = String(threadID);
 
   let previous =
@@ -657,19 +962,13 @@ function getRandomReply(threadID) {
 
   let available =
     ALL_REPLIES.filter(
-      reply =>
-        !previous.includes(reply)
+      reply => !previous.includes(reply)
     );
 
-  if (
-    available.length === 0
-  ) {
-
+  if (available.length === 0) {
     previous = [];
-
     available =
       ALL_REPLIES.slice();
-
   }
 
   const reply =
@@ -705,73 +1004,53 @@ function startTyping(
   api,
   threadID
 ) {
-
   try {
-
     if (
       typeof api.sendTypingIndicator ===
       "function"
     ) {
-
       api.sendTypingIndicator(
         threadID,
         true
       );
-
     }
-
   } catch (e) {}
 
   const interval =
     setInterval(() => {
-
       try {
-
         if (
           typeof api.sendTypingIndicator ===
           "function"
         ) {
-
           api.sendTypingIndicator(
             threadID,
             true
           );
-
         }
-
       } catch (e) {}
-
     }, 4000);
 
   return interval;
 }
-
-// =====================================================
-// STOP TYPING
-// =====================================================
 
 function stopTyping(
   api,
   threadID,
   interval
 ) {
-
   clearInterval(interval);
 
   try {
-
     if (
       typeof api.sendTypingIndicator ===
       "function"
     ) {
-
       api.sendTypingIndicator(
         threadID,
         false
       );
-
     }
-
   } catch (e) {}
 }
 
@@ -783,28 +1062,23 @@ function react(
   api,
   messageID
 ) {
-
   try {
-
     if (
       typeof api.setMessageReaction ===
       "function"
     ) {
-
       api.setMessageReaction(
         "❤",
         messageID,
         () => {},
         true
       );
-
     }
-
   } catch (e) {}
 }
 
 // =====================================================
-// TOGGLE
+// TOGGLE THREAD
 // =====================================================
 
 async function toggleThread({
@@ -812,14 +1086,12 @@ async function toggleThread({
   event,
   config
 }) {
-
   const {
     threadID,
     senderID,
     messageID
   } = event;
 
-  // ADMIN ONLY
   if (
     !isAdmin(senderID)
   ) {
@@ -831,10 +1103,6 @@ async function toggleThread({
 
   const index =
     config.activeThreads.indexOf(id);
-
-  // -------------------------
-  // ON
-  // -------------------------
 
   if (index === -1) {
 
@@ -854,10 +1122,6 @@ async function toggleThread({
     return;
   }
 
-  // -------------------------
-  // OFF
-  // -------------------------
-
   config.activeThreads.splice(
     index,
     1
@@ -876,7 +1140,7 @@ async function toggleThread({
 }
 
 // =====================================================
-// SEND
+// SEND REPLY
 // =====================================================
 
 function sendReply({
@@ -885,9 +1149,7 @@ function sendReply({
   messageID,
   reply
 }) {
-
   try {
-
     api.sendMessage(
       {
         body: reply
@@ -896,14 +1158,11 @@ function sendReply({
       () => {},
       messageID
     );
-
   } catch (error) {
-
     console.error(
       "[HALIMAW] Send error:",
       error.message
     );
-
   }
 }
 
@@ -912,7 +1171,10 @@ function sendReply({
 // =====================================================
 
 module.exports.handleEvent =
-async function ({ api, event }) {
+async function ({
+  api,
+  event
+}) {
 
   const {
     threadID,
@@ -926,7 +1188,7 @@ async function ({ api, event }) {
   }
 
   // ===================================================
-  // BOT ID
+  // IGNORE BOT'S OWN MESSAGE
   // ===================================================
 
   let botID = null;
@@ -936,7 +1198,6 @@ async function ({ api, event }) {
       api.getCurrentUserID();
   } catch (e) {}
 
-  // Don't reply to itself
   if (
     botID &&
     String(senderID) ===
@@ -952,11 +1213,10 @@ async function ({ api, event }) {
     loadConfig();
 
   // ===================================================
-  // ADMIN "/" TOGGLE
+  // TOGGLE
   // ===================================================
 
   if (text === "/") {
-
     await toggleThread({
       api,
       event,
@@ -972,7 +1232,7 @@ async function ({ api, event }) {
   }
 
   // ===================================================
-  // ACTIVE CHECK
+  // ACTIVE THREAD CHECK
   // ===================================================
 
   if (
@@ -984,15 +1244,29 @@ async function ({ api, event }) {
   }
 
   // ===================================================
+  // RANDOM SKIP
+  // ===================================================
+
+  if (
+    Math.random() >
+    CHANCE_TO_REPLY
+  ) {
+    return;
+  }
+
+  // ===================================================
   // THREAD COOLDOWN
   // ===================================================
+
+  const threadKey =
+    String(threadID);
 
   const now =
     Date.now();
 
   const last =
     threadCooldowns.get(
-      String(threadID)
+      threadKey
     ) || 0;
 
   if (
@@ -1003,16 +1277,13 @@ async function ({ api, event }) {
   }
 
   threadCooldowns.set(
-    String(threadID),
+    threadKey,
     now
   );
 
   // ===================================================
   // PENDING CHECK
   // ===================================================
-
-  const threadKey =
-    String(threadID);
 
   if (
     pendingReplies.has(
@@ -1023,7 +1294,7 @@ async function ({ api, event }) {
   }
 
   // ===================================================
-  // GET REPLY
+  // SELECT RANDOM PURE-ASAR REPLY
   // ===================================================
 
   const reply =
@@ -1047,7 +1318,7 @@ async function ({ api, event }) {
     MIN_REPLY_DELAY;
 
   // ===================================================
-  // TYPING
+  // TYPING INDICATOR
   // ===================================================
 
   const typing =
@@ -1097,9 +1368,9 @@ async function () {
 };
 
 // =====================================================
-// DEBUG INFO
+// LOADED
 // =====================================================
 
 console.log(
-  `[HALIMAW] Loaded ${ALL_REPLIES.length} human replies.`
+  `[HALIMAW] Loaded ${ALL_REPLIES.length} pure-asar replies.`
 );
