@@ -5,13 +5,13 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "31.0.0",
+  version: "33.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Prefixless Short & Dry Asar Edition (1000+ Unique Lines)",
-  usage: "Send '/' to toggle ON/OFF in specific chat",
-  credits: "sinzu (1000+ Short Dry Optimized)",
+  description: "Human-like 1000+ Reply System",
+  usage: "Send / to toggle ON/OFF",
+  credits: "sinzu",
   cooldown: 1
 };
 
@@ -22,234 +22,1084 @@ module.exports.config = {
 const ADMIN_IDS = new Set([
   "61594951192638",
   "61594616562680",
-  "61594370023022" // id mo
+  "61594370023022"
 ]);
 
 // =====================================================
-// CONFIG FILE
+// CONFIG
 // =====================================================
 
-const DATA_PATH = path.join(__dirname, "halimaw_config.json");
+const DATA_PATH = path.join(
+  __dirname,
+  "halimaw_config.json"
+);
 
 // =====================================================
-// SETTINGS (ANTI-BAN OPTIMIZED)
+// SETTINGS
 // =====================================================
 
 const MIN_REPLY_DELAY = 6000;
 const MAX_REPLY_DELAY = 14000;
-const RECENT_REPLY_LIMIT = 150;
+
+const THREAD_COOLDOWN = 4000;
+
+// 1000+ pool means this can safely remember
+// hundreds of previous replies.
+const RECENT_REPLY_LIMIT = 250;
 
 // =====================================================
-// RUNTIME MEMORY
+// RUNTIME
 // =====================================================
 
 const recentReplies = new Map();
 const threadCooldowns = new Map();
+const pendingReplies = new Map();
 
 // =====================================================
-// 1000+ SHORT, DRY, & NON-REPEATING REPLY POOL
+// HUMAN REPLY DATA
 // =====================================================
 
-const ALL_REPLIES = [
-  // Base Dry Lines
-  "k", "sabi mo e", "edi wow", "ha?", "sus", "ewan", "weh", "so?", "then?", "and?",
-  "ulol", "pwe", "yuck", "ge", "ayus", "nice", "lol", "lmao", "gasgas", "boring",
-  "tulog na", "antok lang yan", "yabang", "pakialam ko", "sino ka ba", "dami mong alam",
-  "ulol mo", "huli ka", "weak", "trash", "taena", "gulo mo", "ikaw na", "sige lang",
-  "hangin", "pfft", "weh di nga", "puro ka dada", "shh ka na", "hina", "sablay",
-  "womp womp", "skill issue", "yawn", "boring mo", "wala kaming paki", "epal",
-  "wehh", "so ano ngayon", "anong gusto mo", "clap clap", "palakpakan", "nice try",
-  "real", "fake", "bobo", "inutil", "ano raw", "di ko gets", "sabog", "tanga",
-  "pampam", "papansin", "ew", "gross", "cringe", "basa", "tuyo", "maasim", "peste",
-  "bwisit", "asar", "pikon", "tahimik", "shh", "tigil", "tama na", "corny", "luma",
-  "panis", "basura", "tapon", "sira", "sabaw", "lutang", "palpak", "iyak", "ngawa",
-  "satsat", "daldal", "ulol level 2", "dead", "ayoko", "pisti", "ulol pabaliktad",
+const STARTERS = [
+  "ano",
+  "bakit",
+  "grabe",
+  "seryoso",
+  "teka",
+  "sandali",
+  "wait",
+  "luh",
+  "weh",
+  "uy",
+  "ay",
+  "eh",
+  "ah",
+  "hmm",
+  "hmmm",
+  "okay",
+  "sige",
+  "ge",
+  "oo",
+  "hindi",
+  "ewan",
+  "parang",
+  "medyo",
+  "actually",
+  "honestly",
+  "real",
+  "totoo",
+  "sure",
+  "malamang",
+  "siguro",
+  "baka",
+  "possible",
+  "fair",
+  "gets",
+  "wait lang",
+  "teka lang",
+  "ayos",
+  "nice",
+  "wow",
+  "wow ah",
+  "edi wow",
+  "ay wow",
+  "lakas",
+  "ibang klase",
+  "eto na",
+  "ayan na",
+  "eto nanaman",
+  "ayan nanaman",
+  "ikaw talaga",
+  "grabe ka",
+  "wala na",
+  "tama na",
+  "okay na",
+  "sige na",
+  "bahala ka",
+  "ikaw bahala",
+  "go lang",
+  "tuloy mo",
+  "push mo",
+  "continue",
+  "next",
+  "later",
+  "mamaya",
+  "bukas na",
+  "pass muna",
+  "skip muna",
+  "change topic",
+  "iba naman"
+];
 
-  // 1000+ Generative Short Combo Variations
-  ...Array.from({ length: 1000 }, (_, i) => {
-    const list1 = ["k", "sabi mo", "ulol", "boring", "wehh", "sows", "ha", "ewan", "ge", "yawn", "hina", "epal", "sus", "aysus", "ano raw", "ulol ka", "shh", "dami mong alam", "wala", "weh", "ayus", "nice", "lol", "yabang", "pfft", "real", "fake", "cringe", "tuyot", "basura"];
-    const list2 = ["talaga", "paps", "boss", "lodis", "pa rin", "naman", "ba", "pala", "nga", "kasi", "eh", "lang", "daw", "sana", "puro", "na", "pa", "to", "yan", "mo"];
-    
-    const w1 = list1[i % list1.length];
-    const w2 = list2[(i * 3) % list2.length];
-    const w3 = list1[(i * 7) % list1.length];
+const MIDDLES = [
+  "ano ba",
+  "ano naman",
+  "ano yan",
+  "ano pa",
+  "ano raw",
+  "ano daw",
+  "bakit naman",
+  "bakit ganyan",
+  "bakit ganon",
+  "bakit kasi",
+  "bakit ngayon",
+  "bakit ikaw",
+  "bakit ako",
+  "bakit pa",
+  "bakit naman ganon",
+  "paano yan",
+  "paano ba",
+  "paano naman",
+  "paano nangyari",
+  "saan galing",
+  "saan mo nakuha",
+  "saan patungo",
+  "saan tayo",
+  "sino nagsabi",
+  "sino nagturo",
+  "sino nag isip",
+  "sino may gawa",
+  "kailan pa",
+  "kailan nagsimula",
+  "anong point",
+  "anong connect",
+  "anong trip",
+  "anong ganap",
+  "anong problema",
+  "anong nangyari",
+  "anong gusto mo",
+  "anong ibig sabihin",
+  "may point ba",
+  "may sense ba",
+  "may kasunod pa",
+  "may bago ba",
+  "may sasabihin ka pa",
+  "may plano ka ba",
+  "may dahilan ba",
+  "may resibo ba",
+  "may proof ba",
+  "may evidence ba",
+  "may kwenta ba",
+  "may ambag ba",
+  "may point ka pala",
+  "parang wala",
+  "parang pilit",
+  "parang sablay",
+  "parang mali",
+  "parang kulang",
+  "parang luma",
+  "parang gasgas",
+  "parang familiar",
+  "parang narinig ko na yan",
+  "parang paulit ulit",
+  "parang walang bago",
+  "parang may mali",
+  "parang may kulang",
+  "parang di convincing",
+  "parang di gumana"
+];
 
-    if (i % 3 === 0) return `${w1} ${w2}`;
-    if (i % 3 === 1) return `${w1}`;
-    return `${w1} ${w2} ${w3 !== w1 ? w3 : ""}`.trim();
-  })
+const ENDINGS = [
+  "sayo",
+  "sayong lahat",
+  "sa sinabi mo",
+  "sa chat mo",
+  "sa ginagawa mo",
+  "sa trip mo",
+  "sa logic mo",
+  "sa point mo",
+  "sa argumento mo",
+  "sa kwento mo",
+  "sa explanation mo",
+  "sa dahilan mo",
+  "sa sagot mo",
+  "sa reply mo",
+  "sa banat mo",
+  "sa style mo",
+  "sa approach mo",
+  "sa plano mo",
+  "sa desisyon mo",
+  "sa confidence mo",
+  "sa yabang mo",
+  "sa timing mo",
+  "sa situation na to",
+  "dito",
+  "diyan",
+  "dyan",
+  "ngayon",
+  "mamaya",
+  "later",
+  "kanina",
+  "palagi",
+  "nanaman",
+  "ulit",
+  "pa",
+  "naman",
+  "nga",
+  "eh",
+  "lang",
+  "kasi",
+  "talaga",
+  "siguro",
+  "yata",
+  "daw",
+  "raw"
+];
+
+const ASAR = [
+  "pinilit mo pa",
+  "nag effort ka pa",
+  "sayang effort",
+  "medyo pilit",
+  "pilit na pilit",
+  "di umubra",
+  "di gumana",
+  "try again",
+  "try mo ulit",
+  "isa pa",
+  "ulit ka",
+  "baka sakali",
+  "baka gumana",
+  "malabo yan",
+  "mahina pa",
+  "kulang pa",
+  "medyo sablay",
+  "sablay nanaman",
+  "huli ka",
+  "nahuli kita",
+  "halata naman",
+  "obvious naman",
+  "kitang kita",
+  "wag ka magpanggap",
+  "wag na mag deny",
+  "aminin mo na",
+  "aminin na kasi",
+  "alam na namin",
+  "alam na ng lahat",
+  "di kami uto uto",
+  "hindi convincing",
+  "kulang sa convincing",
+  "wala sa hulog",
+  "wala sa lugar",
+  "wala sa point",
+  "wala sa topic",
+  "naligaw ka",
+  "naligaw ata",
+  "nakalimutan mo point mo",
+  "ano nga ulit point mo",
+  "balik ka muna sa point",
+  "ikot ka nang ikot",
+  "ang dami mong paligoy",
+  "diretso na kasi",
+  "mahaba pa ba",
+  "may episode pa ba",
+  "lecture nanaman",
+  "podcast na ba to",
+  "motivational speaker",
+  "teacher mode",
+  "professor mode",
+  "expert daw",
+  "masterclass daw",
+  "tutorial daw",
+  "champion sa sariling mundo",
+  "hari ng sariling argumento",
+  "best in confidence",
+  "best in yabang",
+  "best in salita",
+  "best in walang point",
+  "angas sa chat",
+  "malakas loob",
+  "confidence lang ambag",
+  "yabang naman",
+  "lakas maka confident",
+  "sige ikaw na",
+  "oo ikaw na",
+  "ikaw na magaling",
+  "ikaw na panalo",
+  "ikaw na pinaka magaling",
+  "bigyan na natin ng trophy",
+  "palakpakan natin",
+  "congrats sayo",
+  "achievement unlocked",
+  "may medal ka na",
+  "record holder",
+  "number one ka na",
+  "proud ka pa",
+  "proud na proud",
+  "sige proud ka dyan",
+  "enjoy mo lang",
+  "panindigan mo",
+  "sinabi mo yan",
+  "choice mo yan",
+  "desisyon mo yan"
+];
+
+const NATURAL = [
+  "di ko gets",
+  "di ko talaga gets",
+  "gets ko naman",
+  "medyo gets",
+  "di pa rin gets",
+  "explain mo nga",
+  "explain mo ulit",
+  "paki explain",
+  "ulit nga",
+  "sabihin mo nga",
+  "ano sinabi mo",
+  "di ko narinig",
+  "di ko alam sayo",
+  "hindi ko alam",
+  "wala akong alam",
+  "wala akong masabi",
+  "ano pa sasabihin ko",
+  "ikaw bahala",
+  "bahala ka dyan",
+  "wag ako idamay",
+  "wag nyo ko idamay",
+  "ako nanaman",
+  "bakit ako",
+  "anong kasalanan ko",
+  "wala akong ginawa",
+  "innocent ako",
+  "di ako kasama dyan",
+  "pass ako",
+  "skip muna",
+  "observer lang ako",
+  "nanonood lang ako",
+  "nakatingin lang ako",
+  "continue nyo lang",
+  "go lang kayo",
+  "ako na tatahimik",
+  "tahimik muna ako",
+  "wala akong nakita",
+  "hindi ako kasali",
+  "change topic",
+  "next topic",
+  "iba naman",
+  "may bago ba",
+  "ano ganap",
+  "kamusta naman",
+  "okay naman",
+  "buhay pa",
+  "gising pa",
+  "online pa",
+  "active pa",
+  "busy ka",
+  "wala ka bang ginagawa",
+  "dami mong time",
+  "ang sipag mo mag chat",
+  "ang ingay mo",
+  "daldal mo",
+  "tahimik ka muna",
+  "hinga ka muna",
+  "pahinga ka rin",
+  "matulog ka na",
+  "wag ka magpuyat",
+  "di ka ba napapagod",
+  "may pahinga ka ba",
+  "wala ka bang preno",
+  "di ka talaga titigil",
+  "ganyan ka talaga",
+  "di ka nagbabago",
+  "consistent ka ah",
+  "consistent sa kalokohan",
+  "at least consistent",
+  "same old",
+  "nothing new",
+  "walang bago",
+  "same energy",
+  "same behavior"
+];
+
+const REACTIONS = [
+  "HAHA",
+  "haha",
+  "hahaha",
+  "HAHAHAHA",
+  "lmao",
+  "lol",
+  "grabe HAHA",
+  "natawa ako dun",
+  "di ko kinaya",
+  "seryoso HAHA",
+  "hindi ko alam sayo HAHA",
+  "lakas mo HAHA",
+  "ibang klase HAHA",
+  "okay HAHA",
+  "sige HAHA",
+  "weh HAHA",
+  "ay wow HAHA",
+  "edi ikaw na HAHA",
+  "good one",
+  "nice one",
+  "nice try",
+  "good try",
+  "fair enough",
+  "valid",
+  "valid naman",
+  "real",
+  "facts",
+  "true",
+  "exactly",
+  "same",
+  "relate",
+  "may point",
+  "may tama ka",
+  "may mali ka rin",
+  "half point",
+  "close enough"
+];
+
+const SHORT = [
+  "k",
+  "ok",
+  "okay",
+  "ge",
+  "sige",
+  "oo",
+  "hindi",
+  "ha",
+  "weh",
+  "luh",
+  "sus",
+  "ewan",
+  "ewan sayo",
+  "pfft",
+  "hmm",
+  "hmmm",
+  "yawn",
+  "wow",
+  "nice",
+  "real",
+  "fake",
+  "cringe",
+  "weak",
+  "trash",
+  "corny",
+  "gasgas",
+  "panis",
+  "tuyo",
+  "sabaw",
+  "lutang",
+  "palpak",
+  "sablay",
+  "boring",
+  "nakakaumay",
+  "nakakatawa",
+  "nakakaloka",
+  "nakakainis",
+  "tama na",
+  "stop na",
+  "enough",
+  "timeout",
+  "pause muna",
+  "kalma",
+  "relax",
+  "chill",
+  "easy",
+  "pass",
+  "next",
+  "later"
 ];
 
 // =====================================================
-// LOAD & SAVE CONFIG
+// BUILD 1000+ HUMAN-LIKE REPLIES
+// =====================================================
+
+const REPLIES = new Set();
+
+// Add direct replies first
+[
+  ...SHORT,
+  ...NATURAL,
+  ...REACTIONS,
+  ...ASAR
+].forEach(x => REPLIES.add(x));
+
+// Human combinations
+for (let i = 0; i < STARTERS.length; i++) {
+  for (let j = 0; j < MIDDLES.length; j++) {
+
+    const a = STARTERS[i];
+    const b = MIDDLES[j];
+
+    REPLIES.add(`${a} ${b}`);
+  }
+}
+
+// More natural combinations
+for (let i = 0; i < ASAR.length; i++) {
+  for (let j = 0; j < ENDINGS.length; j++) {
+
+    const a = ASAR[i];
+    const b = ENDINGS[j];
+
+    REPLIES.add(`${a} ${b}`);
+  }
+}
+
+// Natural conversational combinations
+for (let i = 0; i < NATURAL.length; i++) {
+  for (let j = 0; j < ENDINGS.length; j++) {
+
+    if (i % 3 === j % 3) {
+      REPLIES.add(
+        `${NATURAL[i]} ${ENDINGS[j]}`
+      );
+    }
+  }
+}
+
+// Reaction combinations
+for (let i = 0; i < REACTIONS.length; i++) {
+  for (let j = 0; j < SHORT.length; j++) {
+
+    if (i % 2 === j % 2) {
+      REPLIES.add(
+        `${REACTIONS[i]} ${SHORT[j]}`
+      );
+    }
+  }
+}
+
+// Convert to array
+const ALL_REPLIES = Array.from(REPLIES);
+
+// =====================================================
+// LOAD CONFIG
 // =====================================================
 
 function loadConfig() {
+
   try {
+
     if (fs.existsSync(DATA_PATH)) {
-      const data = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
-      if (!Array.isArray(data.activeThreads)) {
+
+      const data = JSON.parse(
+        fs.readFileSync(
+          DATA_PATH,
+          "utf8"
+        )
+      );
+
+      if (
+        !Array.isArray(
+          data.activeThreads
+        )
+      ) {
         data.activeThreads = [];
       }
+
       return data;
     }
+
   } catch (error) {
-    console.error("[HALIMAW] Failed to load config:", error.message);
+
+    console.error(
+      "[HALIMAW] Config load error:",
+      error.message
+    );
+
   }
-  return { activeThreads: [] };
+
+  return {
+    activeThreads: []
+  };
 }
+
+// =====================================================
+// SAVE CONFIG
+// =====================================================
 
 function saveConfig(data) {
+
   try {
-    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
+
+    fs.writeFileSync(
+      DATA_PATH,
+      JSON.stringify(
+        data,
+        null,
+        2
+      ),
+      "utf8"
+    );
+
   } catch (error) {
-    console.error("[HALIMAW] Failed to save config:", error.message);
+
+    console.error(
+      "[HALIMAW] Config save error:",
+      error.message
+    );
+
   }
 }
+
+// =====================================================
+// ADMIN CHECK
+// =====================================================
 
 function isAdmin(senderID) {
-  return ADMIN_IDS.has(String(senderID));
+  return ADMIN_IDS.has(
+    String(senderID)
+  );
 }
 
-function getRandomReply(threadID) {
-  let previous = recentReplies.get(String(threadID)) || [];
-  let available = ALL_REPLIES.filter(reply => !previous.includes(reply));
+// =====================================================
+// RANDOM HUMAN REPLY
+// =====================================================
 
-  if (available.length === 0) {
+function getRandomReply(threadID) {
+
+  const id = String(threadID);
+
+  let previous =
+    recentReplies.get(id) || [];
+
+  let available =
+    ALL_REPLIES.filter(
+      reply =>
+        !previous.includes(reply)
+    );
+
+  if (
+    available.length === 0
+  ) {
+
     previous = [];
-    available = ALL_REPLIES;
+
+    available =
+      ALL_REPLIES.slice();
+
   }
 
-  const reply = available[Math.floor(Math.random() * available.length)];
+  const reply =
+    available[
+      Math.floor(
+        Math.random() *
+        available.length
+      )
+    ];
+
   previous.push(reply);
 
-  if (previous.length > RECENT_REPLY_LIMIT) {
+  if (
+    previous.length >
+    RECENT_REPLY_LIMIT
+  ) {
     previous.shift();
   }
 
-  recentReplies.set(String(threadID), previous);
+  recentReplies.set(
+    id,
+    previous
+  );
+
   return reply;
 }
 
 // =====================================================
-// TYPING SIMULATION
+// TYPING
 // =====================================================
 
-function startTyping(api, threadID) {
+function startTyping(
+  api,
+  threadID
+) {
+
   try {
-    if (typeof api.sendTypingIndicator === "function") {
-      api.sendTypingIndicator(threadID, true);
+
+    if (
+      typeof api.sendTypingIndicator ===
+      "function"
+    ) {
+
+      api.sendTypingIndicator(
+        threadID,
+        true
+      );
+
     }
+
   } catch (e) {}
 
-  const interval = setInterval(() => {
-    try {
-      if (typeof api.sendTypingIndicator === "function") {
-        api.sendTypingIndicator(threadID, true);
-      }
-    } catch (e) {}
-  }, 4000);
+  const interval =
+    setInterval(() => {
+
+      try {
+
+        if (
+          typeof api.sendTypingIndicator ===
+          "function"
+        ) {
+
+          api.sendTypingIndicator(
+            threadID,
+            true
+          );
+
+        }
+
+      } catch (e) {}
+
+    }, 4000);
 
   return interval;
 }
 
-function stopTyping(api, threadID, interval) {
+// =====================================================
+// STOP TYPING
+// =====================================================
+
+function stopTyping(
+  api,
+  threadID,
+  interval
+) {
+
   clearInterval(interval);
+
   try {
-    if (typeof api.sendTypingIndicator === "function") {
-      api.sendTypingIndicator(threadID, false);
+
+    if (
+      typeof api.sendTypingIndicator ===
+      "function"
+    ) {
+
+      api.sendTypingIndicator(
+        threadID,
+        false
+      );
+
     }
+
   } catch (e) {}
 }
 
 // =====================================================
-// SLASH TOGGLE HANDLER
+// REACTION
 // =====================================================
 
-async function toggleThread({ api, event, config }) {
-  const { threadID, senderID, messageID } = event;
+function react(
+  api,
+  messageID
+) {
 
-  if (!isAdmin(senderID)) return;
+  try {
 
-  const id = String(threadID);
-  const index = config.activeThreads.indexOf(id);
+    if (
+      typeof api.setMessageReaction ===
+      "function"
+    ) {
+
+      api.setMessageReaction(
+        "❤",
+        messageID,
+        () => {},
+        true
+      );
+
+    }
+
+  } catch (e) {}
+}
+
+// =====================================================
+// TOGGLE
+// =====================================================
+
+async function toggleThread({
+  api,
+  event,
+  config
+}) {
+
+  const {
+    threadID,
+    senderID,
+    messageID
+  } = event;
+
+  // ADMIN ONLY
+  if (
+    !isAdmin(senderID)
+  ) {
+    return;
+  }
+
+  const id =
+    String(threadID);
+
+  const index =
+    config.activeThreads.indexOf(id);
+
+  // -------------------------
+  // ON
+  // -------------------------
 
   if (index === -1) {
+
     config.activeThreads.push(id);
+
     saveConfig(config);
-    try {
-      if (typeof api.setMessageReaction === "function") {
-        api.setMessageReaction("❤", messageID, () => {}, true);
-      }
-    } catch (e) {}
-    console.log(`[HALIMAW] ON sa thread: ${id}`);
+
+    react(
+      api,
+      messageID
+    );
+
+    console.log(
+      `[HALIMAW] ON: ${id}`
+    );
+
     return;
   }
 
-  config.activeThreads.splice(index, 1);
+  // -------------------------
+  // OFF
+  // -------------------------
+
+  config.activeThreads.splice(
+    index,
+    1
+  );
+
   saveConfig(config);
-  try {
-    if (typeof api.setMessageReaction === "function") {
-      api.setMessageReaction("❤", messageID, () => {}, true);
-    }
-  } catch (e) {}
-  console.log(`[HALIMAW] OFF sa thread: ${id}`);
+
+  react(
+    api,
+    messageID
+  );
+
+  console.log(
+    `[HALIMAW] OFF: ${id}`
+  );
 }
 
 // =====================================================
-// MAIN EVENT HANDLER
+// SEND
 // =====================================================
 
-module.exports.handleEvent = async function ({ api, event }) {
-  const { threadID, senderID, body, messageID } = event;
+function sendReply({
+  api,
+  threadID,
+  messageID,
+  reply
+}) {
 
-  if (!body) return;
+  try {
+
+    api.sendMessage(
+      {
+        body: reply
+      },
+      threadID,
+      () => {},
+      messageID
+    );
+
+  } catch (error) {
+
+    console.error(
+      "[HALIMAW] Send error:",
+      error.message
+    );
+
+  }
+}
+
+// =====================================================
+// MAIN EVENT
+// =====================================================
+
+module.exports.handleEvent =
+async function ({ api, event }) {
+
+  const {
+    threadID,
+    senderID,
+    body,
+    messageID
+  } = event;
+
+  if (!body) {
+    return;
+  }
+
+  // ===================================================
+  // BOT ID
+  // ===================================================
 
   let botID = null;
+
   try {
-    botID = api.getCurrentUserID();
+    botID =
+      api.getCurrentUserID();
   } catch (e) {}
 
-  if (botID && String(senderID) === String(botID)) {
+  // Don't reply to itself
+  if (
+    botID &&
+    String(senderID) ===
+    String(botID)
+  ) {
     return;
   }
 
-  const text = String(body).trim();
-  const config = loadConfig();
+  const text =
+    String(body).trim();
+
+  const config =
+    loadConfig();
+
+  // ===================================================
+  // ADMIN "/" TOGGLE
+  // ===================================================
 
   if (text === "/") {
-    await toggleThread({ api, event, config });
+
+    await toggleThread({
+      api,
+      event,
+      config
+    });
+
     return;
   }
 
-  if (/^\/+$/.test(text)) return;
-
-  if (!config.activeThreads.includes(String(threadID))) {
+  // Ignore //, ///, etc.
+  if (/^\/+$/.test(text)) {
     return;
   }
 
-  const now = Date.now();
-  const lastTime = threadCooldowns.get(String(threadID)) || 0;
-  if (now - lastTime < 4000) {
+  // ===================================================
+  // ACTIVE CHECK
+  // ===================================================
+
+  if (
+    !config.activeThreads.includes(
+      String(threadID)
+    )
+  ) {
     return;
   }
-  threadCooldowns.set(String(threadID), now);
 
-  const reply = getRandomReply(threadID);
-  const typingInterval = startTyping(api, threadID);
-  const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
+  // ===================================================
+  // THREAD COOLDOWN
+  // ===================================================
+
+  const now =
+    Date.now();
+
+  const last =
+    threadCooldowns.get(
+      String(threadID)
+    ) || 0;
+
+  if (
+    now - last <
+    THREAD_COOLDOWN
+  ) {
+    return;
+  }
+
+  threadCooldowns.set(
+    String(threadID),
+    now
+  );
+
+  // ===================================================
+  // PENDING CHECK
+  // ===================================================
+
+  const threadKey =
+    String(threadID);
+
+  if (
+    pendingReplies.has(
+      threadKey
+    )
+  ) {
+    return;
+  }
+
+  // ===================================================
+  // GET REPLY
+  // ===================================================
+
+  const reply =
+    getRandomReply(
+      threadID
+    );
+
+  // ===================================================
+  // RANDOM DELAY
+  // ===================================================
+
+  const delay =
+    Math.floor(
+      Math.random() *
+      (
+        MAX_REPLY_DELAY -
+        MIN_REPLY_DELAY +
+        1
+      )
+    ) +
+    MIN_REPLY_DELAY;
+
+  // ===================================================
+  // TYPING
+  // ===================================================
+
+  const typing =
+    startTyping(
+      api,
+      threadID
+    );
+
+  pendingReplies.set(
+    threadKey,
+    true
+  );
+
+  // ===================================================
+  // SEND
+  // ===================================================
 
   setTimeout(() => {
-    stopTyping(api, threadID, typingInterval);
 
-    try {
-      api.sendMessage({ body: reply }, threadID, () => {}, messageID);
-    } catch (error) {
-      console.error("[HALIMAW] Send error:", error.message);
-    }
-  }, randomDelay);
+    pendingReplies.delete(
+      threadKey
+    );
+
+    stopTyping(
+      api,
+      threadID,
+      typing
+    );
+
+    sendReply({
+      api,
+      threadID,
+      messageID,
+      reply
+    });
+
+  }, delay);
 };
 
-module.exports.run = async function () {
+// =====================================================
+// RUN
+// =====================================================
+
+module.exports.run =
+async function () {
   return;
 };
+
+// =====================================================
+// DEBUG INFO
+// =====================================================
+
+console.log(
+  `[HALIMAW] Loaded ${ALL_REPLIES.length} human replies.`
+);
