@@ -5,18 +5,18 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "25.0.0",
+  version: "26.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Prefixless Tarantadong Halimaw - Mega Toxic Asar Edition (Auto-Reply All)",
-  usage: "Auto-replies to all messages",
+  description: "Prefixless Tarantadong Halimaw - Mega Toxic Asar Edition (Toggle Toggle GC Mode)",
+  usage: "Send '/' to toggle ON/OFF in specific chat",
   credits: "sinzu (Pure Asar Optimized)",
   cooldown: 1
 };
 
 // =====================================================
-// ADMIN IDS (Optional na kung gagamitin pa)
+// ADMIN IDS
 // =====================================================
 
 const ADMIN_IDS = new Set([
@@ -24,6 +24,12 @@ const ADMIN_IDS = new Set([
   "61594616562680",
   "61594370023022" // id mo
 ]);
+
+// =====================================================
+// CONFIG FILE (Para maalala kung saang GC naka-on)
+// =====================================================
+
+const DATA_PATH = path.join(__dirname, "halimaw_config.json");
 
 // =====================================================
 // SETTINGS (ANTI-BAN OPTIMIZED)
@@ -130,6 +136,37 @@ const ALL_REPLIES = [
   ...Array.from({ length: 900 }, (_, i) => `tanga combo number ${i + 1}: ${["tumigil ka na", "wala kang mararating", "pulubi ka", "iyak ka na", "inutil ka", "epal ka", "bobo ka", "panget mo"][i % 8]}`)
 ];
 
+// =====================================================
+// LOAD & SAVE CONFIG
+// =====================================================
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(DATA_PATH)) {
+      const data = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+      if (!Array.isArray(data.activeThreads)) {
+        data.activeThreads = [];
+      }
+      return data;
+    }
+  } catch (error) {
+    console.error("[HALIMAW] Failed to load config:", error.message);
+  }
+  return { activeThreads: [] };
+}
+
+function saveConfig(data) {
+  try {
+    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
+  } catch (error) {
+    console.error("[HALIMAW] Failed to save config:", error.message);
+  }
+}
+
+function isAdmin(senderID) {
+  return ADMIN_IDS.has(String(senderID));
+}
+
 function getRandomReply(threadID) {
   let previous = recentReplies.get(String(threadID)) || [];
   let available = ALL_REPLIES.filter(reply => !previous.includes(reply));
@@ -182,7 +219,41 @@ function stopTyping(api, threadID, interval) {
 }
 
 // =====================================================
-// MAIN EVENT HANDLER (AUTO-REPLY ALL)
+// SLASH TOGGLE HANDLER
+// =====================================================
+
+async function toggleThread({ api, event, config }) {
+  const { threadID, senderID, messageID } = event;
+
+  if (!isAdmin(senderID)) return;
+
+  const id = String(threadID);
+  const index = config.activeThreads.indexOf(id);
+
+  if (index === -1) {
+    config.activeThreads.push(id);
+    saveConfig(config);
+    try {
+      if (typeof api.setMessageReaction === "function") {
+        api.setMessageReaction("❤", messageID, () => {}, true);
+      }
+    } catch (e) {}
+    console.log(`[HALIMAW] ON sa thread: ${id}`);
+    return;
+  }
+
+  config.activeThreads.splice(index, 1);
+  saveConfig(config);
+  try {
+    if (typeof api.setMessageReaction === "function") {
+      api.setMessageReaction("❤", messageID, () => {}, true);
+    }
+  } catch (e) {}
+  console.log(`[HALIMAW] OFF sa thread: ${id}`);
+}
+
+// =====================================================
+// MAIN EVENT HANDLER
 // =====================================================
 
 module.exports.handleEvent = async function ({ api, event }) {
@@ -195,12 +266,27 @@ module.exports.handleEvent = async function ({ api, event }) {
     botID = api.getCurrentUserID();
   } catch (e) {}
 
-  // Huwag sagutin ang sarili mong bot
   if (botID && String(senderID) === String(botID)) {
     return;
   }
 
-  // Optional cooldown per thread para hindi ma-spam block agad
+  const text = String(body).trim();
+  const config = loadConfig();
+
+  // Kapag nag-type ng "/" ang admin, mag-a-activate o mag-de-deactivate
+  if (text === "/") {
+    await toggleThread({ api, event, config });
+    return;
+  }
+
+  if (/^\/+$/.test(text)) return;
+
+  // Kung HINDI naka-on sa GC na to, wag mag-reply
+  if (!config.activeThreads.includes(String(threadID))) {
+    return;
+  }
+
+  // Cooldown per thread para iwas spam block
   const now = Date.now();
   const lastTime = threadCooldowns.get(String(threadID)) || 0;
   if (now - lastTime < 4000) {
