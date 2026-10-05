@@ -1,402 +1,323 @@
-const fs = require('fs');
-const path = require('path');
-const login = require('ws3-fca');
-const express = require('express');
-const app = express();
-const chalk = require('chalk');
-const bodyParser = require('body-parser');
-const script = path.join(__dirname, 'script');
-const cron = require('node-cron');
+"use strict";
 
-const config = fs.existsSync('./data') && fs.existsSync('./data/config.json') ? JSON.parse(fs.readFileSync('./data/config.json', 'utf8')) : createConfig();
-const dev = fs.existsSync('./dev.json') ? JSON.parse(fs.readFileSync('./dev.json')) : [];
+const fs = require("fs");
+const path = require("path");
 
-const Utils = new Object({
-  commands: new Map(),
-  handleEvent: new Map(),
-  account: new Map(),
-  cooldowns: new Map(),
-});
+module.exports.config = {
+  name: "halimaw",
+  version: "40.0.0",
+  role: 0,
+  hasPrefix: false,
+  aliases: ["halimaw", "mimic", "tropa"],
+  description: "Pure Asar / Dry Bardagulan + Idle Counter + Nickname Control + GC Lock",
+  usage: "Send / to toggle ON, /[nickname] to mass change, /lock [name] to lock GC name",
+  credits: "sinzu",
+  cooldown: 1
+};
 
-// Runtime memory para sa bawat thread cooldown (iwas spam detection ng FB)
-const threadCooldowns = new Map();
+// =====================================================
+// ADMIN & SETTINGS
+// =====================================================
 
-if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
-if (!fs.existsSync('./data/history.json')) fs.writeFileSync('./data/history.json', '[]', 'utf-8');
-if (!fs.existsSync('./data/session')) fs.mkdirSync('./data/session', { recursive: true });
-if (!fs.existsSync('./data/database.json')) fs.writeFileSync('./data/database.json', '[]', 'utf-8');
-
-// Helper function para sa anti-ban human-like delay
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// COMMAND LOADER
-fs.readdirSync(script).forEach((file) => {
-  const scripts = path.join(script, file);
-  try {
-    const stats = fs.statSync(scripts);
-    if (stats.isDirectory()) {
-      fs.readdirSync(scripts).forEach((subFile) => {
-        if (!subFile.endsWith('.js')) return;
-        loadScript(path.join(scripts, subFile));
-      });
-    } else if (file.endsWith('.js')) {
-      loadScript(scripts);
-    }
-  } catch (error) {
-    console.error(chalk.red(`Error reading script path ${file}: ${error.message}`));
-  }
-});
-
-function loadScript(filePath) {
-  try {
-    delete require.cache[require.resolve(filePath)];
-    const pull = require(filePath);
-    if (!pull.config) return;
-
-    const {
-      name = [],
-      role = '0',
-      version = '1.0.0',
-      hasPrefix = true,
-      aliases = [],
-      description = '',
-      usage = '',
-      credits = '',
-      cooldown = '5',
-      dev = false
-    } = Object.fromEntries(Object.entries(pull.config).map(([key, value]) => [key.toLowerCase(), value]));
-
-    const nameArray = Array.isArray(name) ? name : [name];
-    const allAliases = Array.isArray(aliases) ? [...aliases, ...nameArray] : [...nameArray];
-    const primaryName = nameArray[0] || 'unknown';
-
-    if (pull.run) {
-      Utils.commands.set(allAliases, {
-        name: primaryName,
-        role,
-        run: pull.run,
-        aliases: allAliases,
-        description,
-        usage,
-        version,
-        hasPrefix,
-        credits,
-        cooldown,
-        dev
-      });
-    }
-
-    if (pull.handleEvent) {
-      Utils.handleEvent.set(allAliases, {
-        name: primaryName,
-        handleEvent: pull.handleEvent,
-        role,
-        description,
-        usage,
-        version,
-        hasPrefix,
-        credits,
-        cooldown,
-        dev
-      });
-    }
-  } catch (error) {
-    console.error(chalk.red(`Error loading script ${filePath}: ${error.message}`));
-  }
-}
-
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(bodyParser.json());
-app.use(express.json());
-
-const routes = [
-  { path: '/', file: 'index.html' },
-  { path: '/step_by_step_guide', file: 'guide.html' },
-  { path: '/online_user', file: 'online.html' },
+const ADMIN_IDS = [
+  "61594951192638",
+  "61594616562680",
+  "61594370023022"
 ];
 
-routes.forEach(route => {
-  app.get(route.path, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', route.file));
-  });
-});
+const DATA_PATH = path.join(__dirname, "halimaw_config.json");
+const GC_LOCK_PATH = path.join(__dirname, "halimaw_locks.json");
 
-app.get('/info', (req, res) => {
-  const data = Array.from(Utils.account.values()).map(account => ({
-    name: account.name,
-    profileUrl: account.profileUrl,
-    thumbSrc: account.thumbSrc,
-    time: account.time
-  }));
-  res.json(data);
-});
+const MIN_REPLY_DELAY = 6000;
+const MAX_REPLY_DELAY = 14000;
+const THREAD_COOLDOWN = 10000;
+const CHANCE_TO_REPLY = 0.80;
 
-// DASHBOARD ENDPOINT
-app.get('/commands', (req, res) => {
-  const commandSet = new Set();
-  const commands = [];
-  const handleEvent = [];
-  const role = [];
-  const aliases = [];
+// =====================================================
+// IDLE TIMER SETTINGS (15 Mins Inactive -> Count 1-50 -> Resibo)
+// =====================================================
+const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
+const idleTimers = new Map();
+const activeCounters = new Set();
 
-  for (const cmd of Utils.commands.values()) {
-    if (!commandSet.has(cmd.name)) {
-      commandSet.add(cmd.name);
-      commands.push(cmd.name);
-      role.push(cmd.role);
-      aliases.push(cmd.aliases);
-    }
-  }
+const FUNNY_REASONS = [
+  "Napa-dash out sa sobrang taba, hindi napigilan umorder ng unlirice sa Mang Inasal.",
+  "Nag-dash out kasi nasermon ng nanay niya dahil napaka-batugan niya.",
+  "Nagdabog at hinagis yung cellphone niya sa sobrang ragebaited niya saken.",
+  "Nawalan ng internet dahil naputol ang kuryente sa sobrang kamalasan.",
+  "Biglang sumakit ang tyan dahil sa kinain na street food kagabi.",
+  "Natulog na lang sa sobrang hiya dahil walang masabing matino.",
+  "Tumakbo sa banyo dahil sumabog ang tiyan sa kape at kanin.",
+  "Naka-isip na mag-quit sa buhay dahil hindi matalo ang bot sa bardagulan."
+];
 
-  for (const ev of Utils.handleEvent.values()) {
-    if (!commandSet.has(ev.name)) {
-      commandSet.add(ev.name);
-      handleEvent.push(ev.name);
-    }
-  }
+// =====================================================
+// WORD POOLS (Pure Bardagulan)
+// =====================================================
 
-  res.json({ commands, handleEvent, role, aliases });
-});
+const STARTERS = [
+  "ano ba", "bakit ba", "grabe ka", "seryoso ka", "teka nga", "sandali", "wait", "luh", "weh", "uy", "ay", "eh", "ah", "hmm", "hmmm", "okay ka lang", "sige ka", "ge ka", "oo na", "hindi nga", "ewan sayo", "parang", "medyo", "actually", "honestly", "totoo ba", "sure ka", "malamang", "siguro", "baka", "possible", "gets mo ba", "wait lang", "teka lang", "ayos ka lang", "eto na naman", "ayan na naman", "ikaw talaga", "grabe naman", "wala na", "tama na", "okay na", "sige na", "bahala ka", "ikaw bahala", "go lang", "tuloy mo", "push mo"
+];
 
-app.post('/login', async (req, res) => {
-  const { state, commands, prefix, admin } = req.body;
+const MIDDLES = [
+  "ano ba yan", "ano naman yan", "ano yan", "ano na naman", "ano pa ba", "ano raw", "ano daw", "bakit naman", "bakit ganyan", "bakit ganon", "bakit kasi", "bakit ngayon", "bakit ikaw", "bakit ako", "bakit pa", "paano yan", "paano ba yan", "paano naman", "paano nangyari", "saan galing yan", "saan mo nakuha yan", "sino nagsabi sayo", "sino nagturo sayo", "kailan pa yan", "anong point", "anong connect", "anong trip", "anong ganap", "anong problema"
+];
+
+const ENDINGS = [
+  "sayo", "sa sinabi mo", "sa chat mo", "sa ginagawa mo", "sa trip mo", "sa logic mo", "sa point mo", "sa argumento mo", "sa kwento mo", "sa explanation mo", "sa dahilan mo", "sa sagot mo", "sa reply mo", "sa banat mo", "sa style mo", "dito", "dyan", "diyan", "ngayon", "mamaya", "later", "kanina", "palagi", "nanaman", "ulit", "pa", "naman", "nga", "eh", "lang", "kasi", "talaga"
+];
+
+const ASAR = [
+  "pinilit mo pa", "nag effort ka pa", "sayang effort", "sayang typing", "sayang oras", "medyo pilit", "pilit na pilit", "sobrang pilit", "halatang pilit", "di umubra", "di gumana", "di tumama", "try again", "try mo ulit", "isa pa", "ulit ka", "baka sakali", "malabo yan", "mahina pa", "mahina talaga", "kulang pa", "bitin", "sablay", "palpak nanaman", "huli ka", "nahuli kita", "halata naman", "obvious naman", "kitang kita", "alam na namin", "wag ka magpanggap", "wag ka mag deny", "aminin mo na", "aminin na kasi", "palusot pa", "excuse nanaman", "same script", "same banat", "same style", "paulit ulit"
+];
+
+const REPLIES = new Set([...STARTERS, ...MIDDLES, ...ENDINGS, ...ASAR]);
+STARTERS.forEach(s => MIDDLES.forEach(m => REPLIES.add(`${s} ${m}`)));
+ASAR.forEach(a => ENDINGS.forEach(e => REPLIES.add(`${a} ${e}`)));
+const ALL_REPLIES = Array.from(REPLIES);
+
+// =====================================================
+// CONFIG & LOCK STORAGE FUNCTIONS
+// =====================================================
+
+function loadConfig() {
   try {
-    if (!state) throw new Error('Missing app state data');
-    const cUser = state.find(item => item.key === 'c_user');
-    if (cUser) {
-      const existingUser = Utils.account.get(cUser.value);
-      if (existingUser) {
-        return res.status(400).json({
-          error: false,
-          message: "Active user session detected; already logged in",
-          user: existingUser
-        });
-      } else {
-        await accountLogin(state, commands, prefix, Array.isArray(admin) ? admin : [admin]);
-        res.status(200).json({
-          success: true,
-          message: 'Authentication process completed successfully; login achieved.'
-        });
+    if (fs.existsSync(DATA_PATH)) {
+      const data = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+      if (!Array.isArray(data.activeThreads)) data.activeThreads = [];
+      return data;
+    }
+  } catch (e) {}
+  return { activeThreads: [] };
+}
+
+function saveConfig(data) {
+  try {
+    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
+  } catch (e) {}
+}
+
+function loadLocks() {
+  try {
+    if (fs.existsSync(GC_LOCK_PATH)) {
+      return JSON.parse(fs.readFileSync(GC_LOCK_PATH, "utf8"));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveLocks(locks) {
+  try {
+    fs.writeFileSync(GC_LOCK_PATH, JSON.stringify(locks, null, 2), "utf8");
+  } catch (e) {}
+}
+
+function isAdmin(senderID) {
+  return ADMIN_IDS.includes(String(senderID));
+}
+
+function getRandomReply() {
+  return ALL_REPLIES[Math.floor(Math.random() * ALL_REPLIES.length)];
+}
+
+// =====================================================
+// HELPERS
+// =====================================================
+
+function startTyping(api, threadID) {
+  try { api.sendTypingIndicator(threadID, true); } catch (e) {}
+  return setInterval(() => {
+    try { api.sendTypingIndicator(threadID, true); } catch (e) {}
+  }, 4000);
+}
+
+function stopTyping(api, threadID, interval) {
+  clearInterval(interval);
+  try { api.sendTypingIndicator(threadID, false); } catch (e) {}
+}
+
+// =====================================================
+// IDLE COUNTER SYSTEM (15 MINS -> 1-50 -> RECEIPT)
+// =====================================================
+
+function resetIdleTimer(api, threadID) {
+  if (activeCounters.has(threadID)) return;
+
+  if (idleTimers.has(threadID)) {
+    clearTimeout(idleTimers.get(threadID));
+  }
+
+  const timer = setTimeout(async () => {
+    if (activeCounters.has(threadID)) return;
+    activeCounters.add(threadID);
+
+    try {
+      api.sendMessage("⚠️ Walang nagcha-chat sa GC na ito sa loob ng 15 minuto. Magsisimula na ang pagbibilang!", threadID);
+      
+      // Bilang 1 to 50
+      for (let i = 1; i <= 50; i++) {
+        await new Promise(r => setTimeout(r, 1500)); // 1.5 secs bawat bilang
+        api.sendMessage(String(i), threadID);
       }
+
+      // Tapos na ang bilang, gawa resibo
+      const randomReason = FUNNY_REASONS[Math.floor(Math.random() * FUNNY_REASONS.length)];
+      
+      let threadInfo = {};
+      try {
+        threadInfo = await api.getThreadInfo(threadID);
+      } catch (e) {}
+
+      // Kunin listahan ng mga tao na nireplayan o kaya mga active participants
+      let participantNames = [];
+      if (threadInfo && threadInfo.userInfo) {
+        participantNames = threadInfo.userInfo.map(u => u.name).filter(name => name);
+      }
+      
+      const loserName = participantNames.length > 0 ? participantNames[Math.floor(Math.random() * participantNames.length)] : "Isang Tambay";
+
+      const receipt = 
+`SINZU: WIN
+
+"LIST NG MGA NIREPLAYAN NYA": ${loserName} LOSE
+
+DURATION: 15 Minutes Inactive / 50 Counts
+REASON: ${randomReason}`;
+
+      await new Promise(r => setTimeout(r, 1000));
+      api.sendMessage(receipt, threadID);
+
+    } catch (err) {
+      console.error("[HALIMAW IDLE ERROR]:", err.message);
+    } finally {
+      activeCounters.delete(threadID);
+      resetIdleTimer(api, threadID);
+    }
+  }, IDLE_LIMIT_MS);
+
+  idleTimers.set(threadID, timer);
+}
+
+// =====================================================
+// MAIN EVENT HANDLER
+// =====================================================
+
+module.exports.handleEvent = async function ({ api, event }) {
+  const { threadID, senderID, body, messageID } = event;
+  if (!threadID) return;
+
+  let botID = null;
+  try { botID = api.getCurrentUserID(); } catch (e) {}
+
+  // 1. HUWAG NA HUWAG REREPLAYAN ANG ADMIN AT ANG BOT MISMO
+  const isSenderAdmin = isAdmin(senderID);
+  const isBotSender = botID && String(senderID) === String(botID);
+
+  const config = loadConfig();
+  const text = body ? String(body).trim() : "";
+
+  // 2. TOGGLE COMMAND (/)
+  if (text === "/" && isSenderAdmin) {
+    const id = String(threadID);
+    const index = config.activeThreads.indexOf(id);
+    if (index === -1) {
+      config.activeThreads.push(id);
+      saveConfig(config);
+      try { api.setMessageReaction("❤", messageID, () => {}, true); } catch (e) {}
+      console.log(`[HALIMAW] ON sa GC: ${id}`);
     } else {
-      return res.status(400).json({ error: true, message: "Invalid appstate data." });
+      config.activeThreads.splice(index, 1);
+      saveConfig(config);
+      try { api.setMessageReaction("💔", messageID, () => {}, true); } catch (e) {}
+      console.log(`[HALIMAW] OFF sa GC: ${id}`);
     }
-  } catch (error) {
-    return res.status(400).json({ error: true, message: error.message });
+    return;
   }
-});
 
-// MANUAL LOGOUT / FORCE KICK ENDPOINT
-app.post('/logout', async (req, res) => {
-  const { userid } = req.body;
-  try {
-    if (!userid) {
-      return res.status(400).json({ error: true, message: "Missing userid parameter." });
-    }
-
-    if (Utils.account.has(userid)) {
-      Utils.account.delete(userid);
-    }
-
-    await deleteThisUser(userid);
-
-    return res.status(200).json({
-      success: true,
-      message: `Successfully logged out and cleared session for user: ${userid}`
-    });
-  } catch (error) {
-    return res.status(500).json({ error: true, message: error.message });
+  // 3. LOCK GC NAME COMMAND (/lock [name])
+  if (text.toLowerCase().startsWith("/lock ") && isSenderAdmin) {
+    const lockName = text.substring(6).trim();
+    const locks = loadLocks();
+    locks[String(threadID)] = lockName;
+    saveLocks(locks);
+    try {
+      api.setTitle(lockName, threadID);
+      api.sendMessage(`🔒 Naka-lock na ang pangalan ng GC na ito sa: "${lockName}"`, threadID, messageID);
+    } catch (e) {}
+    return;
   }
-});
 
-app.listen(3000, () => {
-  console.log(`Server is running at http://localhost:3000`);
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Promise Rejection:', reason);
-});
-
-async function accountLogin(state, enableCommands = [], prefix = "/", admin = []) {
-  enableCommands = [
-    { commands: Array.from(Utils.commands.values()).map(c => c.name) },
-    { handleEvent: Array.from(Utils.handleEvent.values()).map(c => c.name) }
-  ];
-
-  return new Promise((resolve, reject) => {
-    login({ appState: state }, async (error, api) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      const userid = await api.getCurrentUserID();
-      addThisUser(userid, enableCommands, state, prefix, admin);
+  // 4. MASS NICKNAME COMMAND (/[nickname] - Max 250 persons)
+  if (text.startsWith("/") && text.length > 1 && !text.startsWith("/lock") && isSenderAdmin) {
+    const newNickname = text.substring(1).trim();
+    if (newNickname) {
       try {
-        const userInfo = await api.getUserInfo(userid);
-        if (!userInfo || !userInfo[userid]?.name) throw new Error('Account locked or suspended.');
-        const { name, profileUrl, thumbSrc } = userInfo[userid];
-        let historyData = JSON.parse(fs.readFileSync('./data/history.json', 'utf-8'));
-        let time = (historyData.find(user => user.userid === userid) || {}).time || 0;
-        
-        Utils.account.set(userid, { name, profileUrl, thumbSrc, time });
-        
-        const intervalId = setInterval(() => {
-          try {
-            const account = Utils.account.get(userid);
-            if (!account) throw new Error('Account not found');
-            Utils.account.set(userid, { ...account, time: account.time + 1 });
-          } catch (error) {
-            clearInterval(intervalId);
-          }
-        }, 1000);
-      } catch (error) {
-        Utils.account.delete(userid);
-        await deleteThisUser(userid);
-        reject(error);
-        return;
-      }
-
-      api.setOptions({
-        listenEvents: config[0].fcaOption.listenEvents,
-        logLevel: config[0].fcaOption.logLevel,
-        updatePresence: false,
-        selfListen: false,
-        forceLogin: config[0].fcaOption.forceLogin,
-        online: true,
-        autoMarkDelivery: false,
-        autoMarkRead: false,
-        userAgent: config[0].fcaOption.userAgent
-      });
-
-      try {
-        api.listenMqtt(async (error, event) => {
-          if (error) {
-            console.log(chalk.red(`Connection error for user ${userid}:`, error));
-            Utils.account.delete(userid);
-            await deleteThisUser(userid);
-            return;
-          }
-          
-          let blacklist = (JSON.parse(fs.readFileSync('./data/history.json', 'utf-8')).find(b => b.userid === userid) || {}).blacklist || [];
-          const body = event.body || "";
-          let hasPrefix = (body && getCommandObj((body.trim().toLowerCase().split(/ +/).shift()))?.hasPrefix == false) ? '' : prefix;
-          let [command, ...args] = ((body.trim().toLowerCase().startsWith(hasPrefix?.toLowerCase()) ? body.trim().substring(hasPrefix?.length).trim() : body.trim()).split(/\s+/).map(arg => arg.trim()));
-
-          const targetCmd = getCommandObj(command);
-
-          if (body && targetCmd?.name) {
-            if (blacklist.includes(event.senderID)) {
-              return api.sendMessage("Banned ka na sa paggamit ng bot.", event.threadID, event.messageID);
-            }
-            if (targetCmd.dev && !dev.includes(event.senderID)) {
-              return api.sendMessage("Developer access lang ang pwede dito.", event.threadID, event.messageID);
-            }
-            
+        const threadInfo = await api.getThreadInfo(threadID);
+        if (threadInfo && threadInfo.participantIDs) {
+          const participants = threadInfo.participantIDs.slice(0, 250); // Max 250 persons
+          for (const uid of participants) {
+            // Huwag baguhin ang nickname ng bot o admin kung sakali
+            if (uid === botID || isAdmin(uid)) continue;
             try {
-              // PINALAKING DELAY: 4 hanggang 8 segundo para magmukhang tao at maiwasan ang mabilis na detection
-              const randomDelay = Math.floor(Math.random() * 4000) + 4000;
-              await sleep(randomDelay);
-              await targetCmd.run({ api, event, args, prefix, admin, blacklist, Utils });
-            } catch (err) {
-              console.error(err);
-            }
+              await api.changeNickname(newNickname, threadID, uid);
+              await new Promise(r => setTimeout(r, 600)); // Delay para iwas spam block ng FB
+            } catch (err) {}
           }
-
-          // Diretso at mabilis na ipinapasa sa lahat ng handleEvent scripts ang bawat message (hindi na hinaharangan ng 5s global thread block)
-          for (const handleObj of Utils.handleEvent.values()) {
-            try {
-              if (typeof handleObj.handleEvent === 'function') {
-                await handleObj.handleEvent({ api, event, prefix, admin, blacklist, Utils });
-              }
-            } catch (err) {
-              console.error(chalk.red(`Error in handleEvent (${handleObj.name}): ${err.message}`));
-            }
-          }
-        });
-      } catch (error) {
-        Utils.account.delete(userid);
-        await deleteThisUser(userid);
-        return;
+          api.sendMessage(`✅ Matagumpay na napalitan ang mga nickname ng hanggang 250 katao sa GC na ito ng: "${newNickname}"`, threadID, messageID);
+        }
+      } catch (e) {
+        api.sendMessage("❌ May error sa pagpapalit ng nickname.", threadID, messageID);
       }
-      resolve();
-    });
-  });
-}
-
-function getCommandObj(command) {
-  if (!command) return null;
-  for (const [keys, value] of Utils.commands.entries()) {
-    if (keys.includes(command.toLowerCase())) {
-      return value;
+      return;
     }
   }
-  return null;
-}
 
-async function deleteThisUser(userid) {
-  const configFile = './data/history.json';
-  if (!fs.existsSync(configFile)) return;
-  let history = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
-  const sessionFile = path.join('./data/session', `${userid}.json`);
-  const index = history.findIndex(item => item.userid === userid);
-  if (index !== -1) history.splice(index, 1);
-  fs.writeFileSync(configFile, JSON.stringify(history, null, 2));
-  try { fs.unlinkSync(sessionFile); } catch (error) {}
-}
+  // I-reset ang idle timer dahil may nag-chat
+  resetIdleTimer(api, threadID);
 
-async function addThisUser(userid, enableCommands, state, prefix, admin, blacklist) {
-  const configFile = './data/history.json';
-  const sessionFolder = './data/session';
-  const sessionFile = path.join(sessionFolder, `${userid}.json`);
-  if (fs.existsSync(sessionFile)) return;
-  const history = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
-  history.push({ userid, prefix: prefix || "/", admin: admin || [], blacklist: blacklist || [], enableCommands, time: 0 });
-  fs.writeFileSync(configFile, JSON.stringify(history, null, 2));
-  fs.writeFileSync(sessionFile, JSON.stringify(state));
-}
+  // Kung hindi naka-ON ang halimaw sa GC na ito, huwag sumagot
+  if (!config.activeThreads.includes(String(threadID))) return;
 
-// 24/7 AUTO-RESUME SESSION MULA SA FOLDER KAHIT MAG-RESTART
-async function main() {
-  const sessionFolder = path.join('./data/session');
-  if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder);
-  const configFile = './data/history.json';
-  if (!fs.existsSync(configFile)) fs.writeFileSync(configFile, '[]', 'utf-8');
-  const history = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
+  // Kung ang nagchat ay ikaw (admin) o ang bot, huwag na huwag silang rereplayan
+  if (isSenderAdmin || isBotSender) return;
+  if (!body) return;
 
-  try {
-    for (const file of fs.readdirSync(sessionFolder)) {
-      const filePath = path.join(sessionFolder, file);
+  // Chance to reply & Cooldown check
+  if (Math.random() > CHANCE_TO_REPLY) return;
+
+  const threadKey = String(threadID);
+  const now = Date.now();
+  // (Optional thread cooldown maaari ding gamitin)
+
+  const reply = getRandomReply();
+  const delay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
+
+  const typing = startTyping(api, threadID);
+
+  setTimeout(() => {
+    stopTyping(api, threadID, typing);
+    try {
+      api.sendMessage({ body: reply }, threadID, () => {}, messageID);
+    } catch (e) {}
+  }, delay);
+};
+
+// Handle Thread Name Changes (GC Lock enforcement)
+module.exports.handleEventName = async function ({ api, event }) {
+  // Kung binago ang pangalan ng GC, icheck kung naka-lock
+  if (event.logMessageType === "log:thread-name") {
+    const locks = loadLocks();
+    const lockedName = locks[String(event.threadID)];
+    if (lockedName && event.logMessageData && event.logMessageData.name !== lockedName) {
       try {
-        const itemConfig = history.find(item => item.userid === path.parse(file).name) || {};
-        const state = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        await accountLogin(state, itemConfig.enableCommands, itemConfig.prefix, itemConfig.admin, itemConfig.blacklist);
-        console.log(chalk.green(`Auto-resumed session for user: ${path.parse(file).name}`));
-      } catch (error) {
-        deleteThisUser(path.parse(file).name);
-      }
+        await api.setTitle(lockedName, event.threadID);
+      } catch (e) {}
     }
-  } catch (error) {}
-}
+  }
+};
 
-function createConfig() {
-  const config = [{
-    masterKey: { admin: [], devMode: false, database: false, restartTime: 15 },
-    fcaOption: { 
-      forceLogin: true, 
-      listenEvents: true, 
-      logLevel: "silent", 
-      updatePresence: false, 
-      selfListen: false, 
-      userAgent: "Mozilla/5.0 (Linux; Android 13; SM-S918B Build/TP1A.220624.014) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36", 
-      online: true, 
-      autoMarkDelivery: false, 
-      autoMarkRead: false 
-    }
-  }];
-  const dataFolder = './data';
-  if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder);
-  fs.writeFileSync('./data/config.json', JSON.stringify(config, null, 2));
-  return config;
-}
+module.exports.run = async function () {
+  return;
+};
 
-main();
+console.log(`[HALIMAW] Loaded successfully. Admin-Protected & GC Idle Counter System Active.`);
