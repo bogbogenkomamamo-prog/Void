@@ -5,18 +5,18 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "24.0.0",
+  version: "25.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Prefixless Tarantadong Halimaw - Mega Toxic Asar Edition",
-  usage: "Send '/' to toggle ON/OFF",
+  description: "Prefixless Tarantadong Halimaw - Mega Toxic Asar Edition (Auto-Reply All)",
+  usage: "Auto-replies to all messages",
   credits: "sinzu (Pure Asar Optimized)",
   cooldown: 1
 };
 
 // =====================================================
-// ADMIN IDS
+// ADMIN IDS (Optional na kung gagamitin pa)
 // =====================================================
 
 const ADMIN_IDS = new Set([
@@ -24,12 +24,6 @@ const ADMIN_IDS = new Set([
   "61594616562680",
   "61594370023022" // id mo
 ]);
-
-// =====================================================
-// CONFIG FILE
-// =====================================================
-
-const DATA_PATH = path.join(__dirname, "halimaw_config.json");
 
 // =====================================================
 // SETTINGS (ANTI-BAN OPTIMIZED)
@@ -136,37 +130,6 @@ const ALL_REPLIES = [
   ...Array.from({ length: 900 }, (_, i) => `tanga combo number ${i + 1}: ${["tumigil ka na", "wala kang mararating", "pulubi ka", "iyak ka na", "inutil ka", "epal ka", "bobo ka", "panget mo"][i % 8]}`)
 ];
 
-// =====================================================
-// LOAD & SAVE CONFIG
-// =====================================================
-
-function loadConfig() {
-  try {
-    if (fs.existsSync(DATA_PATH)) {
-      const data = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
-      if (!Array.isArray(data.activeThreads)) {
-        data.activeThreads = [];
-      }
-      return data;
-    }
-  } catch (error) {
-    console.error("[HALIMAW] Failed to load config:", error.message);
-  }
-  return { activeThreads: [] };
-}
-
-function saveConfig(data) {
-  try {
-    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (error) {
-    console.error("[HALIMAW] Failed to save config:", error.message);
-  }
-}
-
-function isAdmin(senderID) {
-  return ADMIN_IDS.has(String(senderID));
-}
-
 function getRandomReply(threadID) {
   let previous = recentReplies.get(String(threadID)) || [];
   let available = ALL_REPLIES.filter(reply => !previous.includes(reply));
@@ -219,41 +182,7 @@ function stopTyping(api, threadID, interval) {
 }
 
 // =====================================================
-// SLASH TOGGLE
-// =====================================================
-
-async function toggleThread({ api, event, config }) {
-  const { threadID, senderID, messageID } = event;
-
-  if (!isAdmin(senderID)) return;
-
-  const id = String(threadID);
-  const index = config.activeThreads.indexOf(id);
-
-  if (index === -1) {
-    config.activeThreads.push(id);
-    saveConfig(config);
-    try {
-      if (typeof api.setMessageReaction === "function") {
-        api.setMessageReaction("❤", messageID, () => {}, true);
-      }
-    } catch (e) {}
-    console.log(`[HALIMAW] ON: ${id}`);
-    return;
-  }
-
-  config.activeThreads.splice(index, 1);
-  saveConfig(config);
-  try {
-    if (typeof api.setMessageReaction === "function") {
-      api.setMessageReaction("❤", messageID, () => {}, true);
-    }
-  } catch (e) {}
-  console.log(`[HALIMAW] OFF: ${id}`);
-}
-
-// =====================================================
-// MAIN EVENT HANDLER
+// MAIN EVENT HANDLER (AUTO-REPLY ALL)
 // =====================================================
 
 module.exports.handleEvent = async function ({ api, event }) {
@@ -266,24 +195,12 @@ module.exports.handleEvent = async function ({ api, event }) {
     botID = api.getCurrentUserID();
   } catch (e) {}
 
+  // Huwag sagutin ang sarili mong bot
   if (botID && String(senderID) === String(botID)) {
     return;
   }
 
-  const text = String(body).trim();
-  const config = loadConfig();
-
-  if (text === "/") {
-    await toggleThread({ api, event, config });
-    return;
-  }
-
-  if (/^\/+$/.test(text)) return;
-
-  if (!config.activeThreads.includes(String(threadID))) {
-    return;
-  }
-
+  // Optional cooldown per thread para hindi ma-spam block agad
   const now = Date.now();
   const lastTime = threadCooldowns.get(String(threadID)) || 0;
   if (now - lastTime < 4000) {
