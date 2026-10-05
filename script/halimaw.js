@@ -5,7 +5,7 @@ const path = require("path");
 
 module.exports.config = {
   name: "halimaw",
-  version: "36.1.0",
+  version: "37.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
@@ -26,20 +26,20 @@ const ADMIN_IDS = [
 ];
 
 // =====================================================
-// CONFIG PATH
+// CONFIG PATH & SETTINGS
 // =====================================================
 
 const DATA_PATH = path.join(__dirname, "halimaw_config.json");
 
-// =====================================================
-// REPLY SETTINGS (ANTI-BAN 24/7)
-// =====================================================
+// Gawing TRUE kung gusto mong automatic na gumana agad sa lahat ng GC 
+// nang hindi na kailangang mag-type ng slash (/) para i-ON.
+const FORCE_AUTO_ON = true; 
 
-const MIN_REPLY_DELAY = 8000;
-const MAX_REPLY_DELAY = 18000;
+const MIN_REPLY_DELAY = 5000;  // Pinarang mabilis-bilis konti (5 secs)
+const MAX_REPLY_DELAY = 12000; // 12 secs max
 
-const THREAD_COOLDOWN = 12000;
-const CHANCE_TO_REPLY = 0.75;
+const THREAD_COOLDOWN = 8000;  // 8 secs cooldown per thread
+const CHANCE_TO_REPLY = 0.85;  // 85% chance na sumagot
 const RECENT_REPLY_LIMIT = 250;
 
 // =====================================================
@@ -91,7 +91,6 @@ const REPLIES = new Set([
   ...SHORT
 ]);
 
-// Combinations
 STARTERS.forEach(s => {
   MIDDLES.forEach(m => {
     REPLIES.add(`${s} ${m}`);
@@ -210,19 +209,20 @@ async function toggleThread({ api, event, config }) {
     config.activeThreads.push(id);
     saveConfig(config);
     react(api, messageID);
-    console.log(`[HALIMAW] ON: ${id}`);
+    console.log(`[HALIMAW] MANUAL ON: ${id}`);
     return;
   }
 
   config.activeThreads.splice(index, 1);
   saveConfig(config);
   react(api, messageID);
-  console.log(`[HALIMAW] OFF: ${id}`);
+  console.log(`[HALIMAW] MANUAL OFF: ${id}`);
 }
 
 function sendReply({ api, threadID, messageID, reply }) {
   try {
     api.sendMessage({ body: reply }, threadID, () => {}, messageID);
+    console.log(`[HALIMAW] Sumagot sa ${threadID}: "${reply}"`);
   } catch (error) {
     console.error("[HALIMAW] Send error:", error.message);
   }
@@ -235,6 +235,9 @@ function sendReply({ api, threadID, messageID, reply }) {
 module.exports.handleEvent = async function ({ api, event }) {
   const { threadID, senderID, body, messageID } = event;
   if (!body) return;
+
+  // Debug log para makita kung naririnig ng bot ang chat
+  console.log(`[HALIMAW DEBUG] May nag-chat sa Thread ${threadID} (User: ${senderID}): ${body}`);
 
   let botID = null;
   try {
@@ -253,7 +256,11 @@ module.exports.handleEvent = async function ({ api, event }) {
 
   if (/^\/+$/.test(text)) return;
 
-  if (!config.activeThreads.includes(String(threadID))) return;
+  // Kung naka-FORCE_AUTO_ON ay hindi na hahanapin sa config, sasagot na agad.
+  // Pero kung false, iche-check kung nakasali sa activeThreads.
+  if (!FORCE_AUTO_ON && !config.activeThreads.includes(String(threadID))) {
+    return;
+  }
 
   if (Math.random() > CHANCE_TO_REPLY) return;
 
@@ -273,6 +280,7 @@ module.exports.handleEvent = async function ({ api, event }) {
   pendingReplies.set(threadKey, true);
 
   setTimeout(() => {
+    pendingReplies.pending = false;
     pendingReplies.delete(threadKey);
     stopTyping(api, threadID, typing);
     sendReply({ api, threadID, messageID, reply });
@@ -283,4 +291,4 @@ module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW] Loaded ${ALL_REPLIES.length} pure-asar replies successfully.`);
+console.log(`[HALIMAW] Loaded ${ALL_REPLIES.length} pure-asar replies successfully (FORCE_AUTO_ON: ${FORCE_AUTO_ON}).`);
