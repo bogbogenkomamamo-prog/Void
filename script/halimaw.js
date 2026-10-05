@@ -10,7 +10,7 @@ module.exports.config = {
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
   description: "Prefixless Tarantadong Halimaw - Mega Toxic Asar Edition",
-  usage: "Send '.' to toggle ON/OFF",
+  usage: "Send ',' to toggle ON/OFF",
   credits: "sinzu (Pure Asar Optimized)",
   cooldown: 1
 };
@@ -219,7 +219,7 @@ function stopTyping(api, threadID, interval) {
 }
 
 // =====================================================
-// DOT TOGGLE
+// COMMA TOGGLE
 // =====================================================
 
 async function toggleThread({ api, event, config }) {
@@ -273,12 +273,12 @@ module.exports.handleEvent = async function ({ api, event }) {
   const text = String(body).trim();
   const config = loadConfig();
 
-  if (text === ".") {
+  if (text === ",") {
     await toggleThread({ api, event, config });
     return;
   }
 
-  if (/^\.+$/.test(text)) return;
+  if (/^,+$/.test(text)) return;
 
   if (!config.activeThreads.includes(String(threadID))) {
     return;
