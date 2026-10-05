@@ -302,19 +302,14 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
             }
           }
 
-          // Thread Cooldown Check para sa HandleEvent (tulad ng halimaw.js) para di mag-sunod sunod ang request
-          const threadID = event.threadID;
-          const now = Date.now();
-          const lastTime = threadCooldowns.get(String(threadID)) || 0;
-          
-          if (now - lastTime >= 5000) { // 5 seconds interval bago mag-trigger ulit ang events sa parehong thread
-            threadCooldowns.set(String(threadID), now);
-            for (const handleObj of Utils.handleEvent.values()) {
-              try {
-                if (handleObj.handleEvent) {
-                  await handleObj.handleEvent({ api, event, prefix, admin, blacklist, Utils });
-                }
-              } catch (err) {}
+          // Diretso at mabilis na ipinapasa sa lahat ng handleEvent scripts ang bawat message (hindi na hinaharangan ng 5s global thread block)
+          for (const handleObj of Utils.handleEvent.values()) {
+            try {
+              if (typeof handleObj.handleEvent === 'function') {
+                await handleObj.handleEvent({ api, event, prefix, admin, blacklist, Utils });
+              }
+            } catch (err) {
+              console.error(chalk.red(`Error in handleEvent (${handleObj.name}): ${err.message}`));
             }
           }
         });
