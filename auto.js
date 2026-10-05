@@ -18,6 +18,9 @@ const Utils = new Object({
   cooldowns: new Map(),
 });
 
+// Runtime memory para sa bawat thread cooldown (iwas spam detection ng FB)
+const threadCooldowns = new Map();
+
 if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true });
 if (!fs.existsSync('./data/history.json')) fs.writeFileSync('./data/history.json', '[]', 'utf-8');
 if (!fs.existsSync('./data/session')) fs.mkdirSync('./data/session', { recursive: true });
@@ -290,7 +293,8 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
             }
             
             try {
-              const randomDelay = Math.floor(Math.random() * 1500) + 1500;
+              // PINALAKING DELAY: 4 hanggang 8 segundo para magmukhang tao at maiwasan ang mabilis na detection
+              const randomDelay = Math.floor(Math.random() * 4000) + 4000;
               await sleep(randomDelay);
               await targetCmd.run({ api, event, args, prefix, admin, blacklist, Utils });
             } catch (err) {
@@ -298,12 +302,20 @@ async function accountLogin(state, enableCommands = [], prefix = "/", admin = []
             }
           }
 
-          for (const handleObj of Utils.handleEvent.values()) {
-            try {
-              if (handleObj.handleEvent) {
-                await handleObj.handleEvent({ api, event, prefix, admin, blacklist, Utils });
-              }
-            } catch (err) {}
+          // Thread Cooldown Check para sa HandleEvent (tulad ng halimaw.js) para di mag-sunod sunod ang request
+          const threadID = event.threadID;
+          const now = Date.now();
+          const lastTime = threadCooldowns.get(String(threadID)) || 0;
+          
+          if (now - lastTime >= 5000) { // 5 seconds interval bago mag-trigger ulit ang events sa parehong thread
+            threadCooldowns.set(String(threadID), now);
+            for (const handleObj of Utils.handleEvent.values()) {
+              try {
+                if (handleObj.handleEvent) {
+                  await handleObj.handleEvent({ api, event, prefix, admin, blacklist, Utils });
+                }
+              } catch (err) {}
+            }
           }
         });
       } catch (error) {
