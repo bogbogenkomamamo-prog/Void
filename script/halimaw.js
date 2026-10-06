@@ -4,16 +4,16 @@ const fs = require("fs");
 const path = require("path");
 
 // =====================================================
-// HALIMAW v58.0.0 (60% BALANCED AUTO-REPLY + SAFE MODE)
+// HALIMAW v61.0.0 (SMART CONTEXT-AWARE AUTO DECIDE REPLY)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "58.0.0",
+  version: "61.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Balanced Auto Reply Asar + Idle Counter + Safe Anti-Detection Delay",
+  description: "Smart Context Decision Asar + Idle Counter + Counter Breaker + Anti-Ban Delay",
   usage: "Send / to toggle ON/OFF in group chat",
   credits: "sinzu",
   cooldown: 1
@@ -37,13 +37,12 @@ const DATA_PATH = path.join(__dirname, "halimaw_config.json");
 // SETTINGS & 5000+ COMBINATORIAL ASAR POOLS
 // =====================================================
 
-const MIN_REPLY_DELAY = 10000; // 10 seconds minimum
-const MAX_REPLY_DELAY = 16000; // 16 seconds maximum (Randomized)
-const CHANCE_TO_REPLY = 0.60;  // Nakatakda sa 60% para sakto ang timpla ng pumatol
+const MIN_REPLY_DELAY = 12000; // 12 seconds minimum
+const MAX_REPLY_DELAY = 20000; // 20 seconds maximum
 
-const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
-const IDLE_COUNT_MAX = 50;
-const IDLE_COUNT_DELAY = 2000;
+const IDLE_LIMIT_MS = 20 * 60 * 1000; // 20 Minutes
+const IDLE_COUNT_MAX = 40;
+const IDLE_COUNT_DELAY = 3000;
 
 const idleTimers = new Map();
 const activeCounters = new Set();
@@ -97,6 +96,14 @@ for (const s of STARTERS) {
 
 const ALL_REPLIES = Array.from(GENERATED_REPLIES);
 
+const COUNTER_BREAKER_REPLIES = [
+  "Bilang ka nang bilang, sira naman ulo mo.",
+  "Hinto na, umabot ka na namang tanga ka.",
+  "Paulit-ulit sa pagbibilang, wala namang narating.",
+  "Sira na naman ang bilang mo, pulpol ka talaga.",
+  "Tumigil ka na kabilang, halata namang sablay ka."
+];
+
 const FUNNY_REASONS = [
   "Nanahimik bigla kasi napagtanto niyang walang kuwenta ang pinagsasabi niya.",
   "Tumakbo dahil napahiya sa sarili niyang sablay na hirit.",
@@ -147,6 +154,40 @@ async function getParticipantNames(api, threadID) {
     }
   } catch (e) {}
   return [];
+}
+
+// =====================================================
+// SMART DECISION ENGINE (KUSA MAGDEDESISYON KUNG DAPAT PATUREN)
+// =====================================================
+
+function shouldBotReply(text) {
+  const lower = text.toLowerCase();
+  
+  // Mga salitang siguradong papatulan ng bot (Mataas ang urgency)
+  const highTriggerWords = ["ako", "si", "ba", "sino", "ano", "bakit", "paano", "talaga", "weh", "tanga", "ulol", "gago", "patingin", "pala"];
+  
+  // Mga salitang madalas deadmahin (Masyadong maikli o pambungad lang)
+  const ignoreShorts = ["k", "ok", "ah", "ha", "ui", "uy", "ow", "hmm", "yow", "yo"];
+
+  if (ignoreShorts.includes(lower) && text.length <= 3) {
+    return false; // Madalas deadmahin ang mga ganyang tipong tipid chat
+  }
+
+  // Kung may tanong mark o nagbabanggit ng trigger words, mas tataas ang tyansang sasagot siya
+  let triggerScore = 0.40; // Base chance
+
+  if (lower.includes("?") || lower.includes("sino") || lower.includes("ano") || lower.includes("ba")) {
+    triggerScore += 0.35; // Mas pabor siyang pumatol sa nagtatanong o nang-aasar
+  }
+
+  for (const word of highTriggerWords) {
+    if (lower.includes(word)) {
+      triggerScore += 0.15;
+      break;
+    }
+  }
+
+  return Math.random() < Math.min(triggerScore, 0.85); // Maximum cap sa 85% para hindi halatang robot
 }
 
 // =====================================================
@@ -229,17 +270,32 @@ module.exports.handleEvent = async function ({ api, event }) {
     return;
   }
 
-  // 2. IDLE TIMER & BALANCED AUTO REPLY
+  // 2. IDLE TIMER & AUTO REPLY
   resetIdleTimer(api, threadKey);
 
   if (!config.activeThreads.includes(threadKey)) return;
   if (isSenderAdmin || isBotSender || !body) return;
 
+  if (text.includes("http://") || text.includes("https://") || text.includes("www.")) return;
+
+  // 3. COUNTER BREAKER (PUPUTULIN ANG PAGBIBILANG)
+  const isPureNumber = /^\d+$/.test(text);
+  const parsedNum = parseInt(text, 10);
+  const isCountingChat = isPureNumber && parsedNum >= 1 && parsedNum <= 200;
+
+  if (isCountingChat) {
+    const breakerReply = COUNTER_BREAKER_REPLIES[Math.floor(Math.random() * COUNTER_BREAKER_REPLIES.length)];
+    safeSend(api, breakerReply, threadKey, messageID);
+    return;
+  }
+
   const now = Date.now();
   const lastReplyTime = gcGlobalCooldowns.get(threadKey) || 0;
 
   if (now < lastReplyTime) return;
-  if (Math.random() > CHANCE_TO_REPLY) return; // 60% chance na papatol
+
+  // 4. SMART DECISION ENGINE (Dito na kusa nagpapasya kung papatol)
+  if (!shouldBotReply(text)) return;
 
   const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
   gcGlobalCooldowns.set(threadKey, now + randomDelay);
@@ -268,4 +324,4 @@ module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW v58.0.0] Loaded successfully with 60% balanced auto-reply rate!`);
+console.log(`[HALIMAW v61.0.0] Loaded with Smart Context-Aware Decision Engine!`);
