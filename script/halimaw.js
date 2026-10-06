@@ -5,18 +5,16 @@ const path = require("path");
 const { createCanvas } = require("canvas");
 
 // =====================================================
-// HALIMAW v48.0.0 (MASSIVE COLD ASAR + NICKNAME MASS SETTER)
-// IDLE COUNTER + RECEIPT + GC LOCK
+// HALIMAW v48.0.1 (FIXED COMMANDS & STABLE EXECUTION)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "48.0.0",
+  version: "48.0.1",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description:
-    "Pure Cold Asar + Mass Nickname Setter + Idle Counter + GC Lock + Receipt",
+  description: "Pure Cold Asar + Mass Nickname Setter + Idle Counter + GC Lock + Receipt",
   usage: "Send / to toggle ON, /lock [name], /set [nickname]",
   credits: "sinzu",
   cooldown: 1
@@ -43,11 +41,8 @@ const GC_LOCK_PATH = path.join(__dirname, "halimaw_locks.json");
 
 const MIN_REPLY_DELAY = 6000;
 const MAX_REPLY_DELAY = 14000;
-
 const CHANCE_TO_REPLY = 0.85;
-
 const COOLDOWN_DURATION = 5000;
-
 const messageCooldowns = new Map();
 
 // =====================================================
@@ -55,7 +50,6 @@ const messageCooldowns = new Map();
 // =====================================================
 
 const IDLE_LIMIT_MS = 15 * 60 * 1000;
-
 const IDLE_COUNT_MAX = 50;
 const IDLE_COUNT_DELAY = 2000;
 
@@ -78,7 +72,7 @@ const FUNNY_REASONS = [
 ];
 
 // =====================================================
-// PURE COLD & DISMISSIVE WORD POOLS (5000+ COMBINATIONS)
+// WORD POOLS
 // =====================================================
 
 const STARTERS = [
@@ -111,10 +105,6 @@ const ENDINGS = [
   "no", "eh", "kasi", "talaga", "naman", "pala", "lang", "diba", "hays", "ulol"
 ];
 
-// =====================================================
-// DYNAMIC COMBINATORIAL POOL (5000+ COMBINATIONS)
-// =====================================================
-
 const GENERATED_REPLIES = new Set([
   "Sino na naman nagturo sa iyong magsabi ng ganyan?",
   "Ang lalim ng iniisip mo ah, pero sablay pa rin.",
@@ -141,10 +131,6 @@ for (const s of STARTERS) {
 
 const ALL_REPLIES = Array.from(GENERATED_REPLIES);
 
-// =====================================================
-// RANDOM HELPERS
-// =====================================================
-
 function randomItem(array) {
   if (!Array.isArray(array) || array.length === 0) return "";
   return array[Math.floor(Math.random() * array.length)];
@@ -158,17 +144,9 @@ function getRandomReason() {
   return randomItem(FUNNY_REASONS);
 }
 
-// =====================================================
-// ADMIN CHECK
-// =====================================================
-
 function isAdmin(senderID) {
   return ADMIN_IDS.includes(String(senderID));
 }
-
-// =====================================================
-// CONFIG
-// =====================================================
 
 function loadConfig() {
   try {
@@ -178,23 +156,15 @@ function loadConfig() {
       if (!Array.isArray(data.activeThreads)) data.activeThreads = [];
       return data;
     }
-  } catch (error) {
-    console.error("[HALIMAW] Config load error:", error.message);
-  }
+  } catch (error) {}
   return { activeThreads: [] };
 }
 
 function saveConfig(data) {
   try {
     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (error) {
-    console.error("[HALIMAW] Config save error:", error.message);
-  }
+  } catch (error) {}
 }
-
-// =====================================================
-// GC LOCK STORAGE
-// =====================================================
 
 function loadLocks() {
   try {
@@ -202,51 +172,27 @@ function loadLocks() {
       const data = JSON.parse(fs.readFileSync(GC_LOCK_PATH, "utf8"));
       if (data && typeof data === "object") return data;
     }
-  } catch (error) {
-    console.error("[HALIMAW] Lock load error:", error.message);
-  }
+  } catch (error) {}
   return {};
 }
 
 function saveLocks(locks) {
   try {
     fs.writeFileSync(GC_LOCK_PATH, JSON.stringify(locks, null, 2), "utf8");
-  } catch (error) {
-    console.error("[HALIMAW] Lock save error:", error.message);
-  }
+  } catch (error) {}
 }
 
-// =====================================================
-// TYPING INDICATOR
-// =====================================================
-
 function startTyping(api, threadID) {
-  try {
-    api.sendTypingIndicator(threadID, true);
-  } catch (e) {}
-
-  const interval = setInterval(() => {
-    try {
-      api.sendTypingIndicator(threadID, true);
-    } catch (e) {}
+  try { api.sendTypingIndicator(threadID, true); } catch (e) {}
+  return setInterval(() => {
+    try { api.sendTypingIndicator(threadID, true); } catch (e) {}
   }, 4000);
-
-  return interval;
 }
 
 function stopTyping(api, threadID, interval) {
-  try {
-    if (interval) clearInterval(interval);
-  } catch (e) {}
-
-  try {
-    api.sendTypingIndicator(threadID, false);
-  } catch (e) {}
+  try { if (interval) clearInterval(interval); } catch (e) {}
+  try { api.sendTypingIndicator(threadID, false); } catch (e) {}
 }
-
-// =====================================================
-// SAFE MESSAGE
-// =====================================================
 
 function safeSend(api, message, threadID, replyToMessageID = null) {
   try {
@@ -257,22 +203,15 @@ function safeSend(api, message, threadID, replyToMessageID = null) {
     }
     return true;
   } catch (error) {
-    console.error("[HALIMAW] sendMessage error:", error.message);
     return false;
   }
 }
-
-// =====================================================
-// GET GC INFO
-// =====================================================
 
 async function getGCInfo(api, threadID) {
   let threadInfo = {};
   try {
     threadInfo = await api.getThreadInfo(threadID);
-  } catch (error) {
-    console.error("[HALIMAW] getThreadInfo error:", error.message);
-  }
+  } catch (error) {}
 
   const gcName = threadInfo && threadInfo.threadName ? threadInfo.threadName : "Unknown GC";
   let participantIDs = [];
@@ -290,10 +229,6 @@ async function getGCInfo(api, threadID) {
 
   return { threadInfo, gcName, participantIDs, participantNames };
 }
-
-// =====================================================
-// RECEIPT IMAGE
-// =====================================================
 
 function wrapText(ctx, text, maxWidth) {
   const words = String(text).split(/\s+/);
@@ -386,10 +321,6 @@ async function generateReceiptImage(loserName, reason, gcName) {
   return filePath;
 }
 
-// =====================================================
-// IDLE COUNTER
-// =====================================================
-
 function resetIdleTimer(api, threadID) {
   if (!threadID) return;
   const id = String(threadID);
@@ -397,9 +328,7 @@ function resetIdleTimer(api, threadID) {
   if (activeCounters.has(id)) return;
 
   if (idleTimers.has(id)) {
-    try {
-      clearTimeout(idleTimers.get(id));
-    } catch (e) {}
+    try { clearTimeout(idleTimers.get(id)); } catch (e) {}
     idleTimers.delete(id);
   }
 
@@ -410,11 +339,7 @@ function resetIdleTimer(api, threadID) {
     let receiptImagePath = null;
 
     try {
-      safeSend(
-        api,
-        "⚠️ Ang tahimik niyo. Mga walang masabing matino. Bilang na!",
-        id
-      );
+      safeSend(api, "⚠️ Ang tahimik niyo. Mga walang masabing matino. Bilang na!", id);
 
       for (let i = 1; i <= IDLE_COUNT_MAX; i++) {
         await new Promise(resolve => setTimeout(resolve, IDLE_COUNT_DELAY));
@@ -450,14 +375,10 @@ function resetIdleTimer(api, threadID) {
         } catch (adminError) {}
       }
     } catch (error) {
-      console.error("[HALIMAW IDLE ERROR]:", error.message);
     } finally {
       if (receiptImagePath && fs.existsSync(receiptImagePath)) {
-        try {
-          fs.unlinkSync(receiptImagePath);
-        } catch (e) {}
+        try { fs.unlinkSync(receiptImagePath); } catch (e) {}
       }
-
       activeCounters.delete(id);
       idleTimers.delete(id);
       resetIdleTimer(api, id);
@@ -466,10 +387,6 @@ function resetIdleTimer(api, threadID) {
 
   idleTimers.set(id, timer);
 }
-
-// =====================================================
-// MAIN EVENT HANDLER
-// =====================================================
 
 module.exports.handleEvent = async function ({ api, event }) {
   if (!event) return;
@@ -486,37 +403,35 @@ module.exports.handleEvent = async function ({ api, event }) {
   const text = body ? String(body).trim() : "";
 
   let botID = null;
-  try {
-    botID = api.getCurrentUserID();
-  } catch (e) {}
+  try { botID = api.getCurrentUserID(); } catch (e) {}
 
   const isSenderAdmin = isAdmin(senderKey);
   const isBotSender = botID && senderKey === String(botID);
   const config = loadConfig();
 
-  // Admin Toggle
+  // =====================================================
+  // UNAHING SALOHIN ANG MGA COMMANDS (Para di ma-block)
+  // =====================================================
+
+  // 1. Toggle Command (/)
   if (text === "/" && isSenderAdmin) {
     const index = config.activeThreads.indexOf(threadKey);
 
     if (index === -1) {
       config.activeThreads.push(threadKey);
       saveConfig(config);
-      try {
-        api.setMessageReaction("💀", messageID, () => {}, true);
-      } catch (e) {}
+      try { api.setMessageReaction("💀", messageID, () => {}, true); } catch (e) {}
       safeSend(api, "HALIMAW ASAR MODE: ON.", threadKey);
     } else {
       config.activeThreads.splice(index, 1);
       saveConfig(config);
-      try {
-        api.setMessageReaction("💤", messageID, () => {}, true);
-      } catch (e) {}
+      try { api.setMessageReaction("💤", messageID, () => {}, true); } catch (e) {}
       safeSend(api, "HALIMAW ASAR MODE: OFF.", threadKey);
     }
     return;
   }
 
-  // Lock GC Name
+  // 2. Lock GC Name Command (/lock)
   if (text.toLowerCase().startsWith("/lock ") && isSenderAdmin) {
     const lockName = text.substring(6).trim();
 
@@ -529,15 +444,12 @@ module.exports.handleEvent = async function ({ api, event }) {
     locks[threadKey] = lockName;
     saveLocks(locks);
 
-    try {
-      api.setTitle(lockName, threadKey);
-    } catch (error) {}
-
+    try { api.setTitle(lockName, threadKey); } catch (error) {}
     safeSend(api, `🔒 Naka-lock ang pangalan ng GC sa:\n"${lockName}"`, threadKey);
     return;
   }
 
-  // Mass Nickname Change (/set [nickname])
+  // 3. Mass Nickname Command (/set)
   if (text.toLowerCase().startsWith("/set ") && isSenderAdmin) {
     const newNickname = text.substring(5).trim();
 
@@ -566,12 +478,14 @@ module.exports.handleEvent = async function ({ api, event }) {
 
       safeSend(api, `✅ Tagumpay na nabago ang nickname ng ${successCount} miyembro sa GC na ito!`, threadKey);
     } catch (error) {
-      console.error("[HALIMAW] Mass Nickname error:", error.message);
       safeSend(api, "❌ May nangyaring error habang binabago ang mga nickname.", threadKey);
     }
-
     return;
   }
+
+  // =====================================================
+  // IDLE & AUTO ASAR LOGIC (Kailangan naka-ON sa GC)
+  // =====================================================
 
   resetIdleTimer(api, threadKey);
 
@@ -610,4 +524,4 @@ module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW] v48.0.0 LOADED SUCCESSFULLY | Total Cold Asar Pool: ${ALL_REPLIES.length} Combinations`);
+console.log(`[HALIMAW] v48.0.1 LOADED SUCCESSFULLY | Total Cold Asar Pool: ${ALL_REPLIES.length} Combinations`);
