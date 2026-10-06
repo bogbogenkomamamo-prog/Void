@@ -4,17 +4,17 @@ const fs = require("fs");
 const path = require("path");
 
 // =====================================================
-// HALIMAW v61.0.0 (SMART CONTEXT-AWARE AUTO DECIDE REPLY)
+// HALIMAW v66.0.0 (SINGLE-FILE COMBINED GC & PM SYSTEM)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "61.0.0",
+  version: "66.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Smart Context Decision Asar + Idle Counter + Counter Breaker + Anti-Ban Delay",
-  usage: "Send / to toggle ON/OFF in group chat",
+  description: "Unified Single-File Asar Bot for GC & PM with Fast 6-9s Delay",
+  usage: "Send / in GC to toggle, /troll [UID] to attack target in PM",
   credits: "sinzu",
   cooldown: 1
 };
@@ -32,21 +32,27 @@ const ADMIN_IDS = [
 // =====================================================
 
 const DATA_PATH = path.join(__dirname, "halimaw_config.json");
+const TROLL_DATA_PATH = path.join(__dirname, "halimaw_troll_targets.json");
 
 // =====================================================
-// SETTINGS & 5000+ COMBINATORIAL ASAR POOLS
+// TIMING & ASAR SETTINGS (6-9 SECONDS DELAY)
 // =====================================================
 
-const MIN_REPLY_DELAY = 12000; // 12 seconds minimum
-const MAX_REPLY_DELAY = 20000; // 20 seconds maximum
+const MIN_REPLY_DELAY = 6000;  // 6 seconds minimum
+const MAX_REPLY_DELAY = 9000;  // 9 seconds maximum
 
-const IDLE_LIMIT_MS = 20 * 60 * 1000; // 20 Minutes
+const IDLE_LIMIT_MS = 20 * 60 * 1000;
 const IDLE_COUNT_MAX = 40;
 const IDLE_COUNT_DELAY = 3000;
 
 const idleTimers = new Map();
 const activeCounters = new Set();
 const gcGlobalCooldowns = new Map();
+const pmGlobalCooldowns = new Map();
+
+// =====================================================
+// GROUP CHAT (GC) ASAR POOL
+// =====================================================
 
 const STARTERS = [
   "sabi mo e", "weh", "luh", "talaga ba", "sige pilitin mo pa",
@@ -96,6 +102,44 @@ for (const s of STARTERS) {
 
 const ALL_REPLIES = Array.from(GENERATED_REPLIES);
 
+// =====================================================
+// PRIVATE MESSAGE (PM) DEDICATED ASAR POOL
+// =====================================================
+
+const PM_STARTERS = [
+  "oh bakit ka nag-pm", "anyare sayo sa inbox", "kala ko ba matapang ka",
+  "sumiksik ka pa rito", "namimiss mo ba ako", "tago ka pa sa pm",
+  "bakit dito ka nagpapakalat", "naka-private ka pa talaga", "ano na namang drama to"
+];
+
+const PM_MIDDLES = [
+  "gusto mo lang ata mapansin eh", "wala ka kasing masabi sa public",
+  "takot ka sigurong mapahiya sa GC", "nagpapapansin ka nanaman sa akin",
+  "hina ng loob mo lumantad", "akala ko ba may ibubuga ka",
+  "puro ka lang tago sa chat box", "nag-aabang ka lang pala ng pansin"
+];
+
+const PM_ENDINGS = [
+  "ulol", "pulpol", "tanga", "hays", "tigilan mo ko", "weak", "diba", "noh"
+];
+
+const GENERATED_PM_REPLIES = new Set([
+  "Nag-pm ka pa talaga para lang mapahiya nang tahimik.",
+  "Akala mo naman may mapapala ka sa pag-chat dito.",
+  "Bakit ka nandito sa inbox ko, wala ka na bang masabi sa iba?"
+]);
+
+for (const ps of PM_STARTERS) {
+  for (const pm of PM_MIDDLES) {
+    GENERATED_PM_REPLIES.add(`${ps}, ${pm}`);
+    for (const pe of PM_ENDINGS) {
+      GENERATED_PM_REPLIES.add(`${ps}, ${pm} ${pe}`);
+    }
+  }
+}
+
+const ALL_PM_REPLIES = Array.from(GENERATED_PM_REPLIES);
+
 const COUNTER_BREAKER_REPLIES = [
   "Bilang ka nang bilang, sira naman ulo mo.",
   "Hinto na, umabot ka na namang tanga ka.",
@@ -136,6 +180,22 @@ function saveConfig(data) {
   } catch (e) {}
 }
 
+function loadTrollTargets() {
+  try {
+    if (fs.existsSync(TROLL_DATA_PATH)) {
+      const data = JSON.parse(fs.readFileSync(TROLL_DATA_PATH, "utf8"));
+      if (Array.isArray(data)) return data;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveTrollTargets(targets) {
+  try {
+    fs.writeFileSync(TROLL_DATA_PATH, JSON.stringify(targets, null, 2), "utf8");
+  } catch (e) {}
+}
+
 function safeSend(api, message, threadID, replyToMessageID = null) {
   try {
     if (replyToMessageID) {
@@ -157,27 +217,19 @@ async function getParticipantNames(api, threadID) {
 }
 
 // =====================================================
-// SMART DECISION ENGINE (KUSA MAGDEDESISYON KUNG DAPAT PATUREN)
+// SMART DECISION ENGINE
 // =====================================================
 
 function shouldBotReply(text) {
   const lower = text.toLowerCase();
-  
-  // Mga salitang siguradong papatulan ng bot (Mataas ang urgency)
   const highTriggerWords = ["ako", "si", "ba", "sino", "ano", "bakit", "paano", "talaga", "weh", "tanga", "ulol", "gago", "patingin", "pala"];
-  
-  // Mga salitang madalas deadmahin (Masyadong maikli o pambungad lang)
   const ignoreShorts = ["k", "ok", "ah", "ha", "ui", "uy", "ow", "hmm", "yow", "yo"];
 
-  if (ignoreShorts.includes(lower) && text.length <= 3) {
-    return false; // Madalas deadmahin ang mga ganyang tipong tipid chat
-  }
+  if (ignoreShorts.includes(lower) && text.length <= 3) return false;
 
-  // Kung may tanong mark o nagbabanggit ng trigger words, mas tataas ang tyansang sasagot siya
-  let triggerScore = 0.40; // Base chance
-
+  let triggerScore = 0.40;
   if (lower.includes("?") || lower.includes("sino") || lower.includes("ano") || lower.includes("ba")) {
-    triggerScore += 0.35; // Mas pabor siyang pumatol sa nagtatanong o nang-aasar
+    triggerScore += 0.35;
   }
 
   for (const word of highTriggerWords) {
@@ -187,11 +239,11 @@ function shouldBotReply(text) {
     }
   }
 
-  return Math.random() < Math.min(triggerScore, 0.85); // Maximum cap sa 85% para hindi halatang robot
+  return Math.random() < Math.min(triggerScore, 0.85);
 }
 
 // =====================================================
-// IDLE TIMER
+// IDLE TIMER (GC ONLY)
 // =====================================================
 
 function resetIdleTimer(api, threadID) {
@@ -233,7 +285,7 @@ function resetIdleTimer(api, threadID) {
 }
 
 // =====================================================
-// MAIN EVENT HANDLER
+// MAIN UNIFIED EVENT HANDLER
 // =====================================================
 
 module.exports.handleEvent = async function ({ api, event }) {
@@ -253,9 +305,89 @@ module.exports.handleEvent = async function ({ api, event }) {
 
   const isSenderAdmin = isAdmin(senderKey);
   const isBotSender = botID && senderKey === String(botID);
+  const isGroup = event.isGroup || (threadID !== senderID);
+
+  // =====================================================
+  // 1. ADMIN COMMAND: /troll [target_uid]
+  // =====================================================
+  if (text.toLowerCase().startsWith("/troll ") && isSenderAdmin) {
+    const targetUID = text.substring(7).trim();
+    if (!targetUID) {
+      safeSend(api, "Gamitin: /troll [TARGET_UID]", threadKey);
+      return;
+    }
+
+    let trollTargets = loadTrollTargets();
+    if (!trollTargets.includes(targetUID)) {
+      trollTargets.push(targetUID);
+      saveTrollTargets(trollTargets);
+    }
+
+    safeSend(api, `🎯 Sinisimulan ang pag-troll kay UID: ${targetUID}...`, threadKey);
+
+    try {
+      api.sendMessage("hi tatagos ka ba?", targetUID, (err) => {
+        if (!err) {
+          safeSend(api, `✅ Naipadala na ang "hi tatagos ka ba?" sa PM ni UID: ${targetUID}`, threadKey);
+        } else {
+          safeSend(api, `❌ Nabigong i-PM ang target (Baka naka-lock o maling UID).`, threadKey);
+        }
+      });
+    } catch (e) {
+      safeSend(api, `❌ May error sa pagpapadala ng PM.`, threadKey);
+    }
+    return;
+  }
+
+  // =====================================================
+  // 2. PRIVATE MESSAGE (PM) AUTO-REPLY HANDLER
+  // =====================================================
+  if (!isGroup) {
+    if (isBotSender || !body) return;
+    if (text.includes("http://") || text.includes("https://") || text.includes("www.")) return;
+
+    let trollTargets = loadTrollTargets();
+    if (!trollTargets.includes(senderKey)) {
+      trollTargets.push(senderKey);
+      saveTrollTargets(trollTargets);
+    }
+
+    const now = Date.now();
+    const lastPMTime = pmGlobalCooldowns.get(senderKey) || 0;
+    if (now < lastPMTime) return;
+
+    if (!shouldBotReply(text)) return;
+
+    const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
+    pmGlobalCooldowns.set(senderKey, now + randomDelay);
+
+    const pmReply = ALL_PM_REPLIES[Math.floor(Math.random() * ALL_PM_REPLIES.length)];
+
+    let typingInterval = null;
+    try {
+      api.sendTypingIndicator(senderKey, true);
+      typingInterval = setInterval(() => {
+        try { api.sendTypingIndicator(senderKey, true); } catch (e) {}
+      }, 3000);
+    } catch (e) {}
+
+    setTimeout(() => {
+      try {
+        if (typingInterval) clearInterval(typingInterval);
+        api.sendTypingIndicator(senderKey, false);
+      } catch (e) {}
+
+      safeSend(api, pmReply, senderKey, messageID);
+    }, randomDelay);
+    return;
+  }
+
+  // =====================================================
+  // 3. GROUP CHAT (GC) HANDLERS
+  // =====================================================
   const config = loadConfig();
 
-  // 1. TOGGLE COMMAND (/) - EMOJI REACTION ONLY
+  // TOGGLE COMMAND (/)
   if (text === "/" && isSenderAdmin) {
     const index = config.activeThreads.indexOf(threadKey);
     if (index === -1) {
@@ -270,7 +402,6 @@ module.exports.handleEvent = async function ({ api, event }) {
     return;
   }
 
-  // 2. IDLE TIMER & AUTO REPLY
   resetIdleTimer(api, threadKey);
 
   if (!config.activeThreads.includes(threadKey)) return;
@@ -278,7 +409,7 @@ module.exports.handleEvent = async function ({ api, event }) {
 
   if (text.includes("http://") || text.includes("https://") || text.includes("www.")) return;
 
-  // 3. COUNTER BREAKER (PUPUTULIN ANG PAGBIBILANG)
+  // COUNTER BREAKER SA GC
   const isPureNumber = /^\d+$/.test(text);
   const parsedNum = parseInt(text, 10);
   const isCountingChat = isPureNumber && parsedNum >= 1 && parsedNum <= 200;
@@ -293,8 +424,6 @@ module.exports.handleEvent = async function ({ api, event }) {
   const lastReplyTime = gcGlobalCooldowns.get(threadKey) || 0;
 
   if (now < lastReplyTime) return;
-
-  // 4. SMART DECISION ENGINE (Dito na kusa nagpapasya kung papatol)
   if (!shouldBotReply(text)) return;
 
   const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
@@ -307,7 +436,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     api.sendTypingIndicator(threadKey, true);
     typingInterval = setInterval(() => {
       try { api.sendTypingIndicator(threadKey, true); } catch (e) {}
-    }, 4000);
+    }, 3000);
   } catch (e) {}
 
   setTimeout(() => {
@@ -316,7 +445,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       api.sendTypingIndicator(threadKey, false);
     } catch (e) {}
 
-    safeSend(api, reply, threadKey, messageID);
+      safeSend(api, reply, threadKey, messageID);
   }, randomDelay);
 };
 
@@ -324,4 +453,4 @@ module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW v61.0.0] Loaded with Smart Context-Aware Decision Engine!`);
+console.log(`[HALIMAW v66.0.0] Loaded unified single-file system successfully!`);
