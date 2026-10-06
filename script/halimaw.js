@@ -4,17 +4,17 @@ const fs = require("fs");
 const path = require("path");
 
 // =====================================================
-// HALIMAW v55.0.0 (ANTI-DETECTION RANDOM DELAY + GLOBAL RATE LIMIT)
+// HALIMAW v58.0.0 (60% BALANCED AUTO-REPLY + SAFE MODE)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "55.0.0",
+  version: "58.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Auto Reply Asar + GC Lock + Mass Nickname + Idle Counter + Anti-Detection Delay",
-  usage: "Send / to toggle ON, /lock [name], /set [nickname]",
+  description: "Balanced Auto Reply Asar + Idle Counter + Safe Anti-Detection Delay",
+  usage: "Send / to toggle ON/OFF in group chat",
   credits: "sinzu",
   cooldown: 1
 };
@@ -32,15 +32,14 @@ const ADMIN_IDS = [
 // =====================================================
 
 const DATA_PATH = path.join(__dirname, "halimaw_config.json");
-const GC_LOCK_PATH = path.join(__dirname, "halimaw_locks.json");
 
 // =====================================================
 // SETTINGS & 5000+ COMBINATORIAL ASAR POOLS
 // =====================================================
 
 const MIN_REPLY_DELAY = 10000; // 10 seconds minimum
-const MAX_REPLY_DELAY = 16000; // 16 seconds maximum (Randomized para iwas block)
-const CHANCE_TO_REPLY = 0.85;
+const MAX_REPLY_DELAY = 16000; // 16 seconds maximum (Randomized)
+const CHANCE_TO_REPLY = 0.60;  // Nakatakda sa 60% para sakto ang timpla ng pumatol
 
 const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
 const IDLE_COUNT_MAX = 50;
@@ -48,7 +47,7 @@ const IDLE_COUNT_DELAY = 2000;
 
 const idleTimers = new Map();
 const activeCounters = new Set();
-const gcGlobalCooldowns = new Map(); // Global tracking per GC
+const gcGlobalCooldowns = new Map();
 
 const STARTERS = [
   "sabi mo e", "weh", "luh", "talaga ba", "sige pilitin mo pa",
@@ -130,21 +129,6 @@ function saveConfig(data) {
   } catch (e) {}
 }
 
-function loadLocks() {
-  try {
-    if (fs.existsSync(GC_LOCK_PATH)) {
-      return JSON.parse(fs.readFileSync(GC_LOCK_PATH, "utf8"));
-    }
-  } catch (e) {}
-  return {};
-}
-
-function saveLocks(locks) {
-  try {
-    fs.writeFileSync(GC_LOCK_PATH, JSON.stringify(locks, null, 2), "utf8");
-  } catch (e) {}
-}
-
 function safeSend(api, message, threadID, replyToMessageID = null) {
   try {
     if (replyToMessageID) {
@@ -155,19 +139,14 @@ function safeSend(api, message, threadID, replyToMessageID = null) {
   } catch (e) {}
 }
 
-async function getGCInfo(api, threadID) {
-  let threadInfo = {};
+async function getParticipantNames(api, threadID) {
   try {
-    threadInfo = await api.getThreadInfo(threadID);
+    const threadInfo = await api.getThreadInfo(threadID);
+    if (threadInfo && Array.isArray(threadInfo.userInfo)) {
+      return threadInfo.userInfo.map(u => u && u.name).filter(Boolean);
+    }
   } catch (e) {}
-
-  const gcName = threadInfo && threadInfo.threadName ? threadInfo.threadName : "Unknown GC";
-  const participantIDs = threadInfo && Array.isArray(threadInfo.participantIDs) ? threadInfo.participantIDs : [];
-  const participantNames = threadInfo && Array.isArray(threadInfo.userInfo) 
-    ? threadInfo.userInfo.map(u => u && u.name).filter(Boolean) 
-    : [];
-
-  return { gcName, participantIDs, participantNames };
+  return [];
 }
 
 // =====================================================
@@ -196,10 +175,8 @@ function resetIdleTimer(api, threadID) {
         safeSend(api, String(i), id);
       }
 
-      const gcData = await getGCInfo(api, id);
-      const loserName = gcData.participantNames.length > 0 
-        ? gcData.participantNames[Math.floor(Math.random() * gcData.participantNames.length)] 
-        : "Isang Tanga";
+      const names = await getParticipantNames(api, id);
+      const loserName = names.length > 0 ? names[Math.floor(Math.random() * names.length)] : "Isang Tanga";
       const randomReason = FUNNY_REASONS[Math.floor(Math.random() * FUNNY_REASONS.length)];
 
       safeSend(api, `HALIMAW WIN\nTarget: ${loserName}\nReason: ${randomReason}`, id);
@@ -252,56 +229,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     return;
   }
 
-  // 2. LOCK GC NAME COMMAND (/lock [name])
-  if (text.toLowerCase().startsWith("/lock ") && isSenderAdmin) {
-    const lockName = text.substring(6).trim();
-    if (!lockName) {
-      safeSend(api, "Gamitin: /lock [GC NAME]", threadKey);
-      return;
-    }
-
-    const locks = loadLocks();
-    locks[threadKey] = lockName;
-    saveLocks(locks);
-
-    try { api.setTitle(lockName, threadKey); } catch (e) {}
-    safeSend(api, `🔒 Naka-lock ang pangalan ng GC sa: "${lockName}"`, threadKey);
-    return;
-  }
-
-  // 3. MASS NICKNAME COMMAND (/set [nickname])
-  if (text.toLowerCase().startsWith("/set ") && isSenderAdmin) {
-    const newNickname = text.substring(5).trim();
-    if (!newNickname) {
-      safeSend(api, "Gamitin: /set [NICKNAME]", threadKey);
-      return;
-    }
-
-    safeSend(api, `🔄 Binabago ang nickname ng lahat sa "${newNickname}"...`, threadKey);
-
-    try {
-      const gcData = await getGCInfo(api, threadKey);
-      let successCount = 0;
-
-      for (const userID of gcData.participantIDs) {
-        try {
-          await new Promise((resolve) => {
-            api.changeNickname(newNickname, threadKey, userID, (err) => {
-              if (!err) successCount++;
-              resolve();
-            });
-          });
-        } catch (e) {}
-      }
-
-      safeSend(api, `✅ Tagumpay na nabago ang nickname ng ${successCount} miyembro!`, threadKey);
-    } catch (e) {
-      safeSend(api, "❌ May error sa pagbago ng nickname.", threadKey);
-    }
-    return;
-  }
-
-  // 4. IDLE TIMER & AUTO REPLY (RANDOMIZED DELAY PARA IWAS SPAM BAN)
+  // 2. IDLE TIMER & BALANCED AUTO REPLY
   resetIdleTimer(api, threadKey);
 
   if (!config.activeThreads.includes(threadKey)) return;
@@ -311,11 +239,9 @@ module.exports.handleEvent = async function ({ api, event }) {
   const lastReplyTime = gcGlobalCooldowns.get(threadKey) || 0;
 
   if (now < lastReplyTime) return;
-  if (Math.random() > CHANCE_TO_REPLY) return;
+  if (Math.random() > CHANCE_TO_REPLY) return; // 60% chance na papatol
 
-  // Mag-generate ng random delay sa pagitan ng 10 at 16 segundo
   const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
-  
   gcGlobalCooldowns.set(threadKey, now + randomDelay);
 
   const reply = ALL_REPLIES[Math.floor(Math.random() * ALL_REPLIES.length)];
@@ -342,4 +268,4 @@ module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW v55.0.0] Loaded successfully with anti-detection random delay!`);
+console.log(`[HALIMAW v58.0.0] Loaded successfully with 60% balanced auto-reply rate!`);
