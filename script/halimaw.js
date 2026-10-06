@@ -4,16 +4,16 @@ const fs = require("fs");
 const path = require("path");
 
 // =====================================================
-// HALIMAW v52.0.0 (5000+ ANTI-BULLYING / COLD ASAR POOL)
+// HALIMAW v53.0.0 (EMOJI REACTION + 10s STRICT COOLDOWN + TYPING)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "52.0.0",
+  version: "53.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Auto Reply Asar + GC Lock + Mass Nickname + Idle Counter",
+  description: "Auto Reply Asar + GC Lock + Mass Nickname + Idle Counter + 10s Cooldown",
   usage: "Send / to toggle ON, /lock [name], /set [nickname]",
   credits: "sinzu",
   cooldown: 1
@@ -38,8 +38,7 @@ const GC_LOCK_PATH = path.join(__dirname, "halimaw_locks.json");
 // SETTINGS & 5000+ COMBINATORIAL ASAR POOLS
 // =====================================================
 
-const MIN_REPLY_DELAY = 4000;
-const MAX_REPLY_DELAY = 8000;
+const REPLY_DELAY = 10000; // Eksaktong 10 seconds bago mag-reply
 const CHANCE_TO_REPLY = 0.85;
 
 const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
@@ -78,7 +77,6 @@ const ENDINGS = [
   "no", "eh", "kasi", "talaga", "naman", "pala", "lang", "diba", "hays", "ulol"
 ];
 
-// Dynamic generation to hit 5000+ unique anti-bullying playful roasting variations
 const GENERATED_REPLIES = new Set([
   "Sino na naman nagturo sa iyong magsabi ng ganyan?",
   "Ang lalim ng iniisip mo ah, pero sablay pa rin.",
@@ -238,19 +236,17 @@ module.exports.handleEvent = async function ({ api, event }) {
   const isBotSender = botID && senderKey === String(botID);
   const config = loadConfig();
 
-  // 1. TOGGLE COMMAND (/)
+  // 1. TOGGLE COMMAND (/) - EMOJI REACTION ONLY
   if (text === "/" && isSenderAdmin) {
     const index = config.activeThreads.indexOf(threadKey);
     if (index === -1) {
       config.activeThreads.push(threadKey);
       saveConfig(config);
       try { api.setMessageReaction("💀", messageID, () => {}, true); } catch (e) {}
-      safeSend(api, "HALIMAW ASAR MODE: ON.", threadKey);
     } else {
       config.activeThreads.splice(index, 1);
       saveConfig(config);
       try { api.setMessageReaction("💤", messageID, () => {}, true); } catch (e) {}
-      safeSend(api, "HALIMAW ASAR MODE: OFF.", threadKey);
     }
     return;
   }
@@ -304,7 +300,7 @@ module.exports.handleEvent = async function ({ api, event }) {
     return;
   }
 
-  // 4. IDLE TIMER & AUTO REPLY
+  // 4. IDLE TIMER & AUTO REPLY (10 SECONDS COOLDOWN + TYPING)
   resetIdleTimer(api, threadKey);
 
   if (!config.activeThreads.includes(threadKey)) return;
@@ -315,21 +311,33 @@ module.exports.handleEvent = async function ({ api, event }) {
   if (messageCooldowns.has(cooldownKey) && now < messageCooldowns.get(cooldownKey)) return;
 
   if (Math.random() > CHANCE_TO_REPLY) return;
-  messageCooldowns.set(cooldownKey, now + 5000);
+  
+  // Set 10 seconds strict cooldown para hindi makasagot agad ang user / bot
+  messageCooldowns.set(cooldownKey, now + REPLY_DELAY);
 
   const reply = ALL_REPLIES[Math.floor(Math.random() * ALL_REPLIES.length)];
-  const delay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
 
-  try { api.sendTypingIndicator(threadKey, true); } catch (e) {}
+  // I-activate ang typing indicator habang naghihintay ng 10 seconds
+  let typingInterval = null;
+  try {
+    api.sendTypingIndicator(threadKey, true);
+    typingInterval = setInterval(() => {
+      try { api.sendTypingIndicator(threadKey, true); } catch (e) {}
+    }, 4000);
+  } catch (e) {}
 
   setTimeout(() => {
-    try { api.sendTypingIndicator(threadKey, false); } catch (e) {}
+    try {
+      if (typingInterval) clearInterval(typingInterval);
+      api.sendTypingIndicator(threadKey, false);
+    } catch (e) {}
+
     safeSend(api, reply, threadKey, messageID);
-  }, delay);
+  }, REPLY_DELAY);
 };
 
 module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW v52.0.0] Loaded successfully with ${ALL_REPLIES.length} combinatorial asar lines!`);
+console.log(`[HALIMAW v53.0.0] Loaded successfully with 10s strict reply delay and typing indicator!`);
