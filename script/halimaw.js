@@ -4,16 +4,16 @@ const fs = require("fs");
 const path = require("path");
 
 // =====================================================
-// HALIMAW v54.0.0 (STRICT PER-GC TOGGLE & GLOBAL RATE LIMIT)
+// HALIMAW v55.0.0 (ANTI-DETECTION RANDOM DELAY + GLOBAL RATE LIMIT)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "54.0.0",
+  version: "55.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Auto Reply Asar + GC Lock + Mass Nickname + Idle Counter + Strict 10s Rate Limit",
+  description: "Auto Reply Asar + GC Lock + Mass Nickname + Idle Counter + Anti-Detection Delay",
   usage: "Send / to toggle ON, /lock [name], /set [nickname]",
   credits: "sinzu",
   cooldown: 1
@@ -38,7 +38,8 @@ const GC_LOCK_PATH = path.join(__dirname, "halimaw_locks.json");
 // SETTINGS & 5000+ COMBINATORIAL ASAR POOLS
 // =====================================================
 
-const REPLY_DELAY = 10000; // 10 seconds bago mag-reply
+const MIN_REPLY_DELAY = 10000; // 10 seconds minimum
+const MAX_REPLY_DELAY = 16000; // 16 seconds maximum (Randomized para iwas block)
 const CHANCE_TO_REPLY = 0.85;
 
 const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
@@ -47,7 +48,7 @@ const IDLE_COUNT_DELAY = 2000;
 
 const idleTimers = new Map();
 const activeCounters = new Set();
-const gcGlobalCooldowns = new Map(); // Global tracking per GC para 1 reply per 10s lang
+const gcGlobalCooldowns = new Map(); // Global tracking per GC
 
 const STARTERS = [
   "sabi mo e", "weh", "luh", "talaga ba", "sige pilitin mo pa",
@@ -300,26 +301,25 @@ module.exports.handleEvent = async function ({ api, event }) {
     return;
   }
 
-  // 4. IDLE TIMER & AUTO REPLY (STRICT GLOBAL 10s COOLDOWN PER GC)
+  // 4. IDLE TIMER & AUTO REPLY (RANDOMIZED DELAY PARA IWAS SPAM BAN)
   resetIdleTimer(api, threadKey);
 
-  // Kung hindi pa naka-on ang bot sa partikular na GC na ito, huwag pansinin
   if (!config.activeThreads.includes(threadKey)) return;
   if (isSenderAdmin || isBotSender || !body) return;
 
   const now = Date.now();
   const lastReplyTime = gcGlobalCooldowns.get(threadKey) || 0;
 
-  // Global rate limit: 1 reply per 10 seconds per GC
   if (now < lastReplyTime) return;
-
   if (Math.random() > CHANCE_TO_REPLY) return;
+
+  // Mag-generate ng random delay sa pagitan ng 10 at 16 segundo
+  const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
   
-  gcGlobalCooldowns.set(threadKey, now + REPLY_DELAY);
+  gcGlobalCooldowns.set(threadKey, now + randomDelay);
 
   const reply = ALL_REPLIES[Math.floor(Math.random() * ALL_REPLIES.length)];
 
-  // Typing indicator habang naghihintay ng 10 seconds
   let typingInterval = null;
   try {
     api.sendTypingIndicator(threadKey, true);
@@ -335,11 +335,11 @@ module.exports.handleEvent = async function ({ api, event }) {
     } catch (e) {}
 
     safeSend(api, reply, threadKey, messageID);
-  }, REPLY_DELAY);
+  }, randomDelay);
 };
 
 module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW v54.0.0] Loaded successfully with strict 1-reply-per-10-seconds global GC rate limit!`);
+console.log(`[HALIMAW v55.0.0] Loaded successfully with anti-detection random delay!`);
