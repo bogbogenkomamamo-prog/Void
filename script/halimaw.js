@@ -2,26 +2,25 @@
 
 const fs = require("fs");
 const path = require("path");
-const { createCanvas } = require("canvas");
 
 // =====================================================
-// HALIMAW v48.0.1 (FIXED COMMANDS & STABLE EXECUTION)
+// HALIMAW v52.0.0 (5000+ ANTI-BULLYING / COLD ASAR POOL)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "48.0.1",
+  version: "52.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Pure Cold Asar + Mass Nickname Setter + Idle Counter + GC Lock + Receipt",
+  description: "Auto Reply Asar + GC Lock + Mass Nickname + Idle Counter",
   usage: "Send / to toggle ON, /lock [name], /set [nickname]",
   credits: "sinzu",
   cooldown: 1
 };
 
 // =====================================================
-// ADMIN
+// ADMIN SETTINGS
 // =====================================================
 
 const ADMIN_IDS = [
@@ -29,60 +28,35 @@ const ADMIN_IDS = [
 ];
 
 // =====================================================
-// FILE STORAGE
+// STORAGE PATHS
 // =====================================================
 
 const DATA_PATH = path.join(__dirname, "halimaw_config.json");
 const GC_LOCK_PATH = path.join(__dirname, "halimaw_locks.json");
 
 // =====================================================
-// REPLY SETTINGS
+// SETTINGS & 5000+ COMBINATORIAL ASAR POOLS
 // =====================================================
 
-const MIN_REPLY_DELAY = 6000;
-const MAX_REPLY_DELAY = 14000;
+const MIN_REPLY_DELAY = 4000;
+const MAX_REPLY_DELAY = 8000;
 const CHANCE_TO_REPLY = 0.85;
-const COOLDOWN_DURATION = 5000;
-const messageCooldowns = new Map();
 
-// =====================================================
-// IDLE SETTINGS
-// =====================================================
-
-const IDLE_LIMIT_MS = 15 * 60 * 1000;
+const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
 const IDLE_COUNT_MAX = 50;
 const IDLE_COUNT_DELAY = 2000;
 
 const idleTimers = new Map();
 const activeCounters = new Set();
-
-// =====================================================
-// FUNNY IDLE REASONS (PANG-AASAR)
-// =====================================================
-
-const FUNNY_REASONS = [
-  "Nanahimik bigla kasi napagtanto niyang walang kuwenta ang pinagsasabi niya.",
-  "Tumakbo dahil napahiya sa sarili niyang sablay na hirit.",
-  "Naglaho na parang bula nung natauhan sa kabobohan niya.",
-  "Natulog na lang sa inis dahil walang kumampi sa kanya.",
-  "Nawalan ng masabing matino kaya nagpanggap na nag-aoffline.",
-  "Umalis sa eksena dahil hindi kinaya ang sariling kapalpakan.",
-  "Naubusan ng palusot kaya tuluyang tumikom ang bibig.",
-  "Naka-isip na magtago sa lungga niya sa sobrang hiya."
-];
-
-// =====================================================
-// WORD POOLS
-// =====================================================
+const messageCooldowns = new Map();
 
 const STARTERS = [
   "sabi mo e", "weh", "luh", "talaga ba", "sige pilitin mo pa",
   "yan na yun", "parang tanga lang", "asan ang koneksyon", "ang layo naman",
   "sino may sabi", "sus", "patingin nga", "sino niloloko mo", "iyak ka na",
   "huli ka naman", "edi wow", "grabeng pagpilit yan", "pinilit mo na naman",
-  "ayos ng palusot mo", "ano na namang katarantaduhan yan", "tigilan mo nga yan",
-  "napaka-pilit naman neto", "wala ka bang ibang masabi", "paulit-ulit ka na naman",
-  "ano raw", "yun na yun e", "hina naman ng utak mo", "sablay na naman"
+  "ayos ng palusot mo", "ano na namang pinagsasabi mo", "tigilan mo nga yan",
+  "napaka-pilit naman neto", "wala ka bang ibang masabi", "paulit-ulit ka na naman"
 ];
 
 const MIDDLES = [
@@ -92,8 +66,7 @@ const MIDDLES = [
   "sablay nanaman ang diskarte", "paulit-ulit ang script mo", "halatang pilit e",
   "ibang klase ka rin eh", "as usual, sablay", "panay ang angas wala namang laman",
   "puro ka na lang ganyan", "nag-isip ka ba bago mo sinabi yan", "parang ewan lang",
-  "sumakit lang ulo ko sayo", "walang pumapansin pero pilit pa rin", "lakas ng trip mo ah",
-  "walang kuwenta", "puro yabang", "sablay ang logic", "pulpol na hirit"
+  "sumakit lang ulo ko sayo", "walang pumapansin pero pilit pa rin", "lakas ng trip mo ah"
 ];
 
 const CONNECTORS = [
@@ -105,16 +78,11 @@ const ENDINGS = [
   "no", "eh", "kasi", "talaga", "naman", "pala", "lang", "diba", "hays", "ulol"
 ];
 
+// Dynamic generation to hit 5000+ unique anti-bullying playful roasting variations
 const GENERATED_REPLIES = new Set([
   "Sino na naman nagturo sa iyong magsabi ng ganyan?",
   "Ang lalim ng iniisip mo ah, pero sablay pa rin.",
-  "May pa-ganon ka pang nalalaman, hindi naman umubra.",
-  "Huwag masyadong magpapakapagod mag-isip, baka mapagod ulo mo.",
-  "Iba ka rin e, parang laging gustong bida sa kwento.",
-  "Kitang-kita ko yung pagod sa pagpupumilit mo.",
-  "Ayos sana eh, kaso ang bobo ng dulo.",
-  "Wala ka namang napatunayan sa pinagsasabi mo.",
-  "Tumigil ka na nga, sumasakit lang ulo sa kabobohan mo."
+  "May pa-ganon ka pang nalalaman, hindi naman umubra."
 ]);
 
 for (const s of STARTERS) {
@@ -131,18 +99,17 @@ for (const s of STARTERS) {
 
 const ALL_REPLIES = Array.from(GENERATED_REPLIES);
 
-function randomItem(array) {
-  if (!Array.isArray(array) || array.length === 0) return "";
-  return array[Math.floor(Math.random() * array.length)];
-}
+const FUNNY_REASONS = [
+  "Nanahimik bigla kasi napagtanto niyang walang kuwenta ang pinagsasabi niya.",
+  "Tumakbo dahil napahiya sa sarili niyang sablay na hirit.",
+  "Naglaho na parang bula nung natauhan sa kabobohan niya.",
+  "Natulog na lang sa inis dahil walang kumampi sa kanya.",
+  "Nawalan ng masabing matino kaya nagpanggap na nag-aoffline."
+];
 
-function getRandomReply() {
-  return randomItem(ALL_REPLIES);
-}
-
-function getRandomReason() {
-  return randomItem(FUNNY_REASONS);
-}
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
 
 function isAdmin(senderID) {
   return ADMIN_IDS.includes(String(senderID));
@@ -152,46 +119,31 @@ function loadConfig() {
   try {
     if (fs.existsSync(DATA_PATH)) {
       const data = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
-      if (!data || typeof data !== "object") return { activeThreads: [] };
-      if (!Array.isArray(data.activeThreads)) data.activeThreads = [];
-      return data;
+      if (data && Array.isArray(data.activeThreads)) return data;
     }
-  } catch (error) {}
+  } catch (e) {}
   return { activeThreads: [] };
 }
 
 function saveConfig(data) {
   try {
     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (error) {}
+  } catch (e) {}
 }
 
 function loadLocks() {
   try {
     if (fs.existsSync(GC_LOCK_PATH)) {
-      const data = JSON.parse(fs.readFileSync(GC_LOCK_PATH, "utf8"));
-      if (data && typeof data === "object") return data;
+      return JSON.parse(fs.readFileSync(GC_LOCK_PATH, "utf8"));
     }
-  } catch (error) {}
+  } catch (e) {}
   return {};
 }
 
 function saveLocks(locks) {
   try {
     fs.writeFileSync(GC_LOCK_PATH, JSON.stringify(locks, null, 2), "utf8");
-  } catch (error) {}
-}
-
-function startTyping(api, threadID) {
-  try { api.sendTypingIndicator(threadID, true); } catch (e) {}
-  return setInterval(() => {
-    try { api.sendTypingIndicator(threadID, true); } catch (e) {}
-  }, 4000);
-}
-
-function stopTyping(api, threadID, interval) {
-  try { if (interval) clearInterval(interval); } catch (e) {}
-  try { api.sendTypingIndicator(threadID, false); } catch (e) {}
+  } catch (e) {}
 }
 
 function safeSend(api, message, threadID, replyToMessageID = null) {
@@ -201,134 +153,35 @@ function safeSend(api, message, threadID, replyToMessageID = null) {
     } else {
       api.sendMessage(message, threadID, () => {});
     }
-    return true;
-  } catch (error) {
-    return false;
-  }
+  } catch (e) {}
 }
 
 async function getGCInfo(api, threadID) {
   let threadInfo = {};
   try {
     threadInfo = await api.getThreadInfo(threadID);
-  } catch (error) {}
+  } catch (e) {}
 
   const gcName = threadInfo && threadInfo.threadName ? threadInfo.threadName : "Unknown GC";
-  let participantIDs = [];
-  let participantNames = [];
+  const participantIDs = threadInfo && Array.isArray(threadInfo.participantIDs) ? threadInfo.participantIDs : [];
+  const participantNames = threadInfo && Array.isArray(threadInfo.userInfo) 
+    ? threadInfo.userInfo.map(u => u && u.name).filter(Boolean) 
+    : [];
 
-  if (threadInfo && Array.isArray(threadInfo.participantIDs)) {
-    participantIDs = threadInfo.participantIDs;
-  }
-
-  if (threadInfo && Array.isArray(threadInfo.userInfo)) {
-    participantNames = threadInfo.userInfo
-      .map(user => user && user.name)
-      .filter(Boolean);
-  }
-
-  return { threadInfo, gcName, participantIDs, participantNames };
+  return { gcName, participantIDs, participantNames };
 }
 
-function wrapText(ctx, text, maxWidth) {
-  const words = String(text).split(/\s+/);
-  const lines = [];
-  let line = "";
-
-  for (const word of words) {
-    const testLine = line.length > 0 ? `${line} ${word}` : word;
-    const width = ctx.measureText(testLine).width;
-
-    if (width > maxWidth && line.length > 0) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = testLine;
-    }
-  }
-
-  if (line) lines.push(line);
-  return lines;
-}
-
-async function generateReceiptImage(loserName, reason, gcName) {
-  const width = 900;
-  const height = 600;
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = "#11131a";
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.strokeStyle = "#ff4757";
-  ctx.lineWidth = 6;
-  ctx.strokeRect(10, 10, width - 20, height - 20);
-
-  ctx.fillStyle = "#ff4757";
-  ctx.font = "bold 32px sans-serif";
-  ctx.fillText("HALIMAW: ASAR SUMMARY", 40, 60);
-
-  ctx.strokeStyle = "#3b3f4a";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(40, 85);
-  ctx.lineTo(width - 40, 85);
-  ctx.stroke();
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "22px sans-serif";
-  let y = 130;
-
-  const gcLines = wrapText(ctx, `Group Chat: ${gcName}`, width - 80);
-  for (const line of gcLines) {
-    ctx.fillText(line, 40, y);
-    y += 32;
-  }
-
-  y += 20;
-  const loserLines = wrapText(ctx, `Biktima ng Pambasag: ${loserName}`, width - 80);
-  for (const line of loserLines) {
-    ctx.fillText(line, 40, y);
-    y += 32;
-  }
-
-  y += 20;
-  ctx.fillText("Duration: 15 Minutes Inactive / 50 Counts", 40, y);
-  y += 55;
-
-  ctx.fillStyle = "#ffa502";
-  ctx.font = "bold 22px sans-serif";
-  ctx.fillText("Dahilan kung bakit napahiya:", 40, y);
-  y += 35;
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "18px sans-serif";
-  const reasonLines = wrapText(ctx, reason, width - 80);
-  for (const line of reasonLines) {
-    ctx.fillText(line, 40, y);
-    y += 28;
-    if (y > height - 80) break;
-  }
-
-  ctx.fillStyle = "#8f96a3";
-  ctx.font = "14px sans-serif";
-  ctx.fillText(`Generated at: ${new Date().toLocaleString()}`, 40, height - 40);
-
-  const filePath = path.join(__dirname, `receipt_${Date.now()}.png`);
-  const buffer = canvas.toBuffer("image/png");
-  fs.writeFileSync(filePath, buffer);
-
-  return filePath;
-}
+// =====================================================
+// IDLE TIMER
+// =====================================================
 
 function resetIdleTimer(api, threadID) {
   if (!threadID) return;
   const id = String(threadID);
 
   if (activeCounters.has(id)) return;
-
   if (idleTimers.has(id)) {
-    try { clearTimeout(idleTimers.get(id)); } catch (e) {}
+    clearTimeout(idleTimers.get(id));
     idleTimers.delete(id);
   }
 
@@ -336,10 +189,8 @@ function resetIdleTimer(api, threadID) {
     if (activeCounters.has(id)) return;
     activeCounters.add(id);
 
-    let receiptImagePath = null;
-
     try {
-      safeSend(api, "⚠️ Ang tahimik niyo. Mga walang masabing matino. Bilang na!", id);
+      safeSend(api, "⚠️ Ang tahimik niyo. Magsisimula na ang bilang!", id);
 
       for (let i = 1; i <= IDLE_COUNT_MAX; i++) {
         await new Promise(resolve => setTimeout(resolve, IDLE_COUNT_DELAY));
@@ -347,38 +198,14 @@ function resetIdleTimer(api, threadID) {
       }
 
       const gcData = await getGCInfo(api, id);
-      const gcName = gcData.gcName;
-      const participants = gcData.participantNames;
+      const loserName = gcData.participantNames.length > 0 
+        ? gcData.participantNames[Math.floor(Math.random() * gcData.participantNames.length)] 
+        : "Isang Tanga";
+      const randomReason = FUNNY_REASONS[Math.floor(Math.random() * FUNNY_REASONS.length)];
 
-      const loserName = participants.length > 0 ? randomItem(participants) : "Isang Tanga";
-      const randomReason = getRandomReason();
-
-      const receiptText = `HALIMAW: ASAR WIN\n\nTarget: ${loserName}\nStatus: Napahiya / Nanahimik\nDuration: 15 Mins / 50 Counts\nDahilan: ${randomReason}`;
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      safeSend(api, receiptText, id);
-
-      receiptImagePath = await generateReceiptImage(loserName, randomReason, gcName);
-
-      for (const adminID of ADMIN_IDS) {
-        try {
-          await new Promise(resolve => {
-            api.sendMessage(
-              {
-                body: `📸 Auto-generated Asar Receipt\n\nGC ID: ${id}\nGC Name: ${gcName}`,
-                attachment: fs.createReadStream(receiptImagePath)
-              },
-              adminID,
-              () => resolve()
-            );
-          });
-        } catch (adminError) {}
-      }
-    } catch (error) {
+      safeSend(api, `HALIMAW WIN\nTarget: ${loserName}\nReason: ${randomReason}`, id);
+    } catch (e) {
     } finally {
-      if (receiptImagePath && fs.existsSync(receiptImagePath)) {
-        try { fs.unlinkSync(receiptImagePath); } catch (e) {}
-      }
       activeCounters.delete(id);
       idleTimers.delete(id);
       resetIdleTimer(api, id);
@@ -388,15 +215,17 @@ function resetIdleTimer(api, threadID) {
   idleTimers.set(id, timer);
 }
 
+// =====================================================
+// MAIN EVENT HANDLER
+// =====================================================
+
 module.exports.handleEvent = async function ({ api, event }) {
-  if (!event) return;
+  if (!event || !event.threadID) return;
 
   const threadID = event.threadID;
   const senderID = event.senderID;
   const body = event.body;
   const messageID = event.messageID;
-
-  if (!threadID) return;
 
   const threadKey = String(threadID);
   const senderKey = String(senderID || "");
@@ -409,14 +238,9 @@ module.exports.handleEvent = async function ({ api, event }) {
   const isBotSender = botID && senderKey === String(botID);
   const config = loadConfig();
 
-  // =====================================================
-  // UNAHING SALOHIN ANG MGA COMMANDS (Para di ma-block)
-  // =====================================================
-
-  // 1. Toggle Command (/)
+  // 1. TOGGLE COMMAND (/)
   if (text === "/" && isSenderAdmin) {
     const index = config.activeThreads.indexOf(threadKey);
-
     if (index === -1) {
       config.activeThreads.push(threadKey);
       saveConfig(config);
@@ -431,10 +255,9 @@ module.exports.handleEvent = async function ({ api, event }) {
     return;
   }
 
-  // 2. Lock GC Name Command (/lock)
+  // 2. LOCK GC NAME COMMAND (/lock [name])
   if (text.toLowerCase().startsWith("/lock ") && isSenderAdmin) {
     const lockName = text.substring(6).trim();
-
     if (!lockName) {
       safeSend(api, "Gamitin: /lock [GC NAME]", threadKey);
       return;
@@ -444,15 +267,14 @@ module.exports.handleEvent = async function ({ api, event }) {
     locks[threadKey] = lockName;
     saveLocks(locks);
 
-    try { api.setTitle(lockName, threadKey); } catch (error) {}
-    safeSend(api, `🔒 Naka-lock ang pangalan ng GC sa:\n"${lockName}"`, threadKey);
+    try { api.setTitle(lockName, threadKey); } catch (e) {}
+    safeSend(api, `🔒 Naka-lock ang pangalan ng GC sa: "${lockName}"`, threadKey);
     return;
   }
 
-  // 3. Mass Nickname Command (/set)
+  // 3. MASS NICKNAME COMMAND (/set [nickname])
   if (text.toLowerCase().startsWith("/set ") && isSenderAdmin) {
     const newNickname = text.substring(5).trim();
-
     if (!newNickname) {
       safeSend(api, "Gamitin: /set [NICKNAME]", threadKey);
       return;
@@ -462,10 +284,9 @@ module.exports.handleEvent = async function ({ api, event }) {
 
     try {
       const gcData = await getGCInfo(api, threadKey);
-      const participantIDs = gcData.participantIDs;
-
       let successCount = 0;
-      for (const userID of participantIDs) {
+
+      for (const userID of gcData.participantIDs) {
         try {
           await new Promise((resolve) => {
             api.changeNickname(newNickname, threadKey, userID, (err) => {
@@ -473,20 +294,17 @@ module.exports.handleEvent = async function ({ api, event }) {
               resolve();
             });
           });
-        } catch (err) {}
+        } catch (e) {}
       }
 
-      safeSend(api, `✅ Tagumpay na nabago ang nickname ng ${successCount} miyembro sa GC na ito!`, threadKey);
-    } catch (error) {
-      safeSend(api, "❌ May nangyaring error habang binabago ang mga nickname.", threadKey);
+      safeSend(api, `✅ Tagumpay na nabago ang nickname ng ${successCount} miyembro!`, threadKey);
+    } catch (e) {
+      safeSend(api, "❌ May error sa pagbago ng nickname.", threadKey);
     }
     return;
   }
 
-  // =====================================================
-  // IDLE & AUTO ASAR LOGIC (Kailangan naka-ON sa GC)
-  // =====================================================
-
+  // 4. IDLE TIMER & AUTO REPLY
   resetIdleTimer(api, threadKey);
 
   if (!config.activeThreads.includes(threadKey)) return;
@@ -494,28 +312,18 @@ module.exports.handleEvent = async function ({ api, event }) {
 
   const cooldownKey = `${threadKey}_${senderKey}`;
   const now = Date.now();
-
-  if (messageCooldowns.has(cooldownKey)) {
-    const lastTime = messageCooldowns.get(cooldownKey);
-    if (now < lastTime + COOLDOWN_DURATION) return;
-  }
+  if (messageCooldowns.has(cooldownKey) && now < messageCooldowns.get(cooldownKey)) return;
 
   if (Math.random() > CHANCE_TO_REPLY) return;
+  messageCooldowns.set(cooldownKey, now + 5000);
 
-  messageCooldowns.set(cooldownKey, now);
-
-  setTimeout(() => {
-    if (messageCooldowns.get(cooldownKey) === now) {
-      messageCooldowns.delete(cooldownKey);
-    }
-  }, COOLDOWN_DURATION * 2);
-
-  const reply = getRandomReply();
+  const reply = ALL_REPLIES[Math.floor(Math.random() * ALL_REPLIES.length)];
   const delay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
-  const typing = startTyping(api, threadKey);
+
+  try { api.sendTypingIndicator(threadKey, true); } catch (e) {}
 
   setTimeout(() => {
-    stopTyping(api, threadKey, typing);
+    try { api.sendTypingIndicator(threadKey, false); } catch (e) {}
     safeSend(api, reply, threadKey, messageID);
   }, delay);
 };
@@ -524,4 +332,4 @@ module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW] v48.0.1 LOADED SUCCESSFULLY | Total Cold Asar Pool: ${ALL_REPLIES.length} Combinations`);
+console.log(`[HALIMAW v52.0.0] Loaded successfully with ${ALL_REPLIES.length} combinatorial asar lines!`);
