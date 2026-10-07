@@ -4,16 +4,16 @@ const fs = require("fs");
 const path = require("path");
 
 // =====================================================
-// HALIMAW v66.0.0 (SINGLE-FILE COMBINED GC & PM SYSTEM)
+// HALIMAW v67.0.0 (EXPANDED NEUTRAL VOCAB + RANDOMIZER + MEMORY)
 // =====================================================
 
 module.exports.config = {
   name: "halimaw",
-  version: "66.0.0",
+  version: "67.0.0",
   role: 0,
   hasPrefix: false,
   aliases: ["halimaw", "mimic", "tropa"],
-  description: "Unified Single-File Asar Bot for GC & PM with Fast 6-9s Delay",
+  description: "Unified Neutral Asar Bot with Randomizer, Memory Tracker, and 6-9s Delay",
   usage: "Send / in GC to toggle, /troll [UID] to attack target in PM",
   credits: "sinzu",
   cooldown: 1
@@ -33,6 +33,7 @@ const ADMIN_IDS = [
 
 const DATA_PATH = path.join(__dirname, "halimaw_config.json");
 const TROLL_DATA_PATH = path.join(__dirname, "halimaw_troll_targets.json");
+const MEMORY_DATA_PATH = path.join(__dirname, "halimaw_memory.json");
 
 // =====================================================
 // TIMING & ASAR SETTINGS (6-9 SECONDS DELAY)
@@ -51,50 +52,50 @@ const gcGlobalCooldowns = new Map();
 const pmGlobalCooldowns = new Map();
 
 // =====================================================
-// GROUP CHAT (GC) ASAR POOL
+// EXPANDED NEUTRAL & SARKASTIKONG ASAR POOLS (GC)
 // =====================================================
 
 const STARTERS = [
-  "sabi mo e", "weh", "luh", "talaga ba", "sige pilitin mo pa",
-  "yan na yun", "parang tanga lang", "asan ang koneksyon", "ang layo naman",
-  "sino may sabi", "sus", "patingin nga", "sino niloloko mo", "iyak ka na",
-  "huli ka naman", "edi wow", "grabeng pagpilit yan", "pinilit mo na naman",
-  "ayos ng palusot mo", "ano na namang pinagsasabi mo", "tigilan mo nga yan",
-  "napaka-pilit naman neto", "wala ka bang ibang masabi", "paulit-ulit ka na naman"
+  "ganoon ba", "ayon naman pala", "may punto ka sana", "subukan mo ulit",
+  "akala ko naman kung ano", "interesante ang pananaw mo", "ang lalim niyan ah",
+  "may nalalaman ka pa kasing ganyan", "hindi ko na kayang i-defend yan",
+  "parang may kulang sa argumento mo", "subukan mong pag-isipan muna",
+  "kahit kailan talaga", "kahanga-hanga ang kumpyansa mo", "sige lang, ituloy mo",
+  "ang galing mo sanang maniwala sa sarili mo", "napakagandang ideya sana kung totoo"
 ];
 
 const MIDDLES = [
-  "pabida ka nanaman", "wala namang nagtanong", "hina ng comprehension mo",
-  "mag-isip ka naman kahit konti", "dami mong alam",
-  "pilit na pilit ang banat", "hanggang diyan na lang ba", "nagmamagaling ka nanaman",
-  "sablay nanaman ang diskarte", "paulit-ulit ang script mo", "halatang pilit e",
-  "ibang klase ka rin eh", "as usual, sablay", "panay ang angas wala namang laman",
-  "puro ka na lang ganyan", "nag-isip ka ba bago mo sinabi yan", "parang ewan lang",
-  "sumakit lang ulo ko sayo", "walang pumapansin pero pilit pa rin", "lakas ng trip mo ah"
+  "kaso medyo lumihis ka sa landas", "pero parang kulang sa substansiya",
+  "subalit mahirap paniwalaan", "kahit baligtarin mo pa ang mundo",
+  "malayo sa reyalidad ang sinasabi mo", "hanggang diyan na lang ba ang kaya mo",
+  "parang hindi naman ganyan ang tamang direksyon", "napakalayo ng koneksyon sa pinag-uusapan",
+  "sayang ang oras sa ganyang teorya", "parang wala namang patutunguhan yan",
+  "masyadong mataas ang lipad, bagsak naman sa lupa", "subukan mong magbasa ng konti bago magsalita"
 ];
 
 const CONNECTORS = [
-  "kasi", "kamo", "talaga", "naman", "pala", "nga", "eh", "ba", "sana", "tuloy",
-  "lang", "daw", "raw", "naman e", "pala ha", "kasi naman", "talaga o", "naman oh"
+  "sa totoo lang", "bilang pag-alala", "kung iisipin", "sa totoo lang naman",
+  "habang maaga pa", "kahit kailan", "kung tutuusin", "sa kabilang dako"
 ];
 
 const ENDINGS = [
-  "no", "eh", "kasi", "talaga", "naman", "pala", "lang", "diba", "hays", "ulol"
+  "kaibigan", "paps", "boss", "lodis", "master", "pabling", "pangga", "mismo"
 ];
 
+// Pang-neutralizer generator para maiwasan ang paulit-ulit na linya
 const GENERATED_REPLIES = new Set([
-  "Sino na naman nagturo sa iyong magsabi ng ganyan?",
-  "Ang lalim ng iniisip mo ah, pero sablay pa rin.",
-  "May pa-ganon ka pang nalalaman, hindi naman umubra."
+  "Medyo kapansin-pansin ang pagpupursigi mo sa maling direksyon.",
+  "Kung gaano kalakas ang loob mo, siyang ikinababa ng argumento mo.",
+  "May mga bagay talagang mas mabuting hindi na lang pinipilit."
 ]);
 
 for (const s of STARTERS) {
   for (const m of MIDDLES) {
-    GENERATED_REPLIES.add(`${s}, ${m}`);
+    GENERATED_REPLIES.add(`${s}, ${m}.`);
     for (const c of CONNECTORS) {
-      GENERATED_REPLIES.add(`${s}, ${m} ${c}`);
+      GENERATED_REPLIES.add(`${s} ${c}, ${m}.`);
       for (const e of ENDINGS) {
-        GENERATED_REPLIES.add(`${s}, ${m} ${c} ${e}`);
+        GENERATED_REPLIES.add(`${s} ${c}, ${m}, ${e}.`);
       }
     }
   }
@@ -103,37 +104,35 @@ for (const s of STARTERS) {
 const ALL_REPLIES = Array.from(GENERATED_REPLIES);
 
 // =====================================================
-// PRIVATE MESSAGE (PM) DEDICATED ASAR POOL
+// DEDICATED NEUTRAL PM POOL
 // =====================================================
 
 const PM_STARTERS = [
-  "oh bakit ka nag-pm", "anyare sayo sa inbox", "kala ko ba matapang ka",
-  "sumiksik ka pa rito", "namimiss mo ba ako", "tago ka pa sa pm",
-  "bakit dito ka nagpapakalat", "naka-private ka pa talaga", "ano na namang drama to"
+  "napadaan ka ata dito sa inbox", "may kailangan ka ba sa pribadong usapan",
+  "bakit dito mo pa napagpasyahang magsalita", "akala ko ba mas matapang ka sa publiko",
+  "tila naghahanap ka ng atensyon sa tahimik na lugar"
 ];
 
 const PM_MIDDLES = [
-  "gusto mo lang ata mapansin eh", "wala ka kasing masabi sa public",
-  "takot ka sigurong mapahiya sa GC", "nagpapapansin ka nanaman sa akin",
-  "hina ng loob mo lumantad", "akala ko ba may ibubuga ka",
-  "puro ka lang tago sa chat box", "nag-aabang ka lang pala ng pansin"
+  "mas magandang sa harap ng marami mo yan sinabi", "hindi ko sigurado kung makakatulong yan sa iyo",
+  "subukan mo kayang linawin muna ang isip mo", "masyadong personal ang dating para sa walang kuwentang punto"
 ];
 
 const PM_ENDINGS = [
-  "ulol", "pulpol", "tanga", "hays", "tigilan mo ko", "weak", "diba", "noh"
+  "kaibigan", "paps", "boss", "pari"
 ];
 
 const GENERATED_PM_REPLIES = new Set([
-  "Nag-pm ka pa talaga para lang mapahiya nang tahimik.",
-  "Akala mo naman may mapapala ka sa pag-chat dito.",
-  "Bakit ka nandito sa inbox ko, wala ka na bang masabi sa iba?"
+  "Maganda sana ang simula ng usapan kung may laman ang sinabi mo.",
+  "Bakit ka umiwas sa madla para lang magpahayag ng ganyan?",
+  "May mga pribadong mensahe na mas mabuting hindi na lang binubuksan."
 ]);
 
 for (const ps of PM_STARTERS) {
   for (const pm of PM_MIDDLES) {
-    GENERATED_PM_REPLIES.add(`${ps}, ${pm}`);
+    GENERATED_PM_REPLIES.add(`${ps} ${pm}.`);
     for (const pe of PM_ENDINGS) {
-      GENERATED_PM_REPLIES.add(`${ps}, ${pm} ${pe}`);
+      GENERATED_PM_REPLIES.add(`${ps} ${pm}, ${pe}.`);
     }
   }
 }
@@ -141,23 +140,22 @@ for (const ps of PM_STARTERS) {
 const ALL_PM_REPLIES = Array.from(GENERATED_PM_REPLIES);
 
 const COUNTER_BREAKER_REPLIES = [
-  "Bilang ka nang bilang, sira naman ulo mo.",
-  "Hinto na, umabot ka na namang tanga ka.",
-  "Paulit-ulit sa pagbibilang, wala namang narating.",
-  "Sira na naman ang bilang mo, pulpol ka talaga.",
-  "Tumigil ka na kabilang, halata namang sablay ka."
+  "Paulit-ulit sa pagbilang, subalit walang patutunguhan.",
+  "May sarili ka bang uniberso para magbilang nang ganyan?",
+  "Medyo lumihis ka na sa layunin ng pagpupulong na ito.",
+  "Itigil mo na ang pagbibilang, hindi naman nakatutulong.",
+  "Nasasayang lamang ang oras mo sa kaka-sequence na yan."
 ];
 
 const FUNNY_REASONS = [
-  "Nanahimik bigla kasi napagtanto niyang walang kuwenta ang pinagsasabi niya.",
-  "Tumakbo dahil napahiya sa sarili niyang sablay na hirit.",
-  "Naglaho na parang bula nung natauhan sa kabobohan niya.",
-  "Natulog na lang sa inis dahil walang kumampi sa kanya.",
-  "Nawalan ng masabing matino kaya nagpanggap na nag-aoffline."
+  "Nanahimik dahil narealisadong walang kabuluhan ang mga naiambag.",
+  "Biglang lumisan dahil sa kakulangan ng matibay na depensa.",
+  "Pumili na lamang ng katahimikan matapos mapagtanto ang kamalian.",
+  "Nagpahinga na muna upang pag-isipan ang mga hakbang sa buhay."
 ];
 
 // =====================================================
-// HELPER FUNCTIONS
+// HELPER & MEMORY FUNCTIONS
 // =====================================================
 
 function isAdmin(senderID) {
@@ -196,6 +194,43 @@ function saveTrollTargets(targets) {
   } catch (e) {}
 }
 
+// Memory Tracker para sa bawat thread/sender para iwas ulit-ulit ng sagot
+function loadMemory() {
+  try {
+    if (fs.existsSync(MEMORY_DATA_PATH)) {
+      return JSON.parse(fs.readFileSync(MEMORY_DATA_PATH, "utf8"));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveMemory(memory) {
+  try {
+    fs.writeFileSync(MEMORY_DATA_PATH, JSON.stringify(memory, null, 2), "utf8");
+  } catch (e) {}
+}
+
+function getNonRepeatedReply(key, pool) {
+  let memory = loadMemory();
+  if (!memory[key]) memory[key] = [];
+
+  // Kunin ang mga hindi pa nagagamit kamakailan
+  let available = pool.filter(r => !memory[key].includes(r));
+  if (available.length === 0) {
+    memory[key] = []; // I-reset kung naubos na ang pool
+    available = pool;
+  }
+
+  const selected = available[Math.floor(Math.random() * available.length)];
+  
+  // I-record sa memory (Max 50 history)
+  memory[key].push(selected);
+  if (memory[key].length > 50) memory[key].shift();
+  saveMemory(memory);
+
+  return selected;
+}
+
 function safeSend(api, message, threadID, replyToMessageID = null) {
   try {
     if (replyToMessageID) {
@@ -222,13 +257,13 @@ async function getParticipantNames(api, threadID) {
 
 function shouldBotReply(text) {
   const lower = text.toLowerCase();
-  const highTriggerWords = ["ako", "si", "ba", "sino", "ano", "bakit", "paano", "talaga", "weh", "tanga", "ulol", "gago", "patingin", "pala"];
+  const highTriggerWords = ["ako", "si", "ba", "sino", "ano", "bakit", "paano", "talaga", "kaya", "ganon", "pala"];
   const ignoreShorts = ["k", "ok", "ah", "ha", "ui", "uy", "ow", "hmm", "yow", "yo"];
 
   if (ignoreShorts.includes(lower) && text.length <= 3) return false;
 
   let triggerScore = 0.40;
-  if (lower.includes("?") || lower.includes("sino") || lower.includes("ano") || lower.includes("ba")) {
+  if (lower.includes("?") || lower.includes("sino") || lower.includes("ano") || lower.includes("bakit")) {
     triggerScore += 0.35;
   }
 
@@ -261,7 +296,7 @@ function resetIdleTimer(api, threadID) {
     activeCounters.add(id);
 
     try {
-      safeSend(api, "⚠️ Ang tahimik niyo. Magsisimula na ang bilang!", id);
+      safeSend(api, "⚠️ Tila masyadong tahimik ang paligid. Sisimulan na ang pagtatala.", id);
 
       for (let i = 1; i <= IDLE_COUNT_MAX; i++) {
         await new Promise(resolve => setTimeout(resolve, IDLE_COUNT_DELAY));
@@ -269,10 +304,10 @@ function resetIdleTimer(api, threadID) {
       }
 
       const names = await getParticipantNames(api, id);
-      const loserName = names.length > 0 ? names[Math.floor(Math.random() * names.length)] : "Isang Tanga";
+      const loserName = names.length > 0 ? names[Math.floor(Math.random() * names.length)] : "Kalahok";
       const randomReason = FUNNY_REASONS[Math.floor(Math.random() * FUNNY_REASONS.length)];
 
-      safeSend(api, `HALIMAW WIN\nTarget: ${loserName}\nReason: ${randomReason}`, id);
+      safeSend(api, `SINTESIS NG USAPAN\nPusod: ${loserName}\nSanhi: ${randomReason}`, id);
     } catch (e) {
     } finally {
       activeCounters.delete(id);
@@ -313,7 +348,7 @@ module.exports.handleEvent = async function ({ api, event }) {
   if (text.toLowerCase().startsWith("/troll ") && isSenderAdmin) {
     const targetUID = text.substring(7).trim();
     if (!targetUID) {
-      safeSend(api, "Gamitin: /troll [TARGET_UID]", threadKey);
+      safeSend(api, "Paggamit: /troll [TARGET_UID]", threadKey);
       return;
     }
 
@@ -323,18 +358,18 @@ module.exports.handleEvent = async function ({ api, event }) {
       saveTrollTargets(trollTargets);
     }
 
-    safeSend(api, `🎯 Sinisimulan ang pag-troll kay UID: ${targetUID}...`, threadKey);
+    safeSend(api, `🎯 Sinisimulan ang pakikipag-ugnayan kay UID: ${targetUID}...`, threadKey);
 
     try {
       api.sendMessage("hi tatagos ka ba?", targetUID, (err) => {
         if (!err) {
-          safeSend(api, `✅ Naipadala na ang "hi tatagos ka ba?" sa PM ni UID: ${targetUID}`, threadKey);
+          safeSend(api, `✅ Naipadala na ang paunang mensahe sa pribadong inbox ni UID: ${targetUID}`, threadKey);
         } else {
-          safeSend(api, `❌ Nabigong i-PM ang target (Baka naka-lock o maling UID).`, threadKey);
+          safeSend(api, `❌ Hindi maabot ang inbox ng target (Maaaring naka-lock o maling UID).`, threadKey);
         }
       });
     } catch (e) {
-      safeSend(api, `❌ May error sa pagpapadala ng PM.`, threadKey);
+      safeSend(api, `❌ Nagkaaberya sa pagpapadala ng pribadong mensahe.`, threadKey);
     }
     return;
   }
@@ -361,7 +396,8 @@ module.exports.handleEvent = async function ({ api, event }) {
     const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
     pmGlobalCooldowns.set(senderKey, now + randomDelay);
 
-    const pmReply = ALL_PM_REPLIES[Math.floor(Math.random() * ALL_PM_REPLIES.length)];
+    // Kumuha ng non-repetitive response galing sa memory memory pool ng PM
+    const pmReply = getNonRepeatedReply(`pm_${senderKey}`, ALL_PM_REPLIES);
 
     let typingInterval = null;
     try {
@@ -429,7 +465,8 @@ module.exports.handleEvent = async function ({ api, event }) {
   const randomDelay = Math.floor(Math.random() * (MAX_REPLY_DELAY - MIN_REPLY_DELAY + 1)) + MIN_REPLY_DELAY;
   gcGlobalCooldowns.set(threadKey, now + randomDelay);
 
-  const reply = ALL_REPLIES[Math.floor(Math.random() * ALL_REPLIES.length)];
+  // Kumuha ng non-repetitive response galing sa memory memory pool ng GC thread
+  const reply = getNonRepeatedReply(`gc_${threadKey}`, ALL_REPLIES);
 
   let typingInterval = null;
   try {
@@ -445,7 +482,7 @@ module.exports.handleEvent = async function ({ api, event }) {
       api.sendTypingIndicator(threadKey, false);
     } catch (e) {}
 
-      safeSend(api, reply, threadKey, messageID);
+    safeSend(api, reply, threadKey, messageID);
   }, randomDelay);
 };
 
@@ -453,4 +490,4 @@ module.exports.run = async function () {
   return;
 };
 
-console.log(`[HALIMAW v66.0.0] Loaded unified single-file system successfully!`);
+console.log(`[HALIMAW v67.0.0] Loaded with Neutral Expanded Vocabulary & Memory Tracker!`);
